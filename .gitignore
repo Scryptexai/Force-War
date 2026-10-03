@@ -15,3 +15,7 @@ Godot_v*_mono_export_templates.tpz
 
 # Legacy/subdirectory exports are not used; Web build output lives in repo root.
 web-build/
+
+# Scratch AI source images before crop/key cleanup; rendered gameplay art is tracked.
+assets/generated/
+index.*.import

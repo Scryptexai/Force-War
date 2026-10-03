@@ -232,19 +232,23 @@ func handle_play_key(keycode: int) -> void:
 
 func load_textures() -> void:
 	var paths = {
-		"player": "res://assets/air/player_stormhawk.svg",
-		"player_support": "res://assets/air/player_warden.svg",
-		"interceptor": "res://assets/air/enemy_interceptor.svg",
-		"bomber": "res://assets/air/enemy_bomber.svg",
-		"gunship": "res://assets/air/enemy_gunship.svg",
-		"drone": "res://assets/air/enemy_storm_drone.svg",
-		"tank": "res://assets/ground/enemy_tank.svg",
-		"sam": "res://assets/ground/enemy_sam.svg",
-		"artillery": "res://assets/ground/enemy_artillery.svg",
-		"command": "res://assets/convoy/command_truck.svg",
-		"fuel": "res://assets/convoy/fuel_tanker.svg",
-		"apc": "res://assets/convoy/apc.svg",
-		"supply_truck": "res://assets/convoy/supply_truck.svg",
+		# AI-painted PNG sprites used in gameplay. SVG files remain as editable fallbacks/source references.
+		"player": "res://assets/rendered/player_stormhawk.png",
+		"player_support": "res://assets/rendered/player_stormhawk.png",
+		"interceptor": "res://assets/rendered/enemy_interceptor.png",
+		"bomber": "res://assets/rendered/enemy_bomber.png",
+		"gunship": "res://assets/rendered/enemy_gunship.png",
+		"drone": "res://assets/rendered/enemy_storm_drone.png",
+		"tank": "res://assets/rendered/enemy_tank.png",
+		"sam": "res://assets/rendered/enemy_sam.png",
+		"artillery": "res://assets/rendered/enemy_artillery.png",
+		"command": "res://assets/rendered/convoy_command_truck.png",
+		"fuel": "res://assets/rendered/convoy_fuel_tanker.png",
+		"apc": "res://assets/rendered/convoy_apc.png",
+		"supply_truck": "res://assets/rendered/convoy_supply_truck.png",
+		"bg_monsoon": "res://assets/rendered/background_monsoon_pass.png",
+		"bg_delta": "res://assets/rendered/background_black_delta.png",
+		"bg_thunder": "res://assets/rendered/background_thunder_ridge.png",
 		"repair": "res://assets/support/repair_pod.svg",
 		"smoke": "res://assets/support/smoke_pod.svg",
 		"supply": "res://assets/support/supply_pod.svg",
@@ -1485,6 +1489,26 @@ func _draw() -> void:
 			draw_game_over()
 
 
+func stage_background_key() -> String:
+	var idx = selected_stage
+	if state == GameState.PLAYING or state == GameState.PAUSED or state == GameState.STAGE_CLEAR or state == GameState.GAME_OVER:
+		idx = stage_index
+	match idx:
+		0:
+			return "bg_monsoon"
+		1:
+			return "bg_thunder"
+		2:
+			return "bg_delta"
+		3:
+			return "bg_thunder"
+		4:
+			return "bg_delta"
+		5:
+			return "bg_thunder"
+	return "bg_monsoon"
+
+
 func draw_background() -> void:
 	var hue = 0.6
 	if state == GameState.BRIEFING:
@@ -1496,6 +1520,11 @@ func draw_background() -> void:
 	for i in range(24):
 		var t = float(i) / 23.0
 		draw_rect(Rect2(0, H * t, W, H / 23.0 + 2), top.lerp(bottom, t))
+	var bg_key = stage_background_key()
+	if textures.has(bg_key):
+		# Painted stage background is intentionally drawn under the tactical road/weather layers.
+		draw_texture_rect(textures[bg_key], Rect2(0.0, 0.0, W, H), false, Color(1.0, 1.0, 1.0, 0.82))
+		draw_rect(Rect2(0.0, 0.0, W, H), Color(0.0, 0.02, 0.05, 0.18))
 	for s in bg_stars:
 		var pulse = 0.55 + sin(time * 2.0 + float(s["phase"])) * 0.2
 		draw_circle(s["pos"], float(s["size"]), Color(0.6, 0.88, 1.0, pulse * 0.45))
