@@ -20,8 +20,8 @@ Estimasi kasar status produksi:
 | Enemy variety logic | 35% |
 | Visual production quality | 40% setelah PNG pass kedua + low-poly GLB ground vehicles |
 | Campaign/content polish | 15% |
-| Audio/VFX/juice | 5% |
-| Overall menuju full version | ±35% |
+| Audio/VFX/juice | 9% — pass awal VFX tembakan/impact prosedural |
+| Overall menuju full version | ±36% |
 
 ## Pilar Desain
 
@@ -76,6 +76,7 @@ Estimasi kasar status produksi:
 - [x] Mobil player dapat steer kiri/kanan dan auto-shoot enemy cars.
 - [x] Enemy car GLB spawn di depan, menembak balik, dan bisa merusak mobil player.
 - [x] Jet support GLB masuk/menyerang dan membuka prompt switch ke aircraft.
+- [x] Pass awal efek tembakan ground: muzzle flash 3D, bullet trail, impact sparks, jet fire lance, dan camera shake ringan.
 - [x] Transisi langsung dari ground chase ke mode top-down aircraft escort.
 - [ ] Tambah physics/collision 3D yang lebih solid; saat ini collision masih logical AABB ringan.
 - [ ] Tambah camera shake, road curvature, enemy chase AI, dan VFX jet attack yang lebih kuat.
@@ -144,7 +145,8 @@ Estimasi kasar status produksi:
 - [x] JavaScriptBridge state/events.
 - [x] localStorage save.
 - [ ] Sound FX procedural / open-license.
-- [ ] Screen shake, hit-stop, damage feedback, convoy radio warning.
+- [x] Pass awal VFX tembakan prosedural: muzzle flash, tracer glow, hit flash, rocket smoke, dan 3D ground sparks.
+- [ ] Screen shake/hit-stop final, damage feedback, convoy radio warning.
 - [ ] Responsive mobile HUD final.
 - [ ] Touch radial support actions.
 - [ ] Add host page overlay for bridge debug/events.

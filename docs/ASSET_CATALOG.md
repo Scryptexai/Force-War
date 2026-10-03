@@ -66,7 +66,17 @@ Asset game sekarang dibagi tiga lapis:
 | `assets/models/convoy_car.glb` | Kendaraan convoy/lead visual di road phase. | Low-poly GLB generated, integrated. |
 | `assets/models/support_jet.glb` | Jet support yang datang menyerang dan memicu switch ke aircraft. | Low-poly GLB generated, integrated. |
 
-Catatan: asset GLB ini sengaja ringan untuk Web export. Mereka sudah menggantikan kebutuhan static car/jet photos, tetapi masih perlu pass model detail, material/weathering, animasi roda, VFX muzzle/jet trail, dan collision mesh final.
+Catatan: asset GLB ini sengaja ringan untuk Web export. Mereka sudah menggantikan kebutuhan static car/jet photos, tetapi masih perlu pass model detail, material/weathering, animasi roda, VFX muzzle/jet trail final, dan collision mesh final.
+
+
+## Procedural VFX — dipakai langsung oleh Godot
+
+Tidak semua efek tembakan memakai file image baru. Pass terbaru menambahkan VFX prosedural di `scripts/main.gd`:
+
+- Ground chase 3D: muzzle flash, bullet glow/trail, impact sparks, jet fire lance, explosion flash, dan camera shake ringan.
+- Aircraft top-down: muzzle flash, tracer glow sesuai arah peluru, hit flash/shock ring, dan rocket smoke.
+
+Status: pass awal sudah integrated. Masih perlu sound, sprite sheet ledakan final, smoke volumetric, dan tuning intensitas supaya tidak terlalu ramai di Web/mobile.
 
 ## SVG Fallback / Reference Assets
 
@@ -82,10 +92,11 @@ SVG tetap ada untuk fallback, documentation, dan future vector UI pass:
 
 Prioritas asset berikutnya:
 
-1. Detail pass untuk GLB car/jet: wheel animation, wet material, muzzle flashes, jet trail, dan collision mesh.
-2. Boss/blockade unique per biome, bukan satu shared boss sprite.
-3. Support supply/radar/rod generated unique, bukan derived tint.
-4. UI/hangar/briefing background.
-5. Explosion/smoke/lightning VFX sprite sheets.
-6. Manual edge cleanup untuk semua sprite supaya tidak ada green/white fringe.
-7. Sprite atlas agar Web build lebih efisien.
+1. Detail pass untuk GLB car/jet: wheel animation, wet material, dan collision mesh.
+2. Upgrade VFX tembakan dari procedural boxes/canvas ke sprite sheet/particle material final.
+3. Boss/blockade unique per biome, bukan satu shared boss sprite.
+4. Support supply/radar/rod generated unique, bukan derived tint.
+5. UI/hangar/briefing background.
+6. Explosion/smoke/lightning VFX sprite sheets.
+7. Manual edge cleanup untuk semua sprite supaya tidak ada green/white fringe.
+8. Sprite atlas agar Web build lebih efisien.

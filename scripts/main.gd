@@ -99,6 +99,7 @@ var ground_road_markers: Array = []
 var ground_enemies: Array = []
 var ground_bullets: Array = []
 var ground_enemy_bullets: Array = []
+var ground_fx: Array = []
 var ground_time = 0.0
 var ground_distance = 0.0
 var ground_player_x = 0.0
@@ -108,7 +109,9 @@ var ground_spawn_timer = 0.0
 var ground_shot_cd = 0.0
 var ground_jet_called = false
 var ground_jet_timer = 0.0
+var ground_jet_fire_timer = 0.0
 var ground_transition_ready = false
+var ground_camera_shake = 0.0
 
 
 func _ready() -> void:
@@ -619,10 +622,13 @@ func start_ground_phase() -> void:
 	ground_shot_cd = 0.0
 	ground_jet_called = false
 	ground_jet_timer = 0.0
+	ground_jet_fire_timer = 0.0
 	ground_transition_ready = false
+	ground_camera_shake = 0.0
 	ground_enemies.clear()
 	ground_bullets.clear()
 	ground_enemy_bullets.clear()
+	ground_fx.clear()
 	setup_ground_scene()
 	state = GameState.GROUND
 	show_warning("GROUND CHASE: drive, shoot, survive until jet link arrives.")
@@ -640,6 +646,7 @@ func cleanup_ground_scene() -> void:
 	ground_enemies.clear()
 	ground_bullets.clear()
 	ground_enemy_bullets.clear()
+	ground_fx.clear()
 
 
 func setup_ground_scene() -> void:
@@ -705,6 +712,105 @@ func make_box_3d(pos: Vector3, size: Vector3, color: Color, node_name: String) -
 	return node
 
 
+func make_glow_box_3d(pos: Vector3, size: Vector3, color: Color, node_name: String) -> MeshInstance3D:
+	var mesh = BoxMesh.new()
+	mesh.size = size
+	var material = StandardMaterial3D.new()
+	material.albedo_color = color
+	material.emission_enabled = true
+	material.emission = Color(color.r, color.g, color.b, 1.0)
+	material.emission_energy_multiplier = 2.8
+	material.roughness = 0.28
+	mesh.material = material
+	var node = MeshInstance3D.new()
+	node.name = node_name
+	node.mesh = mesh
+	node.position = pos
+	return node
+
+
+func spawn_ground_fx(pos: Vector3, size: Vector3, color: Color, life: float, velocity: Vector3 = Vector3.ZERO, node_name: String = "GroundShotFX") -> void:
+	if ground_root == null or not is_instance_valid(ground_root):
+		return
+	while ground_fx.size() > 96:
+		remove_ground_fx(0)
+	var node = make_glow_box_3d(pos, size, color, node_name)
+	node.rotation = Vector3(rng.randf_range(-0.08, 0.08), rng.randf_range(-0.24, 0.24), rng.randf_range(-0.12, 0.12))
+	ground_root.add_child(node)
+	ground_fx.append({"node": node, "life": life, "max_life": life, "vel": velocity, "spin": rng.randf_range(-8.0, 8.0)})
+
+
+func remove_ground_fx(index: int) -> void:
+	if index < 0 or index >= ground_fx.size():
+		return
+	var node: Node3D = ground_fx[index].get("node")
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+	ground_fx.remove_at(index)
+
+
+func update_ground_fx(delta: float) -> void:
+	for fx in ground_fx:
+		fx["life"] = float(fx.get("life", 0.0)) - delta
+		var node: Node3D = fx.get("node")
+		if node != null and is_instance_valid(node):
+			node.position += fx.get("vel", Vector3.ZERO) * delta
+			fx["vel"] = fx.get("vel", Vector3.ZERO) * (1.0 - min(0.88, delta * 4.6))
+			node.rotation.y += float(fx.get("spin", 0.0)) * delta
+			var ratio = clamp(float(fx["life"]) / max(0.01, float(fx.get("max_life", 1.0))), 0.0, 1.0)
+			node.scale = Vector3.ONE * max(0.05, ratio)
+	for i in range(ground_fx.size() - 1, -1, -1):
+		if float(ground_fx[i].get("life", 0.0)) <= 0.0:
+			remove_ground_fx(i)
+
+
+func spawn_ground_muzzle_flash(pos: Vector3, friendly: bool) -> void:
+	var color = Color(0.25, 0.95, 1.0, 1.0) if friendly else Color(1.0, 0.2, 0.06, 1.0)
+	var z_dir = -1.0 if friendly else 1.0
+	spawn_ground_fx(pos + Vector3(0.0, 0.02, z_dir * 0.36), Vector3(0.34, 0.20, 1.15), color, 0.075, Vector3(0.0, 0.0, z_dir * 2.0), "GroundMuzzleFlash")
+	for i in range(3):
+		spawn_ground_fx(
+			pos + Vector3(rng.randf_range(-0.16, 0.16), rng.randf_range(-0.02, 0.12), z_dir * rng.randf_range(0.2, 0.55)),
+			Vector3(0.08, 0.08, 0.20),
+			color.lerp(Color(1.0, 0.8, 0.25, 1.0), 0.35),
+			0.16,
+			Vector3(rng.randf_range(-0.8, 0.8), rng.randf_range(0.1, 1.2), z_dir * rng.randf_range(1.0, 3.0)),
+			"GroundMuzzleSpark"
+		)
+
+
+func spawn_ground_impact(pos: Vector3, color: Color, strong: bool = false) -> void:
+	var count = 16 if strong else 8
+	var power = 7.5 if strong else 4.2
+	spawn_ground_fx(pos + Vector3(0.0, 0.18, 0.0), Vector3(1.4 if strong else 0.78, 0.18, 1.4 if strong else 0.78), color, 0.14 if strong else 0.10, Vector3.ZERO, "GroundImpactFlash")
+	for i in range(count):
+		var a = rng.randf_range(0.0, TAU)
+		var speed = rng.randf_range(power * 0.35, power)
+		spawn_ground_fx(
+			pos + Vector3(rng.randf_range(-0.18, 0.18), rng.randf_range(0.0, 0.25), rng.randf_range(-0.18, 0.18)),
+			Vector3(0.08, 0.08, 0.26),
+			color.lerp(Color(1.0, 0.88, 0.32, 1.0), rng.randf_range(0.15, 0.55)),
+			rng.randf_range(0.18, 0.36) if strong else rng.randf_range(0.12, 0.25),
+			Vector3(cos(a) * speed, rng.randf_range(1.4, 4.2), sin(a) * speed),
+			"GroundImpactSpark"
+		)
+	ground_camera_shake = max(ground_camera_shake, 0.95 if strong else 0.38)
+
+
+func spawn_ground_jet_strike(target: Vector3) -> void:
+	var color = Color(1.0, 0.36, 0.06, 1.0)
+	spawn_ground_fx(target + Vector3(0.0, 1.05, -2.0), Vector3(0.24, 0.24, 5.8), color, 0.24, Vector3(0.0, -0.35, 7.5), "JetFireLance")
+	spawn_ground_impact(target + Vector3(0.0, 0.15, 0.0), color, true)
+	for i in range(ground_enemies.size() - 1, -1, -1):
+		var e = ground_enemies[i]
+		if abs(float(e.get("x", 0.0)) - target.x) < 1.35 and abs(float(e.get("z", 0.0)) - target.z) < 6.0:
+			e["hp"] = float(e.get("hp", 0.0)) - 70.0
+			if float(e["hp"]) <= 0.0:
+				stage_score += 120
+				stage_stars += 1
+				remove_ground_enemy(i)
+
+
 func spawn_ground_model(path: String, pos: Vector3, yaw: float, node_name: String) -> Node3D:
 	var packed = load(path)
 	var node: Node3D
@@ -748,12 +854,13 @@ func update_ground_chase(delta: float) -> void:
 
 	update_ground_enemies(delta)
 	update_ground_bullets(delta)
-	update_ground_camera()
-
 	if ground_time > 20.0 and not ground_jet_called:
 		call_support_jet()
 	if ground_jet_called:
 		update_support_jet(delta)
+	update_ground_fx(delta)
+	ground_camera_shake = max(0.0, ground_camera_shake - delta * 2.8)
+	update_ground_camera()
 	if ground_car_hp <= 0:
 		cleanup_ground_scene()
 		game_over("Ground vehicle destroyed")
@@ -762,7 +869,11 @@ func update_ground_chase(delta: float) -> void:
 func update_ground_camera() -> void:
 	if ground_camera == null:
 		return
-	ground_camera.position = Vector3(ground_player_x * 0.45, 4.2, 9.8)
+	var shake = ground_camera_shake
+	var jitter = Vector3.ZERO
+	if shake > 0.0:
+		jitter = Vector3(rng.randf_range(-shake, shake) * 0.12, rng.randf_range(-shake, shake) * 0.07, rng.randf_range(-shake, shake) * 0.08)
+	ground_camera.position = Vector3(ground_player_x * 0.45, 4.2, 9.8) + jitter
 	ground_camera.look_at(Vector3(ground_player_x * 0.25, 0.55, -17.0), Vector3.UP)
 
 
@@ -775,9 +886,10 @@ func spawn_ground_enemy() -> void:
 
 func spawn_ground_bullet(pos: Vector3, speed_z: float, friendly: bool) -> void:
 	var color = Color(0.35, 0.95, 1.0, 1.0) if friendly else Color(1.0, 0.2, 0.08, 1.0)
-	var node = make_box_3d(pos, Vector3(0.12, 0.12, 0.55), color, "GroundBullet")
+	spawn_ground_muzzle_flash(pos, friendly)
+	var node = make_glow_box_3d(pos, Vector3(0.12, 0.12, 0.72), color, "GroundBullet")
 	ground_root.add_child(node)
-	var item = {"node": node, "z_speed": speed_z, "friendly": friendly, "life": 2.2}
+	var item = {"node": node, "z_speed": speed_z, "friendly": friendly, "life": 2.2, "trail": 0.0, "color": color}
 	if friendly:
 		ground_bullets.append(item)
 	else:
@@ -799,6 +911,7 @@ func update_ground_enemies(delta: float) -> void:
 		var e = ground_enemies[i]
 		if float(e["z"]) > 3.0:
 			if abs(float(e["x"]) - ground_player_x) < 1.1:
+				spawn_ground_impact(Vector3(float(e["x"]), 0.32, float(e["z"])), Color(1.0, 0.22, 0.08, 1.0), true)
 				damage_ground_car(22)
 			remove_ground_enemy(i)
 
@@ -806,14 +919,22 @@ func update_ground_enemies(delta: float) -> void:
 func update_ground_bullets(delta: float) -> void:
 	for b in ground_bullets:
 		b["life"] = float(b["life"]) - delta
+		b["trail"] = float(b.get("trail", 0.0)) - delta
 		var node: Node3D = b["node"]
 		if node != null and is_instance_valid(node):
 			node.position.z += float(b["z_speed"]) * delta
+			if float(b["trail"]) <= 0.0:
+				spawn_ground_fx(node.position + Vector3(0.0, 0.0, 0.42), Vector3(0.07, 0.07, 0.36), b.get("color", Color(0.35, 0.95, 1.0, 1.0)), 0.12, Vector3(0.0, 0.08, 2.2), "GroundBulletTrail")
+				b["trail"] = 0.045
 	for b in ground_enemy_bullets:
 		b["life"] = float(b["life"]) - delta
+		b["trail"] = float(b.get("trail", 0.0)) - delta
 		var node: Node3D = b["node"]
 		if node != null and is_instance_valid(node):
 			node.position.z += float(b["z_speed"]) * delta
+			if float(b["trail"]) <= 0.0:
+				spawn_ground_fx(node.position + Vector3(0.0, 0.0, -0.42), Vector3(0.07, 0.07, 0.36), b.get("color", Color(1.0, 0.2, 0.08, 1.0)), 0.12, Vector3(0.0, 0.08, -2.2), "GroundBulletTrail")
+				b["trail"] = 0.045
 	# Friendly bullet vs enemy cars.
 	for bi in range(ground_bullets.size() - 1, -1, -1):
 		var b = ground_bullets[bi]
@@ -825,10 +946,12 @@ func update_ground_bullets(delta: float) -> void:
 			var e = ground_enemies[ei]
 			if abs(float(e["x"]) - bnode.position.x) < 0.75 and abs(float(e["z"]) - bnode.position.z) < 1.25:
 				e["hp"] = float(e["hp"]) - 34.0
+				spawn_ground_impact(bnode.position, Color(0.25, 0.95, 1.0, 1.0), false)
 				remove_ground_bullet(ground_bullets, bi)
 				if float(e["hp"]) <= 0.0:
 					stage_score += 160
 					stage_stars += 1
+					spawn_ground_impact(Vector3(float(e["x"]), 0.28, float(e["z"])), Color(1.0, 0.35, 0.12, 1.0), true)
 					spawn_particles(Vector2(W * 0.5 + float(e["x"]) * 60.0, H * 0.55), Color(1.0, 0.35, 0.12, 1.0), 20, 180.0)
 					remove_ground_enemy(ei)
 				break
@@ -840,6 +963,7 @@ func update_ground_bullets(delta: float) -> void:
 			remove_ground_bullet(ground_enemy_bullets, bi)
 			continue
 		if bnode.position.z > -0.8 and abs(bnode.position.x - ground_player_x) < 0.7:
+			spawn_ground_impact(bnode.position, Color(1.0, 0.2, 0.08, 1.0), false)
 			damage_ground_car(10)
 			remove_ground_bullet(ground_enemy_bullets, bi)
 
@@ -871,6 +995,7 @@ func damage_ground_car(amount: int) -> void:
 func call_support_jet() -> void:
 	ground_jet_called = true
 	ground_jet_timer = 0.0
+	ground_jet_fire_timer = 0.15
 	ground_jet_node = spawn_ground_model("res://assets/models/support_jet.glb", Vector3(0.0, 7.2, 16.0), 0.0, "SupportJet")
 	show_warning("JET SUPPORT INBOUND — prepare direct switch to aircraft")
 	js_emit("support_jet_inbound", {"stage": stage_index + 1})
@@ -882,6 +1007,13 @@ func update_support_jet(delta: float) -> void:
 		var t = clamp(ground_jet_timer / 4.0, 0.0, 1.0)
 		ground_jet_node.position = Vector3(sin(time * 1.8) * 0.7, lerp(7.2, 2.8, t), lerp(16.0, -18.0, t))
 		ground_jet_node.rotation.z = sin(time * 3.0) * 0.08
+		ground_jet_node.rotation.x = -0.10 - t * 0.18
+	if ground_jet_timer > 0.85 and ground_jet_timer < 5.8:
+		ground_jet_fire_timer -= delta
+		if ground_jet_fire_timer <= 0.0:
+			var target = Vector3(clamp(ground_player_x + rng.randf_range(-2.4, 2.4), -3.4, 3.4), 0.18, rng.randf_range(-42.0, -12.0))
+			spawn_ground_jet_strike(target)
+			ground_jet_fire_timer = rng.randf_range(0.26, 0.42)
 	if ground_jet_timer > 2.2 and not ground_transition_ready:
 		ground_transition_ready = true
 		show_warning("JET LINK READY — press SPACE/ENTER to switch into Sky Force mode")
@@ -957,6 +1089,22 @@ func update_player(delta: float) -> void:
 		fire_micro_missile()
 
 
+func spawn_muzzle_flash_2d(pos: Vector2, direction: Vector2, friendly: bool, scale: float = 1.0) -> void:
+	var dir = direction.normalized()
+	if dir.length() < 0.01:
+		dir = Vector2.UP if friendly else Vector2.DOWN
+	var color = Color(0.45, 0.95, 1.0, 1.0) if friendly else Color(1.0, 0.34, 0.12, 1.0)
+	effects.append({"kind": "muzzle", "pos": pos, "dir": dir, "friendly": friendly, "color": color, "radius": 18.0 * scale, "life": 0.105, "max_life": 0.105})
+
+
+func spawn_hit_flash_2d(pos: Vector2, color: Color, strong: bool = false) -> void:
+	var radius = 34.0 if strong else 19.0
+	var life = 0.28 if strong else 0.18
+	effects.append({"kind": "hit", "pos": pos, "color": color, "radius": radius, "life": life, "max_life": life})
+	effects.append({"kind": "shock", "pos": pos, "color": color, "radius": radius * 0.8, "life": life * 1.25, "max_life": life * 1.25})
+	spawn_particles(pos, color, 14 if strong else 7, 260.0 if strong else 170.0)
+
+
 func fire_player_shot() -> void:
 	var pos = player["pos"]
 	var gun_mod = float(loadout.get("gun", 1.0))
@@ -970,6 +1118,8 @@ func fire_player_shot() -> void:
 		var t = 0.0 if lanes == 1 else float(i) / float(lanes - 1) - 0.5
 		var angle = t * spread
 		var vel = Vector2(sin(angle), -cos(angle)) * (760.0 + gun_mod * 60.0)
+		var muzzle_pos = pos + Vector2(t * 30.0, -35.0)
+		spawn_muzzle_flash_2d(muzzle_pos, vel, true, 0.85 if overcharge_timer <= 0.0 else 1.2)
 		bullets.append({"pos": pos + Vector2(t * 30.0, -30.0), "vel": vel, "damage": 12.0 * gun_mod, "radius": 5.0, "life": 1.6, "kind": "plasma"})
 	player["shot_cd"] = max(0.065, 0.15 / gun_mod)
 
@@ -981,7 +1131,9 @@ func fire_micro_missile() -> void:
 		return
 	var pos = player["pos"]
 	for side in [-1, 1]:
-		bullets.append({"pos": pos + Vector2(side * 24.0, -5.0), "vel": Vector2(side * 70.0, -430.0), "damage": 38.0, "radius": 8.0, "life": 4.0, "kind": "missile", "target_id": int(target.get("id", -1))})
+		var missile_pos = pos + Vector2(side * 24.0, -5.0)
+		spawn_muzzle_flash_2d(missile_pos, Vector2(side * 70.0, -430.0), true, 1.15)
+		bullets.append({"pos": missile_pos, "vel": Vector2(side * 70.0, -430.0), "damage": 38.0, "radius": 8.0, "life": 4.0, "kind": "missile", "target_id": int(target.get("id", -1)), "trail": 0.0})
 	player["missile_cd"] = 2.4 if overcharge_timer <= 0.0 else 1.15
 
 
@@ -1234,17 +1386,20 @@ func update_enemies(delta: float) -> void:
 
 func shoot_at_player(origin: Vector2, speed: float, damage: float, color: Color = Color(1.0, 0.35, 0.22, 1.0), guided: bool = false) -> void:
 	var dir = (player["pos"] - origin).normalized()
+	spawn_muzzle_flash_2d(origin, dir, false, 1.0 if not guided else 1.25)
 	enemy_bullets.append({"pos": origin, "vel": dir * speed, "damage": damage, "radius": 6.0, "target": "player", "color": color, "life": 5.0, "guided": guided})
 
 
 func shoot_at_convoy(origin: Vector2, speed: float, damage: float, color: Color = Color(1.0, 0.65, 0.25, 1.0), guided: bool = false) -> void:
 	var target = convoy_center()
 	var dir = (target - origin).normalized()
+	spawn_muzzle_flash_2d(origin, dir, false, 1.05 if not guided else 1.25)
 	enemy_bullets.append({"pos": origin, "vel": dir * speed, "damage": damage, "radius": 7.0, "target": "convoy", "color": color, "life": 5.0, "guided": guided})
 
 
 func shoot_spread_at_convoy(origin: Vector2, count: int, spread: float, speed: float, damage: float) -> void:
 	var base = (convoy_center() - origin).angle()
+	spawn_muzzle_flash_2d(origin, Vector2(cos(base), sin(base)), false, 1.4)
 	for i in range(count):
 		var t = 0.0 if count == 1 else float(i) / float(count - 1) - 0.5
 		var a = base + t * spread
@@ -1286,6 +1441,11 @@ func update_bullets(delta: float) -> void:
 		else:
 			b["vel"].x += wind * 100.0 * delta
 		b["pos"] = b["pos"] + b["vel"] * delta
+		if str(b.get("kind", "")) == "missile":
+			b["trail"] = float(b.get("trail", 0.0)) - delta
+			if float(b["trail"]) <= 0.0:
+				effects.append({"kind": "rocket_smoke", "pos": b["pos"] + Vector2(0.0, 10.0), "color": Color(1.0, 0.55, 0.16, 1.0), "radius": 10.0, "life": 0.45, "max_life": 0.45})
+				b["trail"] = 0.045
 		b["life"] = float(b.get("life", 2.0)) - delta
 	for i in range(bullets.size() - 1, -1, -1):
 		var p = bullets[i]["pos"]
@@ -1419,7 +1579,9 @@ func update_convoy_turrets(delta: float) -> void:
 			var target = nearest_enemy(v["pos"])
 			if not target.is_empty() and Vector2(target["pos"]).y < H - 120.0:
 				var dir = (target["pos"] - v["pos"]).normalized()
-				bullets.append({"pos": v["pos"] + Vector2(0.0, -18.0), "vel": dir * 520.0, "damage": 13.0, "radius": 4.0, "life": 1.6, "kind": "aa"})
+				var muzzle_pos = v["pos"] + Vector2(0.0, -18.0)
+				spawn_muzzle_flash_2d(muzzle_pos, dir, true, 0.75)
+				bullets.append({"pos": muzzle_pos, "vel": dir * 520.0, "damage": 13.0, "radius": 4.0, "life": 1.6, "kind": "aa"})
 				v["turret_cd"] = 0.22
 
 
@@ -1480,6 +1642,7 @@ func check_collisions() -> void:
 				e["hp"] = float(e["hp"]) - float(b["damage"])
 				e["flash"] = 1.0
 				hit = true
+				spawn_hit_flash_2d(b["pos"], Color(1.0, 0.55, 0.16, 1.0) if str(b.get("kind", "")) == "missile" else enemy_color(str(e["kind"])), str(b.get("kind", "")) == "missile")
 				if str(b.get("kind", "")) == "missile":
 					spawn_particles(b["pos"], Color(1.0, 0.55, 0.16, 1.0), 22, 260.0)
 					for splash in enemies:
@@ -1495,6 +1658,7 @@ func check_collisions() -> void:
 		var b = enemy_bullets[i]
 		if str(b.get("target", "")) == "player":
 			if player["pos"].distance_to(b["pos"]) <= PLAYER_RADIUS + float(b["radius"]):
+				spawn_hit_flash_2d(b["pos"], b.get("color", Color(1.0, 0.25, 0.12, 1.0)), false)
 				damage_player(float(b["damage"]))
 				enemy_bullets.remove_at(i)
 		else:
@@ -1504,6 +1668,7 @@ func check_collisions() -> void:
 				if is_smoke_covering(v["pos"]):
 					dmg *= 0.35
 					display_miss(v["pos"])
+				spawn_hit_flash_2d(b["pos"], b.get("color", Color(1.0, 0.55, 0.2, 1.0)), false)
 				damage_convoy(dmg, b["pos"], "incoming_fire")
 				enemy_bullets.remove_at(i)
 
@@ -1924,15 +2089,28 @@ func draw_game_world() -> void:
 		draw_enemy(e)
 	for b in bullets:
 		var p = b["pos"]
-		var col = Color(0.5, 0.95, 1.0, 1.0) if str(b.get("kind", "")) != "aa" else Color(1.0, 0.85, 0.2, 1.0)
-		if str(b.get("kind", "")) == "missile":
+		var vel = b.get("vel", Vector2.UP)
+		var dir = vel.normalized() if vel.length() > 0.01 else Vector2.UP
+		var kind = str(b.get("kind", ""))
+		var col = Color(0.5, 0.95, 1.0, 1.0) if kind != "aa" else Color(1.0, 0.85, 0.2, 1.0)
+		var width = 2.4
+		var trail_len = 28.0
+		if kind == "missile":
 			col = Color(1.0, 0.55, 0.16, 1.0)
+			width = 3.8
+			trail_len = 42.0
+		draw_line(p - dir * trail_len, p + dir * 8.0, Color(col.r, col.g, col.b, 0.34), width + 3.0)
+		draw_line(p - dir * (trail_len * 0.55), p + dir * 5.0, Color(1.0, 1.0, 1.0, 0.62), width)
 		draw_circle(p, float(b["radius"]), col)
-		draw_line(p - Vector2(0, 14), p + Vector2(0, 6), Color(col.r, col.g, col.b, 0.55), 2.0)
 	for b in enemy_bullets:
 		var c = b["color"]
-		draw_circle(b["pos"], float(b["radius"]) + 2.0, Color(c.r, c.g, c.b, 0.2))
-		draw_circle(b["pos"], float(b["radius"]), c)
+		var p = b["pos"]
+		var vel = b.get("vel", Vector2.DOWN)
+		var dir = vel.normalized() if vel.length() > 0.01 else Vector2.DOWN
+		draw_line(p - dir * 24.0, p + dir * 7.0, Color(c.r, c.g, c.b, 0.32), 5.0)
+		draw_line(p - dir * 14.0, p + dir * 4.0, Color(1.0, 0.92, 0.7, 0.55), 2.0)
+		draw_circle(p, float(b["radius"]) + 2.0, Color(c.r, c.g, c.b, 0.2))
+		draw_circle(p, float(b["radius"]), c)
 	draw_player()
 	for p in particles:
 		var ratio = clamp(float(p["life"]) / float(p["max_life"]), 0.0, 1.0)
@@ -2049,6 +2227,36 @@ func draw_effect(e: Dictionary) -> void:
 		draw_arc(pos, 58.0, 0, TAU, 48, Color(0.75, 0.5, 1.0, 0.24 * ratio), 2.0)
 	elif kind == "text":
 		draw_text_centered_at(str(e.get("text", "")), pos + Vector2(0, -20.0 * (1.0 - ratio)), 16, Color(0.84, 0.92, 1.0, ratio))
+	elif kind == "muzzle":
+		var c = e.get("color", Color(0.5, 0.95, 1.0, 1.0))
+		var dir = e.get("dir", Vector2.UP)
+		if dir.length() < 0.01:
+			dir = Vector2.UP
+		dir = dir.normalized()
+		var side = Vector2(-dir.y, dir.x)
+		var r = float(e.get("radius", 18.0)) * (0.55 + ratio * 0.65)
+		var tip = pos + dir * r
+		var back = pos - dir * r * 0.25
+		draw_colored_polygon(PackedVector2Array([tip, back + side * r * 0.42, pos, back - side * r * 0.42]), Color(c.r, c.g, c.b, 0.44 * ratio))
+		draw_circle(pos, r * 0.34, Color(1.0, 1.0, 0.82, 0.72 * ratio))
+		draw_circle(pos, r * 0.62, Color(c.r, c.g, c.b, 0.18 * ratio))
+	elif kind == "hit":
+		var c = e.get("color", Color(1.0, 0.55, 0.16, 1.0))
+		var r = float(e.get("radius", 20.0)) * (1.0 + (1.0 - ratio) * 0.85)
+		draw_circle(pos, r * 0.42, Color(1.0, 0.92, 0.52, 0.42 * ratio))
+		draw_circle(pos, r, Color(c.r, c.g, c.b, 0.16 * ratio))
+		for i in range(8):
+			var a = float(i) / 8.0 * TAU + time * 0.8
+			draw_line(pos, pos + Vector2(cos(a), sin(a)) * r, Color(c.r, c.g, c.b, 0.55 * ratio), 2.0)
+	elif kind == "shock":
+		var c = e.get("color", Color(1.0, 0.55, 0.16, 1.0))
+		var r = float(e.get("radius", 20.0)) * (0.45 + (1.0 - ratio) * 1.7)
+		draw_arc(pos, r, 0.0, TAU, 48, Color(c.r, c.g, c.b, 0.38 * ratio), 2.5)
+	elif kind == "rocket_smoke":
+		var c = e.get("color", Color(1.0, 0.55, 0.16, 1.0))
+		var r = float(e.get("radius", 10.0)) * (1.0 + (1.0 - ratio) * 1.8)
+		draw_circle(pos, r, Color(0.5, 0.56, 0.6, 0.18 * ratio))
+		draw_circle(pos + Vector2(sin(time * 9.0), cos(time * 7.0)) * r * 0.24, r * 0.42, Color(c.r, c.g, c.b, 0.22 * ratio))
 
 
 func draw_title() -> void:
