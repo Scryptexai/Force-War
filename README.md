@@ -68,7 +68,7 @@ tools/serve_web.py                    # Server Python dengan header WebAssembly
 docs/ROADMAP.md                       # Roadmap full version
 docs/ASSET_CATALOG.md                 # Daftar asset dan fungsi gameplay
 docs/WEB_BUILD_FLOW.md                # Alur teknis Web build
-web-build/                            # Output index.html/js/wasm/pck setelah export
+index.html / index.js / index.wasm / index.pck  # Output Web di root repo
 ```
 
 ## Godot 4.6.2 Stable
@@ -119,16 +119,16 @@ Script ini regenerate semua SVG asset di `assets/` secara deterministik.
 Output yang diharapkan:
 
 ```text
-web-build/index.html
-web-build/index.js
-web-build/index.wasm
-web-build/index.pck
+index.html
+index.js
+index.wasm
+index.pck
 ```
 
 ## Serve Web Build
 
 ```bash
-python3 tools/serve_web.py --directory web-build --port 8000
+python3 tools/serve_web.py --directory . --port 8000
 ```
 
 Server bind ke `0.0.0.0` dan mengirim header penting:

@@ -2,7 +2,7 @@
 """Serve the Godot Web export with the MIME and security headers it needs.
 
 Usage:
-  python3 tools/serve_web.py --directory web-build --port 8000
+  python3 tools/serve_web.py --directory . --port 8000
 
 The server binds to 0.0.0.0 so Arena live preview can reach it.
 """
@@ -61,7 +61,7 @@ class ReusableTCPServer(socketserver.TCPServer):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Serve a Godot Web export.")
-    parser.add_argument("--directory", default="web-build", help="Directory containing index.html/index.wasm/index.js/index.pck")
+    parser.add_argument("--directory", default=".", help="Directory containing index.html/index.wasm/index.js/index.pck")
     parser.add_argument("--host", default="0.0.0.0", help="Bind host")
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")), help="Bind port")
     args = parser.parse_args()

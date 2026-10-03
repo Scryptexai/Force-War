@@ -13,10 +13,10 @@ Preset `Web` berada di `export_presets.cfg`.
 Godot 4.6.2 akan membuat:
 
 ```text
-web-build/index.html
-web-build/index.js
-web-build/index.wasm
-web-build/index.pck
+index.html
+index.js
+index.wasm
+index.pck
 ```
 
 `index.pck` berisi resource project: scene, GDScript terkompilasi, SVG imported textures, konfigurasi, dan icon.
@@ -24,7 +24,7 @@ web-build/index.pck
 ## 2. Serve
 
 ```bash
-python3 tools/serve_web.py --directory web-build --port 8000
+python3 tools/serve_web.py --directory . --port 8000
 ```
 
 Server mengirim MIME dan header berikut:

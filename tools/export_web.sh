@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Export Force War: Storm Convoy to Godot 4.6.2 Web.
-# Output: web-build/index.html, index.js, index.wasm, index.pck
+# Output in repository root: index.html, index.js, index.wasm, index.pck
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GODOT_VERSION="4.6.2.stable"
@@ -89,17 +89,16 @@ MSG
 
 prepare_godot
 prepare_templates
-mkdir -p "$ROOT_DIR/web-build"
-"$GODOT_BIN" --headless --path "$ROOT_DIR" --export-release "Web" "$ROOT_DIR/web-build/index.html"
+"$GODOT_BIN" --headless --path "$ROOT_DIR" --export-release "Web" "$ROOT_DIR/index.html"
 
 cat <<MSG
 
 Export selesai dengan Godot $GODOT_VERSION:
-  $ROOT_DIR/web-build/index.html
-  $ROOT_DIR/web-build/index.js
-  $ROOT_DIR/web-build/index.wasm
-  $ROOT_DIR/web-build/index.pck
+  $ROOT_DIR/index.html
+  $ROOT_DIR/index.js
+  $ROOT_DIR/index.wasm
+  $ROOT_DIR/index.pck
 
 Jalankan:
-  python3 tools/serve_web.py --directory web-build --port 8000
+  python3 tools/serve_web.py --directory . --port 8000
 MSG

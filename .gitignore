@@ -6,18 +6,12 @@
 # Local runtime/export caches
 .godot-export/
 .cache/
+__pycache__/
+*.py[cod]
 
 # Large downloaded export template archives
 Godot_v*_export_templates.tpz
 Godot_v*_mono_export_templates.tpz
 
-# Optional local web export output. Remove this line if you want to publish the built files.
-# web-build/
-
-__pycache__/
-*.py[cod]
-web-build/*.import
-
-# Generated Godot Web export output (regenerate with tools/export_web.sh)
-web-build/*
-!web-build/README.md
+# Legacy/subdirectory exports are not used; Web build output lives in repo root.
+web-build/
