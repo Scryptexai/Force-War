@@ -249,11 +249,12 @@ func load_textures() -> void:
 		"bg_monsoon": "res://assets/rendered/background_monsoon_pass.png",
 		"bg_delta": "res://assets/rendered/background_black_delta.png",
 		"bg_thunder": "res://assets/rendered/background_thunder_ridge.png",
-		"repair": "res://assets/support/repair_pod.svg",
-		"smoke": "res://assets/support/smoke_pod.svg",
-		"supply": "res://assets/support/supply_pod.svg",
-		"radar": "res://assets/support/radar_pod.svg",
-		"rod": "res://assets/support/rod_pod.svg",
+		"boss": "res://assets/rendered/boss_aegis_weather_engine.png",
+		"repair": "res://assets/rendered/support_repair_pod.png",
+		"smoke": "res://assets/rendered/support_smoke_pod.png",
+		"supply": "res://assets/rendered/support_supply_pod.png",
+		"radar": "res://assets/rendered/support_radar_pod.png",
+		"rod": "res://assets/rendered/support_rod_pod.png",
 		"storm_icon": "res://assets/weather/storm_icon.svg",
 		"rain_icon": "res://assets/weather/rain_icon.svg",
 		"wind_icon": "res://assets/weather/wind_icon.svg",
@@ -1668,12 +1669,10 @@ func draw_enemy(e: Dictionary) -> void:
 
 func draw_boss(e: Dictionary, mod: Color) -> void:
 	var pos = e["pos"]
-	var body = Color(0.55, 0.05, 0.16, mod.a)
-	var wing = Color(0.18, 0.03, 0.1, mod.a)
-	draw_colored_polygon(PackedVector2Array([pos + Vector2(0, 88), pos + Vector2(-145, 16), pos + Vector2(-92, -70), pos + Vector2(0, -102), pos + Vector2(92, -70), pos + Vector2(145, 16)]), wing)
-	draw_colored_polygon(PackedVector2Array([pos + Vector2(0, 66), pos + Vector2(-76, 7), pos + Vector2(-45, -60), pos + Vector2(45, -60), pos + Vector2(76, 7)]), body)
-	draw_circle(pos + Vector2(0, -18), 24.0, Color(0.04, 0.0, 0.02, mod.a))
-	draw_circle(pos + Vector2(0, -18), 12.0 + sin(time * 6.0) * 2.0, Color(1.0, 0.08, 0.28, mod.a))
+	# Painted boss sprite replaces the previous procedural polygon placeholder.
+	draw_sprite("boss", pos, Vector2(230.0, 230.0), PI, mod)
+	draw_circle(pos + Vector2(0, -8), 36.0 + sin(time * 5.0) * 3.0, Color(0.3, 0.75, 1.0, 0.18 * mod.a))
+	draw_arc(pos, 116.0 + sin(time * 2.5) * 4.0, -time * 1.5, TAU - time * 1.5, 96, Color(0.8, 0.92, 1.0, 0.22 * mod.a), 3.0)
 	var ratio = clamp(float(e["hp"]) / max(1.0, float(e["max_hp"])), 0.0, 1.0)
 	draw_text_center(str(stage["boss"]), 92.0, 22, Color(1.0, 0.82, 0.9, 0.95))
 	draw_bar(Rect2(72.0, 104.0, W - 144.0, 14.0), ratio, Color(1.0, 0.08, 0.24, 1.0), Color(0, 0, 0, 0.62))

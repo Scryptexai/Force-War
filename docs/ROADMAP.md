@@ -18,10 +18,10 @@ Estimasi kasar status produksi:
 | Weather gameplay | 35% |
 | Route branching | 30% |
 | Enemy variety logic | 35% |
-| Visual production quality | 20% setelah pass PNG pertama |
+| Visual production quality | 35% setelah PNG pass kedua |
 | Campaign/content polish | 15% |
 | Audio/VFX/juice | 5% |
-| Overall menuju full version | ±25% |
+| Overall menuju full version | ±32% |
 
 ## Pilar Desain
 
@@ -107,9 +107,10 @@ Estimasi kasar status produksi:
 
 - [x] SVG placeholder/source pass untuk player, enemy, convoy, support, weather icon.
 - [x] AI-painted PNG pass pertama untuk player, interceptor, bomber, tank, command truck.
+- [x] AI-painted PNG pass kedua untuk gunship, drone, SAM, artillery, fuel tanker, APC, supply truck, repair pod, smoke pod, dan boss carrier.
 - [x] AI-painted stage background pass pertama: Monsoon Pass, Black Delta, Thunder Ridge.
-- [x] Integrasi PNG gameplay sprites dan background ke Godot.
-- [ ] Generate PNG unik untuk gunship, drone, SAM, artillery, semua convoy variants, support pods, boss, UI panels.
+- [x] Integrasi PNG gameplay sprites, support pods, boss, dan background ke Godot.
+- [ ] Generate PNG unik untuk supply/radar/rod pods, biome-specific bosses, UI panels.
 - [ ] Manual cleanup alpha/edge artifact pada sprite.
 - [ ] Sprite sheet / atlas agar Web build lebih efisien.
 - [ ] Particle polish per weather.
