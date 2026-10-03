@@ -1,11 +1,12 @@
 # Asset Catalog — Force War: Storm Convoy
 
-Asset game sekarang dibagi dua lapis:
+Asset game sekarang dibagi tiga lapis:
 
-1. `assets/rendered/` — asset PNG yang dipakai langsung oleh gameplay. Ini adalah visual pass AI-painted yang sudah diintegrasikan ke Godot.
-2. `assets/**/*.svg` — source vector lama yang tetap disimpan sebagai fallback/editable reference, terutama untuk icon kecil dan dokumentasi arah bentuk.
+1. `assets/rendered/` — asset PNG yang dipakai langsung oleh top-down aircraft gameplay. Ini adalah visual pass AI-painted yang sudah diintegrasikan ke Godot.
+2. `assets/models/` — GLB low-poly yang dipakai langsung oleh opening 3D ground chase dengan kamera perspektif.
+3. `assets/**/*.svg` — source vector lama yang tetap disimpan sebagai fallback/editable reference, terutama untuk icon kecil dan dokumentasi arah bentuk.
 
-> Status visual: sudah melewati placeholder SVG/procedural. Masih belum final AAA/polished, tetapi unit utama, mayoritas musuh, konvoi, support pod, boss, dan background stage sekarang memakai PNG painted asset.
+> Status visual: sudah melewati placeholder SVG/procedural untuk banyak area. Masih belum final AAA/polished, tetapi unit top-down utama, mayoritas musuh, konvoi, support pod, boss, background stage, serta prologue ground kendaraan 3D sekarang memakai PNG/GLB asset yang nyata di Godot.
 
 ## Gameplay PNG — dipakai oleh Godot
 
@@ -55,6 +56,18 @@ Asset game sekarang dibagi dua lapis:
 | `assets/rendered/background_black_delta.png` | Black Delta / Ash Harbor style fog-industrial route. |
 | `assets/rendered/background_thunder_ridge.png` | Thunder Ridge / Eye of Aegis storm mountain route. |
 
+
+## Gameplay GLB — dipakai oleh Opening Ground Chase 3D
+
+| File | Fungsi | Status |
+| --- | --- | --- |
+| `assets/models/player_car.glb` | Mobil player untuk shootout/chase sebelum masuk aircraft. | Low-poly GLB generated, integrated. |
+| `assets/models/enemy_car.glb` | Mobil musuh yang dikejar dan menembak balik. | Low-poly GLB generated, integrated. |
+| `assets/models/convoy_car.glb` | Kendaraan convoy/lead visual di road phase. | Low-poly GLB generated, integrated. |
+| `assets/models/support_jet.glb` | Jet support yang datang menyerang dan memicu switch ke aircraft. | Low-poly GLB generated, integrated. |
+
+Catatan: asset GLB ini sengaja ringan untuk Web export. Mereka sudah menggantikan kebutuhan static car/jet photos, tetapi masih perlu pass model detail, material/weathering, animasi roda, VFX muzzle/jet trail, dan collision mesh final.
+
 ## SVG Fallback / Reference Assets
 
 SVG tetap ada untuk fallback, documentation, dan future vector UI pass:
@@ -69,9 +82,10 @@ SVG tetap ada untuk fallback, documentation, dan future vector UI pass:
 
 Prioritas asset berikutnya:
 
-1. Boss/blockade unique per biome, bukan satu shared boss sprite.
-2. Support supply/radar/rod generated unique, bukan derived tint.
-3. UI/hangar/briefing background.
-4. Explosion/smoke/lightning VFX sprite sheets.
-5. Manual edge cleanup untuk semua sprite supaya tidak ada green/white fringe.
-6. Sprite atlas agar Web build lebih efisien.
+1. Detail pass untuk GLB car/jet: wheel animation, wet material, muzzle flashes, jet trail, dan collision mesh.
+2. Boss/blockade unique per biome, bukan satu shared boss sprite.
+3. Support supply/radar/rod generated unique, bukan derived tint.
+4. UI/hangar/briefing background.
+5. Explosion/smoke/lightning VFX sprite sheets.
+6. Manual edge cleanup untuk semua sprite supaya tidak ada green/white fringe.
+7. Sprite atlas agar Web build lebih efisien.

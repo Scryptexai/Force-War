@@ -14,7 +14,7 @@ const CONVOY_RADIUS = 25.0
 const ROAD_WIDTH = 156.0
 const MAX_STAGE = 6
 
-enum GameState { TITLE, BRIEFING, PLAYING, STAGE_CLEAR, GAME_OVER, PAUSED }
+enum GameState { TITLE, BRIEFING, GROUND, PLAYING, STAGE_CLEAR, GAME_OVER, PAUSED }
 
 var rng = RandomNumberGenerator.new()
 var font: Font
@@ -89,6 +89,27 @@ var pointer_target = Vector2.ZERO
 var touch_active = false
 var js_timer = 0.0
 
+# 3D ground-chase prologue state. These are real GLB scene instances rendered
+# by a perspective Camera3D, not static photos and not top-down.
+var ground_root: Node3D
+var ground_camera: Camera3D
+var ground_player_node: Node3D
+var ground_jet_node: Node3D
+var ground_road_markers: Array = []
+var ground_enemies: Array = []
+var ground_bullets: Array = []
+var ground_enemy_bullets: Array = []
+var ground_time = 0.0
+var ground_distance = 0.0
+var ground_player_x = 0.0
+var ground_car_hp = 100
+var ground_car_max_hp = 100
+var ground_spawn_timer = 0.0
+var ground_shot_cd = 0.0
+var ground_jet_called = false
+var ground_jet_timer = 0.0
+var ground_transition_ready = false
+
 
 func _ready() -> void:
 	rng.randomize()
@@ -114,7 +135,9 @@ func _process(delta: float) -> void:
 	update_background(delta)
 	warning_timer = max(0.0, warning_timer - delta)
 	weather_flash = max(0.0, weather_flash - delta * 2.6)
-	if state == GameState.PLAYING:
+	if state == GameState.GROUND:
+		update_ground_chase(delta)
+	elif state == GameState.PLAYING:
 		update_playing(delta)
 	elif state == GameState.STAGE_CLEAR or state == GameState.GAME_OVER:
 		update_particles(delta)
@@ -140,7 +163,7 @@ func _input(event: InputEvent) -> void:
 		pointer_target = event.position
 
 	if event.is_action_pressed("pause"):
-		if state == GameState.PLAYING:
+		if state == GameState.PLAYING or state == GameState.GROUND:
 			previous_state = state
 			state = GameState.PAUSED
 			js_emit("pause", {})
@@ -150,7 +173,9 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
-		if state == GameState.PLAYING:
+		if state == GameState.GROUND:
+			handle_ground_key(event.keycode)
+		elif state == GameState.PLAYING:
 			handle_play_key(event.keycode)
 		elif state == GameState.BRIEFING:
 			handle_briefing_key(event.keycode)
@@ -179,10 +204,12 @@ func handle_accept() -> void:
 func handle_escape() -> void:
 	if state == GameState.TITLE:
 		return
-	if state == GameState.PLAYING:
+	if state == GameState.PLAYING or state == GameState.GROUND:
 		previous_state = state
 		state = GameState.PAUSED
 	elif state == GameState.PAUSED:
+		if previous_state == GameState.GROUND:
+			cleanup_ground_scene()
 		state = GameState.BRIEFING
 		js_emit("abort_mission", {})
 	else:
@@ -203,6 +230,14 @@ func handle_briefing_key(keycode: int) -> void:
 		start_stage(selected_stage)
 	elif keycode == KEY_ESCAPE:
 		state = GameState.TITLE
+
+
+func handle_ground_key(keycode: int) -> void:
+	if (keycode == KEY_ENTER or keycode == KEY_KP_ENTER or keycode == KEY_SPACE) and ground_transition_ready:
+		enter_air_phase()
+	elif keycode == KEY_ESCAPE:
+		previous_state = state
+		state = GameState.PAUSED
 
 
 func handle_play_key(keycode: int) -> void:
@@ -542,9 +577,8 @@ func start_stage(index: int) -> void:
 	for key in ["repair", "smoke", "supply", "radar", "rod"]:
 		support_counts[key] = int(support.get(key, 0))
 	spawn_weather_field()
-	state = GameState.PLAYING
-	show_warning("ESCORT START: protect the convoy, choose routes, manage weather.")
-	js_emit("stage_start", {"stage": stage_index + 1, "name": stage["name"], "loadout": loadout["name"], "weather": stage["weather"]})
+	start_ground_phase()
+	js_emit("stage_start", {"stage": stage_index + 1, "name": stage["name"], "loadout": loadout["name"], "weather": stage["weather"], "phase": "ground_chase"})
 
 
 func make_convoy_vehicle(kind: String, name: String, hp: int, y_offset: float, lane: float) -> Dictionary:
@@ -572,6 +606,302 @@ func spawn_weather_field() -> void:
 			"alpha": rng.randf_range(0.18, 0.42),
 			"phase": rng.randf_range(0.0, TAU)
 		})
+
+
+func start_ground_phase() -> void:
+	cleanup_ground_scene()
+	ground_time = 0.0
+	ground_distance = 0.0
+	ground_player_x = 0.0
+	ground_car_max_hp = 120 + stage_index * 12
+	ground_car_hp = ground_car_max_hp
+	ground_spawn_timer = 0.7
+	ground_shot_cd = 0.0
+	ground_jet_called = false
+	ground_jet_timer = 0.0
+	ground_transition_ready = false
+	ground_enemies.clear()
+	ground_bullets.clear()
+	ground_enemy_bullets.clear()
+	setup_ground_scene()
+	state = GameState.GROUND
+	show_warning("GROUND CHASE: drive, shoot, survive until jet link arrives.")
+	js_emit("ground_phase", {"stage": stage_index + 1, "mode": "third_person_car_chase"})
+
+
+func cleanup_ground_scene() -> void:
+	if ground_root != null and is_instance_valid(ground_root):
+		ground_root.queue_free()
+	ground_root = null
+	ground_camera = null
+	ground_player_node = null
+	ground_jet_node = null
+	ground_road_markers.clear()
+	ground_enemies.clear()
+	ground_bullets.clear()
+	ground_enemy_bullets.clear()
+
+
+func setup_ground_scene() -> void:
+	ground_root = Node3D.new()
+	ground_root.name = "GroundChase3D"
+	add_child(ground_root)
+
+	var light = DirectionalLight3D.new()
+	light.name = "StormSun"
+	light.light_energy = 2.2
+	light.rotation_degrees = Vector3(-58.0, -26.0, 0.0)
+	ground_root.add_child(light)
+
+	var ambient = WorldEnvironment.new()
+	var env = Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.035, 0.055, 0.075, 1.0)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.38, 0.47, 0.58, 1.0)
+	env.ambient_light_energy = 1.25
+	ambient.environment = env
+	ground_root.add_child(ambient)
+
+	ground_camera = Camera3D.new()
+	ground_camera.name = "GroundChaseCamera"
+	ground_camera.current = true
+	ground_camera.fov = 62.0
+	ground_root.add_child(ground_camera)
+
+	# Road and terrain are Godot mesh assets, not background photos.
+	var road = make_box_3d(Vector3(0, -0.04, -72), Vector3(9.5, 0.08, 220.0), Color(0.08, 0.085, 0.09, 1.0), "RoadMesh")
+	ground_root.add_child(road)
+	for side in [-1, 1]:
+		var shoulder = make_box_3d(Vector3(side * 6.4, -0.06, -72), Vector3(3.0, 0.08, 220.0), Color(0.11, 0.16, 0.10, 1.0), "WetShoulder")
+		ground_root.add_child(shoulder)
+	for i in range(22):
+		var marker = make_box_3d(Vector3(0, 0.025, -i * 9.5), Vector3(0.22, 0.035, 3.8), Color(1.0, 0.86, 0.3, 1.0), "LaneMarker")
+		ground_root.add_child(marker)
+		ground_road_markers.append(marker)
+	for i in range(18):
+		for side in [-1, 1]:
+			var rock = make_box_3d(Vector3(side * rng.randf_range(7.5, 11.0), 0.25, -i * 12.0 - rng.randf_range(0.0, 4.0)), Vector3(rng.randf_range(0.6, 1.7), rng.randf_range(0.35, 1.0), rng.randf_range(0.6, 1.8)), Color(0.12, 0.13, 0.12, 1.0), "RoadsideRock")
+			ground_root.add_child(rock)
+
+	ground_player_node = spawn_ground_model("res://assets/models/player_car.glb", Vector3(0.0, 0.08, 0.0), 0.0, "PlayerCar")
+	# A friendly convoy preview car runs ahead to sell the escort/chase camera before air mode starts.
+	spawn_ground_model("res://assets/models/convoy_car.glb", Vector3(-1.8, 0.08, -13.0), 0.0, "ConvoyLead")
+	update_ground_camera()
+
+
+func make_box_3d(pos: Vector3, size: Vector3, color: Color, node_name: String) -> MeshInstance3D:
+	var mesh = BoxMesh.new()
+	mesh.size = size
+	var material = StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.82
+	material.metallic = 0.05
+	mesh.material = material
+	var node = MeshInstance3D.new()
+	node.name = node_name
+	node.mesh = mesh
+	node.position = pos
+	return node
+
+
+func spawn_ground_model(path: String, pos: Vector3, yaw: float, node_name: String) -> Node3D:
+	var packed = load(path)
+	var node: Node3D
+	if packed != null and packed is PackedScene:
+		node = packed.instantiate()
+	else:
+		node = make_box_3d(Vector3.ZERO, Vector3(1.3, 0.55, 2.8), Color(0.2, 0.4, 0.8, 1.0), node_name)
+	node.name = node_name
+	node.position = pos
+	node.rotation.y = yaw
+	ground_root.add_child(node)
+	return node
+
+
+func update_ground_chase(delta: float) -> void:
+	ground_time += delta
+	ground_distance += delta * 36.0
+	ground_shot_cd = max(0.0, ground_shot_cd - delta)
+	var steer = Input.get_axis("move_left", "move_right")
+	if touch_active or pointer_active:
+		steer = clamp((pointer_target.x - W * 0.5) / (W * 0.35), -1.0, 1.0)
+	ground_player_x = clamp(ground_player_x + steer * 7.2 * delta, -3.4, 3.4)
+	if ground_player_node != null:
+		ground_player_node.position.x = ground_player_x
+		ground_player_node.rotation.z = lerp(ground_player_node.rotation.z, -steer * 0.08, min(1.0, delta * 8.0))
+		ground_player_node.rotation.y = lerp(ground_player_node.rotation.y, -steer * 0.05, min(1.0, delta * 5.0))
+
+	for marker in ground_road_markers:
+		marker.position.z += delta * 36.0
+		if marker.position.z > 8.0:
+			marker.position.z -= 210.0
+
+	if ground_shot_cd <= 0.0:
+		spawn_ground_bullet(Vector3(ground_player_x, 0.65, -1.8), -52.0, true)
+		ground_shot_cd = 0.16
+
+	ground_spawn_timer -= delta
+	if ground_spawn_timer <= 0.0 and not ground_jet_called:
+		spawn_ground_enemy()
+		ground_spawn_timer = rng.randf_range(1.0, 1.8) / max(0.8, stage_threat)
+
+	update_ground_enemies(delta)
+	update_ground_bullets(delta)
+	update_ground_camera()
+
+	if ground_time > 20.0 and not ground_jet_called:
+		call_support_jet()
+	if ground_jet_called:
+		update_support_jet(delta)
+	if ground_car_hp <= 0:
+		cleanup_ground_scene()
+		game_over("Ground vehicle destroyed")
+
+
+func update_ground_camera() -> void:
+	if ground_camera == null:
+		return
+	ground_camera.position = Vector3(ground_player_x * 0.45, 4.2, 9.8)
+	ground_camera.look_at(Vector3(ground_player_x * 0.25, 0.55, -17.0), Vector3.UP)
+
+
+func spawn_ground_enemy() -> void:
+	var x = rng.randf_range(-3.0, 3.0)
+	var z = rng.randf_range(-72.0, -58.0)
+	var node = spawn_ground_model("res://assets/models/enemy_car.glb", Vector3(x, 0.08, z), PI, "EnemyCar")
+	ground_enemies.append({"node": node, "x": x, "z": z, "hp": 80.0 + stage_index * 18.0, "shoot_cd": rng.randf_range(0.6, 1.5), "drift": rng.randf_range(-0.55, 0.55)})
+
+
+func spawn_ground_bullet(pos: Vector3, speed_z: float, friendly: bool) -> void:
+	var color = Color(0.35, 0.95, 1.0, 1.0) if friendly else Color(1.0, 0.2, 0.08, 1.0)
+	var node = make_box_3d(pos, Vector3(0.12, 0.12, 0.55), color, "GroundBullet")
+	ground_root.add_child(node)
+	var item = {"node": node, "z_speed": speed_z, "friendly": friendly, "life": 2.2}
+	if friendly:
+		ground_bullets.append(item)
+	else:
+		ground_enemy_bullets.append(item)
+
+
+func update_ground_enemies(delta: float) -> void:
+	for e in ground_enemies:
+		e["z"] = float(e["z"]) + delta * (14.0 + stage_index * 1.2)
+		e["x"] = clamp(float(e["x"]) + float(e["drift"]) * delta, -3.5, 3.5)
+		e["shoot_cd"] = float(e["shoot_cd"]) - delta
+		var node: Node3D = e["node"]
+		if node != null and is_instance_valid(node):
+			node.position = Vector3(float(e["x"]), 0.08, float(e["z"]))
+		if float(e["shoot_cd"]) <= 0.0 and float(e["z"]) < -8.0:
+			spawn_ground_bullet(Vector3(float(e["x"]), 0.62, float(e["z"]) + 1.7), 36.0, false)
+			e["shoot_cd"] = rng.randf_range(1.0, 1.8)
+	for i in range(ground_enemies.size() - 1, -1, -1):
+		var e = ground_enemies[i]
+		if float(e["z"]) > 3.0:
+			if abs(float(e["x"]) - ground_player_x) < 1.1:
+				damage_ground_car(22)
+			remove_ground_enemy(i)
+
+
+func update_ground_bullets(delta: float) -> void:
+	for b in ground_bullets:
+		b["life"] = float(b["life"]) - delta
+		var node: Node3D = b["node"]
+		if node != null and is_instance_valid(node):
+			node.position.z += float(b["z_speed"]) * delta
+	for b in ground_enemy_bullets:
+		b["life"] = float(b["life"]) - delta
+		var node: Node3D = b["node"]
+		if node != null and is_instance_valid(node):
+			node.position.z += float(b["z_speed"]) * delta
+	# Friendly bullet vs enemy cars.
+	for bi in range(ground_bullets.size() - 1, -1, -1):
+		var b = ground_bullets[bi]
+		var bnode: Node3D = b["node"]
+		if bnode == null or not is_instance_valid(bnode) or float(b["life"]) <= 0.0 or bnode.position.z < -86.0:
+			remove_ground_bullet(ground_bullets, bi)
+			continue
+		for ei in range(ground_enemies.size() - 1, -1, -1):
+			var e = ground_enemies[ei]
+			if abs(float(e["x"]) - bnode.position.x) < 0.75 and abs(float(e["z"]) - bnode.position.z) < 1.25:
+				e["hp"] = float(e["hp"]) - 34.0
+				remove_ground_bullet(ground_bullets, bi)
+				if float(e["hp"]) <= 0.0:
+					stage_score += 160
+					stage_stars += 1
+					spawn_particles(Vector2(W * 0.5 + float(e["x"]) * 60.0, H * 0.55), Color(1.0, 0.35, 0.12, 1.0), 20, 180.0)
+					remove_ground_enemy(ei)
+				break
+	# Enemy bullets vs player car.
+	for bi in range(ground_enemy_bullets.size() - 1, -1, -1):
+		var b = ground_enemy_bullets[bi]
+		var bnode: Node3D = b["node"]
+		if bnode == null or not is_instance_valid(bnode) or float(b["life"]) <= 0.0 or bnode.position.z > 8.0:
+			remove_ground_bullet(ground_enemy_bullets, bi)
+			continue
+		if bnode.position.z > -0.8 and abs(bnode.position.x - ground_player_x) < 0.7:
+			damage_ground_car(10)
+			remove_ground_bullet(ground_enemy_bullets, bi)
+
+
+func remove_ground_enemy(index: int) -> void:
+	if index < 0 or index >= ground_enemies.size():
+		return
+	var node: Node3D = ground_enemies[index].get("node")
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+	ground_enemies.remove_at(index)
+
+
+func remove_ground_bullet(list: Array, index: int) -> void:
+	if index < 0 or index >= list.size():
+		return
+	var node: Node3D = list[index].get("node")
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+	list.remove_at(index)
+
+
+func damage_ground_car(amount: int) -> void:
+	ground_car_hp = max(0, ground_car_hp - amount)
+	weather_flash = max(weather_flash, 0.25)
+	show_warning("CAR HIT — keep the chase alive until air support arrives")
+
+
+func call_support_jet() -> void:
+	ground_jet_called = true
+	ground_jet_timer = 0.0
+	ground_jet_node = spawn_ground_model("res://assets/models/support_jet.glb", Vector3(0.0, 7.2, 16.0), 0.0, "SupportJet")
+	show_warning("JET SUPPORT INBOUND — prepare direct switch to aircraft")
+	js_emit("support_jet_inbound", {"stage": stage_index + 1})
+
+
+func update_support_jet(delta: float) -> void:
+	ground_jet_timer += delta
+	if ground_jet_node != null and is_instance_valid(ground_jet_node):
+		var t = clamp(ground_jet_timer / 4.0, 0.0, 1.0)
+		ground_jet_node.position = Vector3(sin(time * 1.8) * 0.7, lerp(7.2, 2.8, t), lerp(16.0, -18.0, t))
+		ground_jet_node.rotation.z = sin(time * 3.0) * 0.08
+	if ground_jet_timer > 2.2 and not ground_transition_ready:
+		ground_transition_ready = true
+		show_warning("JET LINK READY — press SPACE/ENTER to switch into Sky Force mode")
+		js_emit("air_switch_ready", {})
+	if ground_jet_timer > 8.0:
+		enter_air_phase()
+
+
+func enter_air_phase() -> void:
+	if state != GameState.GROUND:
+		return
+	stage_score += 600 + int(ground_car_hp * 4)
+	stage_stars += 8 + int(ground_car_hp / 25)
+	cleanup_ground_scene()
+	reset_player()
+	player["max_hp"] = int(float(player["max_hp"]) * float(loadout.get("armor", 1.0)))
+	player["hp"] = player["max_hp"]
+	state = GameState.PLAYING
+	show_warning("AIRCRAFT SWITCH COMPLETE: Sky Force escort mode engaged")
+	js_emit("air_phase_start", {"score": stage_score, "stars": stage_stars})
 
 
 func update_playing(delta: float) -> void:
@@ -1457,6 +1787,8 @@ func state_name() -> String:
 			return "title"
 		GameState.BRIEFING:
 			return "briefing"
+		GameState.GROUND:
+			return "ground_chase"
 		GameState.PLAYING:
 			return "playing"
 		GameState.STAGE_CLEAR:
@@ -1469,6 +1801,13 @@ func state_name() -> String:
 
 
 func _draw() -> void:
+	if state == GameState.GROUND:
+		draw_ground_overlay()
+		return
+	if state == GameState.PAUSED and previous_state == GameState.GROUND:
+		draw_ground_overlay()
+		draw_pause_overlay()
+		return
 	draw_background()
 	match state:
 		GameState.TITLE:
@@ -1766,6 +2105,33 @@ func draw_briefing() -> void:
 
 func current_stage_weather_value(st: Dictionary, key: String) -> float:
 	return float(st["weather"].get(key, 0.0))
+
+
+func draw_ground_overlay() -> void:
+	# HUD overlay for the perspective 3D car phase. The rendered scene underneath is
+	# composed of imported GLB cars/jet and procedural Godot meshes.
+	draw_rect(Rect2(0, 0, W, 96), Color(0.0, 0.0, 0.0, 0.56))
+	draw_rect(Rect2(0, H - 92, W, 92), Color(0.0, 0.0, 0.0, 0.48))
+	draw_text("GROUND CHASE", 18, 30, 18, Color(0.92, 0.98, 1.0, 1.0))
+	draw_text("3D GLB car combat — top-down begins only after aircraft switch", 18, 60, 14, Color(0.62, 0.82, 1.0, 0.92))
+	var car_ratio = float(ground_car_hp) / max(1.0, float(ground_car_max_hp))
+	draw_text("CAR ARMOR", 360, 30, 14, Color(0.86, 0.96, 1.0, 0.9))
+	draw_bar(Rect2(452, 18, 170, 13), car_ratio, Color(0.25, 0.9, 1.0, 1.0), Color(0.2, 0.02, 0.02, 0.75))
+	draw_text("CHASE", 360, 61, 14, Color(0.86, 0.96, 1.0, 0.9))
+	draw_bar(Rect2(452, 49, 170, 13), clamp(ground_time / 28.0, 0.0, 1.0), Color(1.0, 0.84, 0.25, 1.0), Color(1.0, 1.0, 1.0, 0.12))
+	draw_text("Enemy cars " + str(ground_enemies.size()) + "   Score " + str(stage_score), 660, 32, 14, Color(0.9, 0.96, 1.0, 0.88))
+	draw_text("A/D or arrows steer · auto-cannons fire forward", 28, H - 52, 17, Color(0.9, 0.98, 1.0, 0.96))
+	if ground_transition_ready:
+		draw_rect(Rect2(W * 0.5 - 250, H * 0.5 - 60, 500, 118), Color(0.02, 0.08, 0.12, 0.76))
+		draw_text_center("JET LINK READY", H * 0.5 - 14, 30, Color(0.45, 0.95, 1.0, 1.0))
+		draw_text_center("Press SPACE / ENTER to switch directly into aircraft mode", H * 0.5 + 24, 16, Color(0.95, 0.98, 1.0, 0.96))
+	elif ground_jet_called:
+		draw_text_center("Support jet is attacking the road — hold formation", H - 50, 18, Color(1.0, 0.75, 0.35, 1.0))
+	else:
+		draw_text_center("Chase and destroy hostile cars until air support arrives", H - 50, 18, Color(0.72, 0.9, 1.0, 0.95))
+	if warning_timer > 0.0:
+		draw_rect(Rect2(W * 0.5 - 310, 106, 620, 34), Color(0.0, 0.0, 0.0, 0.54))
+		draw_text_center(warning_text, 130, 14, Color(1.0, 0.9, 0.35, 1.0))
 
 
 func draw_hud() -> void:

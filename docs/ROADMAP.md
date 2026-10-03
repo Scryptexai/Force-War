@@ -14,14 +14,14 @@ Estimasi kasar status produksi:
 | Area | Status |
 | --- | --- |
 | Build/Web pipeline | 80% |
-| Core escort mechanics | 45% |
+| Core escort mechanics | 48% — sudah mencakup slice awal transisi 3D car-chase-to-air |
 | Weather gameplay | 35% |
 | Route branching | 30% |
 | Enemy variety logic | 35% |
-| Visual production quality | 35% setelah PNG pass kedua |
+| Visual production quality | 40% setelah PNG pass kedua + low-poly GLB ground vehicles |
 | Campaign/content polish | 15% |
 | Audio/VFX/juice | 5% |
-| Overall menuju full version | ±32% |
+| Overall menuju full version | ±35% |
 
 ## Pilar Desain
 
@@ -44,6 +44,9 @@ Estimasi kasar status produksi:
 5. **Original dan beda dari shooter pasaran**  
    Visual, nama unit, objective, dan sistem rute/cuaca dibuat original untuk Force War, tidak menyalin aset atau struktur level game komersial.
 
+6. **Ground-to-air flow**
+   Stage dimulai dari chase/shootout mobil 3D dengan kamera perspektif rendah/angled. Pemain mengejar dan menembak mobil musuh sampai jet support datang; baru setelah transisi itu mode top-down aircraft/Sky Force dimulai.
+
 ## Milestone Produksi
 
 ### M0 — Engine dan Build Pipeline
@@ -65,6 +68,18 @@ Estimasi kasar status produksi:
 - [ ] Rework formasi konvoi supaya terasa natural dan tidak hanya mengikuti titik linear.
 - [ ] Tambah AI prioritas target musuh yang lebih jelas.
 - [ ] Tambah convoy behavior: panic, stop, accelerate, damaged movement, turret animation.
+
+### M1.5 — 3D Ground Chase Prologue
+
+- [x] Generate low-poly GLB `player_car`, `enemy_car`, `convoy_car`, dan `support_jet`.
+- [x] Integrasi opening ground chase dengan `Node3D`, `Camera3D` perspektif angled, road mesh, lane markers, roadside props.
+- [x] Mobil player dapat steer kiri/kanan dan auto-shoot enemy cars.
+- [x] Enemy car GLB spawn di depan, menembak balik, dan bisa merusak mobil player.
+- [x] Jet support GLB masuk/menyerang dan membuka prompt switch ke aircraft.
+- [x] Transisi langsung dari ground chase ke mode top-down aircraft escort.
+- [ ] Tambah physics/collision 3D yang lebih solid; saat ini collision masih logical AABB ringan.
+- [ ] Tambah camera shake, road curvature, enemy chase AI, dan VFX jet attack yang lebih kuat.
+- [ ] Integrasikan convoy choices/route branch ke prologue ground secara visual.
 
 ### M2 — Branching Route System
 
@@ -142,5 +157,7 @@ Estimasi kasar status produksi:
 - Minimal 8 enemy archetype dengan sprite PNG unik dan behavior berbeda.
 - Minimal 5 support/loadout tools dengan VFX/sprite unik.
 - Minimal 3 biome background final dan 3 derivative stage variants.
+- Opening stage menampilkan 3D ground car chase memakai GLB/Godot mesh dan kamera perspektif non-top-down.
+- Transisi ground-to-air terjadi setelah jet support masuk; top-down hanya untuk aircraft phase.
 - Web export menghasilkan `index.html`, `index.js`, `index.wasm`, `index.pck` di root repo.
 - Browser menjalankan game dengan server dari root repo dan header `.wasm` benar.
