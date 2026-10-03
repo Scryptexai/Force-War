@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<title>Stormhawk player aircraft</title>
+<defs>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="2.5" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#effbff"/><stop offset="0.45" stop-color="#5bc4ff"/><stop offset="1" stop-color="#18305a"/>
+  </linearGradient>
+  <linearGradient id="enemy" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffb66a"/><stop offset="1" stop-color="#8f1d2d"/>
+  </linearGradient>
+  <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#bbcf91"/><stop offset="1" stop-color="#324620"/>
+  </linearGradient>
+</defs>
+
+<path d="M64 7 L84 71 L119 93 L78 97 L64 121 L50 97 L9 93 L44 71 Z" fill="#123d7a" opacity="0.95"/>
+<path d="M64 16 L76 76 L91 92 L69 88 L64 110 L59 88 L37 92 L52 76 Z" fill="url(#steel)"/>
+<path d="M64 31 L72 70 L64 84 L56 70 Z" fill="#e9fbff" opacity="0.96"/>
+<circle cx="64" cy="72" r="6" fill="#ffd84d" filter="url(#glow)"/>
+<path d="M52 96 L64 121 L76 96" fill="#ff7b25" opacity="0.86"/>
+
+</svg>

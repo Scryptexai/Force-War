@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<title>Enemy SAM launcher</title>
+<defs>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="2.5" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#effbff"/><stop offset="0.45" stop-color="#5bc4ff"/><stop offset="1" stop-color="#18305a"/>
+  </linearGradient>
+  <linearGradient id="enemy" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffb66a"/><stop offset="1" stop-color="#8f1d2d"/>
+  </linearGradient>
+  <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#bbcf91"/><stop offset="1" stop-color="#324620"/>
+  </linearGradient>
+</defs>
+
+<rect x="18" y="72" width="92" height="28" rx="9" fill="#293820"/>
+<circle cx="42" cy="102" r="10" fill="#111"/><circle cx="86" cy="102" r="10" fill="#111"/>
+<path d="M38 69 L77 23 L89 32 L50 78 Z" fill="#809353"/>
+<path d="M71 22 L105 14 L92 44 Z" fill="#ff7043"/>
+<path d="M33 61 L68 15" stroke="#dff5a5" stroke-width="5"/>
+
+</svg>
