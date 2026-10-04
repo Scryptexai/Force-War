@@ -34,6 +34,10 @@ Sudah dibuat:
   - local save/localStorage
   - mobile loading page dengan slideshow background dan logo wordmark
   - custom Web boot splash/icon supaya browser tidak menampilkan logo Godot default
+  - 9:16 mobile portrait canvas (`720x1280`) untuk Web/mobile QA
+  - aircraft arena scroll/loop vertical dengan cloud/ground parallax, bukan foto statis
+  - enemy bullets aim saat ditembakkan saja; tidak terus mengejar pemain
+  - convoy di aircraft phase diganti menjadi ground-link/HUD signal agar mobil tidak terlihat terbang
 - Godot Web preset: `export_presets.cfg`
 - Build script Godot 4.6.2: `tools/export_web.sh`
 - Root Node web server untuk Vercel/local: `server.js` + `npm start`

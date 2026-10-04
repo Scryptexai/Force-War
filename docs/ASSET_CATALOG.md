@@ -89,11 +89,17 @@ Pass terbaru menambahkan asset untuk mobile loading/brand splash:
 - `assets/rendered/loading_thunder_hangar.png` — key art hangar pesawat/mobil sebelum operasi.
 - `assets/rendered/loading_black_delta.png` — key art delta banjir, drone, dan jet escort.
 - `assets/rendered/logo_force_war_wordmark.png` — logo/wordmark Force War: Storm Convoy.
-- `assets/rendered/web_boot_splash_force_war.png` — boot splash Web/Godot runtime agar tidak tampil logo default Godot.
+- `assets/rendered/web_boot_splash_force_war.png` — boot splash Web/Godot runtime 720x1280 (9:16) agar tidak tampil logo default Godot.
 - `assets/rendered/app_icon_force_war.png` — app/favicon source untuk export Web.
 - `index.png`, `index.icon.png`, `index.apple-touch-icon.png` — hasil export root yang sekarang memakai branding Force War, bukan logo Godot default.
 
-Asset ini dipakai oleh `GameState.LOADING` sebagai slideshow, loading bar, tips, dan branding sebelum masuk title screen.
+Asset ini dipakai oleh `GameState.LOADING` sebagai slideshow, loading bar, tips, dan branding sebelum masuk title screen. Root `index.png` juga 720x1280 agar splash Web sesuai rasio 9:16.
+
+## Current Aircraft Arena Visual Rules
+
+- Painted stage backgrounds (`background_monsoon_pass.png`, `background_thunder_ridge.png`, `background_black_delta.png`) sekarang dipakai sebagai layer loop-scrolling vertikal selama aircraft phase, bukan satu foto statis.
+- Weather cloud blobs bergerak/parallax mengikuti arena agar jalur terasa berjalan ke bawah layar.
+- Mobil/konvoi tidak digambar di arena aircraft; status konvoi tampil sebagai HUD/ground-link signal supaya tidak tampak seperti mobil terbang.
 
 ## UI/UX dan Progression Screens
 

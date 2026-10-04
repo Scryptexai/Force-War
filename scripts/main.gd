@@ -6,7 +6,7 @@ extends Node2D
 # every enemy on screen.
 
 const W = 720.0
-const H = 960.0
+const H = 1280.0
 const SAVE_PATH = "user://force_war_storm_convoy_save.json"
 const SAVE_KEY = "force-war-storm-convoy-v2"
 const PLAYER_RADIUS = 19.0
@@ -874,16 +874,40 @@ func handle_hangar_key(keycode: int) -> void:
 		state = GameState.BRIEFING
 
 
+func title_start_rect() -> Rect2:
+	return Rect2(W * 0.5 - 170.0, H - 232.0, 340.0, 58.0)
+
+
+func title_hangar_rect() -> Rect2:
+	return Rect2(W * 0.5 - 170.0, H - 158.0, 340.0, 58.0)
+
+
+func briefing_launch_rect() -> Rect2:
+	return Rect2(48.0, H - 128.0, 170.0, 58.0)
+
+
+func briefing_hangar_rect() -> Rect2:
+	return Rect2(W - 218.0, H - 128.0, 170.0, 58.0)
+
+
+func hangar_back_rect() -> Rect2:
+	return Rect2(74.0, H - 154.0, 170.0, 58.0)
+
+
+func hangar_action_rect() -> Rect2:
+	return Rect2(W - 244.0, H - 154.0, 170.0, 58.0)
+
+
 func handle_menu_tap(pos: Vector2) -> void:
 	if state == GameState.TITLE:
-		if Rect2(W * 0.5 - 170.0, 748.0, 340.0, 54.0).has_point(pos):
+		if title_start_rect().has_point(pos):
 			state = GameState.BRIEFING
-		elif Rect2(W * 0.5 - 170.0, 816.0, 340.0, 54.0).has_point(pos):
+		elif title_hangar_rect().has_point(pos):
 			state = GameState.HANGAR
 	elif state == GameState.BRIEFING:
-		if Rect2(W - 218.0, 830.0, 170.0, 54.0).has_point(pos):
+		if briefing_hangar_rect().has_point(pos):
 			state = GameState.HANGAR
-		elif Rect2(48.0, 830.0, 170.0, 54.0).has_point(pos):
+		elif briefing_launch_rect().has_point(pos):
 			start_stage(selected_stage)
 	elif state == GameState.HANGAR:
 		if Rect2(54.0, 116.0, 280.0, 54.0).has_point(pos):
@@ -896,9 +920,9 @@ func handle_menu_tap(pos: Vector2) -> void:
 			change_hangar_selection(-1)
 		elif Rect2(W - 142.0, 520.0, 88.0, 54.0).has_point(pos):
 			change_hangar_selection(1)
-		elif Rect2(74.0, 810.0, 170.0, 58.0).has_point(pos):
+		elif hangar_back_rect().has_point(pos):
 			state = GameState.BRIEFING
-		elif Rect2(W - 244.0, 810.0, 170.0, 58.0).has_point(pos):
+		elif hangar_action_rect().has_point(pos):
 			purchase_or_upgrade_selected()
 		else:
 			var keys = current_upgrade_keys()
@@ -920,7 +944,8 @@ func init_background() -> void:
 
 
 func update_background(delta: float) -> void:
-	var fast = 1.0 if state == GameState.PLAYING else 0.24
+	var scrolling_state = state == GameState.PLAYING or state == GameState.STAGE_CLEAR or state == GameState.GAME_OVER
+	var fast = 1.0 if scrolling_state else 0.24
 	for s in bg_stars:
 		var pos = s["pos"]
 		pos.y += float(s["speed"]) * fast * delta
@@ -928,6 +953,16 @@ func update_background(delta: float) -> void:
 			pos.y = -8.0
 			pos.x = rng.randf_range(0.0, W)
 		s["pos"] = pos
+	if scrolling_state:
+		for c in clouds:
+			var pos = Vector2(c.get("pos", Vector2.ZERO))
+			var r = float(c.get("radius", 100.0))
+			pos.y += (float(c.get("speed", 32.0)) + route_speed * 2.6) * delta
+			pos.x += sin(time * 0.8 + float(c.get("phase", 0.0))) * 8.0 * delta
+			if pos.y > H + r + 40.0:
+				pos.y = -r - rng.randf_range(20.0, 160.0)
+				pos.x = rng.randf_range(70.0, W - 70.0)
+			c["pos"] = pos
 
 
 func reset_player() -> void:
@@ -1891,14 +1926,14 @@ func update_enemies(delta: float) -> void:
 func shoot_at_player(origin: Vector2, speed: float, damage: float, color: Color = Color(1.0, 0.35, 0.22, 1.0), guided: bool = false) -> void:
 	var dir = (player["pos"] - origin).normalized()
 	spawn_muzzle_flash_2d(origin, dir, false, 1.0 if not guided else 1.25)
-	enemy_bullets.append({"pos": origin, "vel": dir * speed, "damage": damage, "radius": 6.0, "target": "player", "color": color, "life": 5.0, "guided": guided})
+	enemy_bullets.append({"pos": origin, "vel": dir * speed, "damage": damage, "radius": 6.0, "target": "player", "color": color, "life": 5.0, "guided": false})
 
 
 func shoot_at_convoy(origin: Vector2, speed: float, damage: float, color: Color = Color(1.0, 0.65, 0.25, 1.0), guided: bool = false) -> void:
 	var target = convoy_center()
 	var dir = (target - origin).normalized()
 	spawn_muzzle_flash_2d(origin, dir, false, 1.05 if not guided else 1.25)
-	enemy_bullets.append({"pos": origin, "vel": dir * speed, "damage": damage, "radius": 7.0, "target": "convoy", "color": color, "life": 5.0, "guided": guided})
+	enemy_bullets.append({"pos": origin, "vel": dir * speed, "damage": damage, "radius": 7.0, "target": "convoy", "color": color, "life": 5.0, "guided": false})
 
 
 func shoot_spread_at_convoy(origin: Vector2, count: int, spread: float, speed: float, damage: float) -> void:
@@ -1960,12 +1995,9 @@ func update_bullets(delta: float) -> void:
 func update_enemy_bullets(delta: float) -> void:
 	var wind = current_wind()
 	for b in enemy_bullets:
-		if bool(b.get("guided", false)):
-			var target = player["pos"] if str(b.get("target", "")) == "player" else convoy_center()
-			var desired = (target - b["pos"]).normalized() * max(220.0, b["vel"].length())
-			b["vel"] = b["vel"].lerp(desired, min(1.0, delta * 1.7))
-		else:
-			b["vel"].x += wind * 72.0 * delta
+		# Enemy bullets aim only when fired. They must not keep homing onto the player,
+		# otherwise mobile dodge flow feels unfair and visually looks like shots are glued to the aircraft.
+		b["vel"].x += wind * (42.0 if bool(b.get("guided", false)) else 72.0) * delta
 		b["pos"] = b["pos"] + b["vel"] * delta
 		b["life"] = float(b.get("life", 5.0)) - delta
 	for i in range(enemy_bullets.size() - 1, -1, -1):
@@ -2574,8 +2606,14 @@ func draw_background() -> void:
 		draw_rect(Rect2(0, H * t, W, H / 23.0 + 2), top.lerp(bottom, t))
 	var bg_key = stage_background_key()
 	if textures.has(bg_key):
-		# Painted stage background is intentionally drawn under the tactical road/weather layers.
-		draw_texture_rect(textures[bg_key], Rect2(0.0, 0.0, W, H), false, Color(1.0, 1.0, 1.0, 0.82))
+		# During the aircraft arena, the stage art is loop-scrolled like a Sky Force-style flight path,
+		# not held as a static photo.
+		if state == GameState.PLAYING or state == GameState.PAUSED or state == GameState.STAGE_CLEAR or state == GameState.GAME_OVER:
+			var scroll = fmod(route_progress * 3.2 + time * 42.0, H)
+			draw_texture_cover(bg_key, Rect2(0.0, scroll - H, W, H), 0.72)
+			draw_texture_cover(bg_key, Rect2(0.0, scroll, W, H), 0.72)
+		else:
+			draw_texture_cover(bg_key, Rect2(0.0, 0.0, W, H), 0.82)
 		draw_rect(Rect2(0.0, 0.0, W, H), Color(0.0, 0.02, 0.05, 0.18))
 	for s in bg_stars:
 		var pulse = 0.55 + sin(time * 2.0 + float(s["phase"])) * 0.2
@@ -2651,8 +2689,7 @@ func draw_game_world() -> void:
 		draw_effect(e)
 	for p in pickups:
 		draw_pickup(p)
-	for v in convoy:
-		draw_convoy_vehicle(v)
+	draw_convoy_signal_path()
 	for e in enemies:
 		draw_enemy(e)
 	for b in bullets:
@@ -2724,6 +2761,20 @@ func draw_player() -> void:
 			draw_line(pos + Vector2(cos(a), sin(a)) * 28.0, pos + Vector2(cos(a + 0.55), sin(a + 0.55)) * 55.0, Color(0.55, 0.92, 1.0, 0.38), 2.0)
 	var flame = 16.0 + sin(time * 32.0) * 7.0
 	draw_colored_polygon(PackedVector2Array([pos + Vector2(-8, 28), pos + Vector2(0, 28 + flame), pos + Vector2(8, 28)]), Color(1.0, 0.45, 0.08, 0.82))
+
+
+func draw_convoy_signal_path() -> void:
+	# Aircraft phase represents the convoy as a protected ground-link signal only.
+	# No cars are drawn in the sky/space arena.
+	var ratio = float(convoy_total_hp()) / max(1.0, float(convoy_max_hp()))
+	var y = H - 118.0
+	var x = route_x_for_y(y)
+	var col = Color(0.35, 1.0, 0.58, 0.42) if ratio > 0.45 else Color(1.0, 0.55, 0.25, 0.46)
+	draw_arc(Vector2(x, y), 52.0 + sin(time * 2.8) * 4.0, 0.0, TAU, 56, col, 2.0)
+	draw_arc(Vector2(x, y), 88.0 + sin(time * 2.1) * 5.0, -time * 0.8, TAU - time * 0.8, 64, Color(col.r, col.g, col.b, col.a * 0.55), 1.5)
+	draw_line(Vector2(x - 34.0, y), Vector2(x + 34.0, y), col, 2.0)
+	draw_line(Vector2(x, y - 34.0), Vector2(x, y + 34.0), col, 2.0)
+	draw_text_centered_at("GROUND CONVOY LINK", Vector2(x, y + 70.0), 12, Color(0.78, 0.95, 0.86, 0.56))
 
 
 func draw_convoy_vehicle(v: Dictionary) -> void:
@@ -2922,22 +2973,24 @@ func draw_loading() -> void:
 
 func draw_title() -> void:
 	draw_rect(Rect2(0, 0, W, H), Color(0, 0, 0, 0.24))
-	var y = 170.0 + sin(time * 1.5) * 8.0
+	var y = 168.0 + sin(time * 1.5) * 8.0
 	draw_sprite("player", Vector2(W * 0.5, y), Vector2(112.0, 112.0), 0, Color(1, 1, 1, 0.78))
-	draw_sprite("logo_wordmark", Vector2(W * 0.5, 306.0), Vector2(570.0, 293.0), 0, Color.WHITE)
-	draw_text_center("Escort shooter taktis: proteksi konvoi, pilih jalur, manfaatkan badai.", 435.0, 20, Color(0.86, 0.94, 1.0, 0.9))
-	draw_panel(Rect2(74, 512, W - 148, 214), "CORE LOOP")
-	draw_text("• Konvoi punya HP per kendaraan dan bisa hancur sebelum pemain mati.", 105, 575, 18, Color(1,1,1,0.9))
-	draw_text("• Route bercabang: aman/lambat, cepat/berbahaya, atau jalur badai reward tinggi.", 105, 607, 18, Color(1,1,1,0.9))
-	draw_text("• Cuaca mengubah peluru, visibility, petir, dan flood road.", 105, 639, 18, Color(1,1,1,0.9))
-	draw_text("• Drop repair, smoke, supply, radar, lightning rod sesuai forecast.", 105, 671, 18, Color(1,1,1,0.9))
-	draw_rect(Rect2(W * 0.5 - 170.0, 748.0, 340.0, 54.0), Color(0.18, 0.55, 0.75, 0.82))
-	draw_rect(Rect2(W * 0.5 - 170.0, 748.0, 340.0, 54.0), Color(0.7, 0.95, 1.0, 0.35), false, 2.0)
-	draw_text_center("START MISSION", 783 + sin(time * 4) * 3, 25, Color(1,1,1,0.96))
-	draw_rect(Rect2(W * 0.5 - 170.0, 816.0, 340.0, 54.0), Color(0.10, 0.18, 0.28, 0.88))
-	draw_rect(Rect2(W * 0.5 - 170.0, 816.0, 340.0, 54.0), Color(1.0, 0.86, 0.28, 0.35), false, 2.0)
-	draw_text_center("HANGAR / GARAGE", 850, 24, Color(1.0,0.9,0.35,0.96))
-	draw_text_center("Tap buttons • H: upgrade vehicles • ENTER/SPACE: briefing", 912, 15, Color(0.65,0.75,0.86,0.78))
+	draw_sprite("logo_wordmark", Vector2(W * 0.5, 332.0), Vector2(590.0, 303.0), 0, Color.WHITE)
+	draw_text_center("Escort shooter taktis: proteksi konvoi, pilih jalur, manfaatkan badai.", 514.0, 20, Color(0.86, 0.94, 1.0, 0.9))
+	draw_panel(Rect2(74, 590, W - 148, 214), "CORE LOOP")
+	draw_text("• Konvoi dilindungi dari udara; link HP tampil di HUD, bukan mobil terbang.", 105, 653, 18, Color(1,1,1,0.9))
+	draw_text("• Route bercabang: aman/lambat, cepat/berbahaya, atau jalur badai reward tinggi.", 105, 685, 18, Color(1,1,1,0.9))
+	draw_text("• Cuaca mengubah peluru, visibility, petir, dan flood road.", 105, 717, 18, Color(1,1,1,0.9))
+	draw_text("• Drop repair, smoke, supply, radar, lightning rod sesuai forecast.", 105, 749, 18, Color(1,1,1,0.9))
+	var start_rect = title_start_rect()
+	var hangar_rect = title_hangar_rect()
+	draw_rect(start_rect, Color(0.18, 0.55, 0.75, 0.82))
+	draw_rect(start_rect, Color(0.7, 0.95, 1.0, 0.35), false, 2.0)
+	draw_text_centered_at("START MISSION", start_rect.get_center() + Vector2(0, 9 + sin(time * 4) * 3), 25, Color(1,1,1,0.96))
+	draw_rect(hangar_rect, Color(0.10, 0.18, 0.28, 0.88))
+	draw_rect(hangar_rect, Color(1.0, 0.86, 0.28, 0.35), false, 2.0)
+	draw_text_centered_at("HANGAR / GARAGE", hangar_rect.get_center() + Vector2(0, 8), 24, Color(1.0,0.9,0.35,0.96))
+	draw_text_center("Tap buttons • H: upgrade vehicles • ENTER/SPACE: briefing", H - 42.0, 15, Color(0.65,0.75,0.86,0.78))
 
 
 func draw_briefing() -> void:
@@ -2973,13 +3026,15 @@ func draw_briefing() -> void:
 		var x = 110.0 + i * 125.0
 		draw_sprite(key, Vector2(x, 758), Vector2(38, 38), 0, Color.WHITE)
 		draw_text_centered_at(key.capitalize() + " x" + str(int(support.get(key, 0))), Vector2(x, 792), 14, Color(1,1,1,0.9))
-	draw_rect(Rect2(48.0, 830.0, 170.0, 54.0), Color(0.18, 0.55, 0.75, 0.82))
-	draw_rect(Rect2(48.0, 830.0, 170.0, 54.0), Color(0.7, 0.95, 1.0, 0.34), false, 2.0)
-	draw_text("LAUNCH", 92, 864, 20, Color(1,1,1,0.96))
-	draw_rect(Rect2(W - 218.0, 830.0, 170.0, 54.0), Color(0.10, 0.18, 0.28, 0.88))
-	draw_rect(Rect2(W - 218.0, 830.0, 170.0, 54.0), Color(1.0, 0.86, 0.28, 0.34), false, 2.0)
-	draw_text("HANGAR", W - 184, 864, 20, Color(1.0,0.9,0.35,0.96))
-	draw_text_center("Active: " + str(active_aircraft().get("name", "Stormhawk")) + " + " + str(active_car().get("name", "Warden Rover")) + "  • ENTER launch • H upgrade", 912, 16, Color(1,1,1,0.86))
+	var launch_rect = briefing_launch_rect()
+	var hangar_rect = briefing_hangar_rect()
+	draw_rect(launch_rect, Color(0.18, 0.55, 0.75, 0.82))
+	draw_rect(launch_rect, Color(0.7, 0.95, 1.0, 0.34), false, 2.0)
+	draw_text_centered_at("LAUNCH", launch_rect.get_center() + Vector2(0, 8), 20, Color(1,1,1,0.96))
+	draw_rect(hangar_rect, Color(0.10, 0.18, 0.28, 0.88))
+	draw_rect(hangar_rect, Color(1.0, 0.86, 0.28, 0.34), false, 2.0)
+	draw_text_centered_at("HANGAR", hangar_rect.get_center() + Vector2(0, 8), 20, Color(1.0,0.9,0.35,0.96))
+	draw_text_center("Active: " + str(active_aircraft().get("name", "Stormhawk")) + " + " + str(active_car().get("name", "Warden Rover")) + "  • ENTER launch • H upgrade", H - 42.0, 16, Color(1,1,1,0.86))
 
 
 func draw_hangar_vehicle_preview(center: Vector2, tab: int, color: Color) -> void:
@@ -3070,14 +3125,14 @@ func draw_hangar() -> void:
 		var cost_text = "MAX" if lvl >= 5 else "★" + str(upgrade_cost(selected_hangar_tab, index, ukey))
 		draw_text("Lv " + str(lvl) + "/5   " + cost_text, rect.position.x + 345, rect.position.y + 28, 14, Color(0.84,0.94,1,0.86))
 
-	draw_rect(Rect2(74.0, 810.0, 170.0, 58.0), Color(0.10, 0.18, 0.28, 0.86))
-	draw_rect(Rect2(74.0, 810.0, 170.0, 58.0), Color(0.7, 0.95, 1.0, 0.25), false, 2.0)
-	draw_text("BACK", 123, 848, 20, Color(1,1,1,0.94))
-	draw_rect(Rect2(W - 244.0, 810.0, 170.0, 58.0), Color(0.18, 0.55, 0.75, 0.88))
-	draw_rect(Rect2(W - 244.0, 810.0, 170.0, 58.0), Color(1.0, 0.86, 0.28, 0.32), false, 2.0)
+	draw_rect(hangar_back_rect(), Color(0.10, 0.18, 0.28, 0.86))
+	draw_rect(hangar_back_rect(), Color(0.7, 0.95, 1.0, 0.25), false, 2.0)
+	draw_text_centered_at("BACK", hangar_back_rect().get_center() + Vector2(0, 8), 20, Color(1,1,1,0.94))
+	draw_rect(hangar_action_rect(), Color(0.18, 0.55, 0.75, 0.88))
+	draw_rect(hangar_action_rect(), Color(1.0, 0.86, 0.28, 0.32), false, 2.0)
 	var action = "BUY" if not owned else "UPGRADE"
-	draw_text(action, W - 196, 848, 20, Color(1,1,1,0.96))
-	draw_text_center("TAB switch • ←/→ vehicle • ↑/↓ upgrade • U/ENTER action • L launch", 914, 15, Color(0.76, 0.86, 0.96, 0.78))
+	draw_text_centered_at(action, hangar_action_rect().get_center() + Vector2(0, 8), 20, Color(1,1,1,0.96))
+	draw_text_center("TAB switch • ←/→ vehicle • ↑/↓ upgrade • U/ENTER action • L launch", H - 42.0, 15, Color(0.76, 0.86, 0.96, 0.78))
 	if warning_timer > 0.0:
 		draw_text_center(warning_text, 598, 17, Color(1.0, 0.9, 0.35, min(1.0, warning_timer)))
 

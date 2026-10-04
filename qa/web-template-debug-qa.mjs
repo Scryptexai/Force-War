@@ -163,7 +163,7 @@ async function main() {
     const pageErrors = [];
     try {
       const page = await browser.newPage({
-        viewport: { width: 720, height: 960 },
+        viewport: { width: 720, height: 1280 },
         deviceScaleFactor: 1,
         isMobile: true,
         hasTouch: true
@@ -187,6 +187,9 @@ async function main() {
         };
       });
       if (!state.hasBridge) fail('window.ForceWarBridge was not available after loading Godot Web page');
+      if (!state.canvas || state.canvas.width !== 720 || state.canvas.height !== 1280) {
+        fail(`expected 9:16 canvas 720x1280, got ${state.canvas?.width}x${state.canvas?.height}`);
+      }
       if (pageErrors.length > 0) fail(`browser page errors: ${pageErrors.join(' | ')}`);
       console.log(`QA browser ok: canvas=${state.canvas?.width}x${state.canvas?.height} bridge=${state.bridgeVersion}`);
     } finally {
