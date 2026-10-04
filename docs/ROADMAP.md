@@ -19,9 +19,9 @@ Estimasi kasar status produksi:
 | Route branching | 30% |
 | Enemy variety logic | 35% |
 | Visual production quality | 42% setelah PNG/GLB + procedural VFX pass |
-| Campaign/content polish | 18% — hangar/garage progression loop mulai terbentuk |
+| Campaign/content polish | 20% — hangar/garage + loading/brand splash flow mulai terbentuk |
 | Audio/VFX/juice | 16% — research Sky Force-style VFX + Storm Burst/salvage/laser/shield pass |
-| Overall menuju full version | ±40% |
+| Overall menuju full version | ±41% |
 
 ## Pilar Desain
 
@@ -62,10 +62,12 @@ Estimasi kasar status produksi:
 ### M0.5 — Mobile UI/UX dan Progression Shell
 
 - [x] Research mobile game UI/UX dan dokumentasi ATM di `docs/UI_UX_RESEARCH.md`.
+- [x] Audit flow mobile dan loading/brand splash di `docs/UI_UX_FLOW_AUDIT.md`.
 - [x] Title/briefing diberi CTA besar untuk Start Mission dan Hangar/Garage.
 - [x] Hangar/Garage satu layar dengan tab Aircraft dan Ground Car.
 - [x] Salvage/star currency terlihat di upgrade screen.
 - [x] Touch/click buttons untuk menu utama, briefing launch, hangar back/action, tabs, dan vehicle navigation.
+- [x] Loading page mobile dengan slideshow background, loading bar, tips, dan wordmark.
 - [ ] Safe-area/notch responsive pass untuk device mobile nyata.
 - [ ] Button press animation, sound feedback, dan accessibility font scale.
 

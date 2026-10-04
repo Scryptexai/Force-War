@@ -14,14 +14,24 @@ const CONVOY_RADIUS = 25.0
 const ROAD_WIDTH = 156.0
 const MAX_STAGE = 6
 
-enum GameState { TITLE, BRIEFING, HANGAR, GROUND, PLAYING, STAGE_CLEAR, GAME_OVER, PAUSED }
+enum GameState { LOADING, TITLE, BRIEFING, HANGAR, GROUND, PLAYING, STAGE_CLEAR, GAME_OVER, PAUSED }
 
 var rng = RandomNumberGenerator.new()
 var font: Font
-var state = GameState.TITLE
+var state = GameState.LOADING
 var previous_state = GameState.TITLE
 var time = 0.0
 var textures = {}
+var loading_timer = 0.0
+var loading_duration = 4.8
+var loading_bg_keys = ["loading_monsoon", "loading_hangar", "loading_delta"]
+var loading_tips = [
+	"Protect the convoy first — kills are secondary.",
+	"Read the weather forecast before launch; wind bends bullets.",
+	"Upgrade both car and aircraft: the mission starts on the road.",
+	"Smoke screens buy time when the convoy enters a kill zone.",
+	"Lightning can overcharge weapons if you survive the storm."
+]
 
 var stages = []
 var loadouts = []
@@ -155,7 +165,9 @@ func _process(delta: float) -> void:
 	weather_flash = max(0.0, weather_flash - delta * 2.6)
 	screen_flash = max(0.0, screen_flash - delta * 3.6)
 	screen_shake = max(0.0, screen_shake - delta * 4.2)
-	if state == GameState.GROUND:
+	if state == GameState.LOADING:
+		update_loading(delta)
+	elif state == GameState.GROUND:
 		update_ground_chase(delta)
 	elif state == GameState.PLAYING:
 		update_playing(delta)
@@ -182,6 +194,13 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and pointer_active:
 		pointer_target = event.position
 
+	if event is InputEventScreenTouch and event.pressed and state == GameState.LOADING:
+		request_skip_loading()
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and state == GameState.LOADING:
+		request_skip_loading()
+		return
+
 	if event is InputEventScreenTouch and event.pressed and (state == GameState.TITLE or state == GameState.BRIEFING or state == GameState.HANGAR):
 		handle_menu_tap(event.position)
 		return
@@ -200,6 +219,9 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
+		if state == GameState.LOADING:
+			request_skip_loading()
+			return
 		if state == GameState.GROUND:
 			handle_ground_key(event.keycode)
 		elif state == GameState.PLAYING:
@@ -219,7 +241,9 @@ func _input(event: InputEvent) -> void:
 
 
 func handle_accept() -> void:
-	if state == GameState.TITLE:
+	if state == GameState.LOADING:
+		request_skip_loading()
+	elif state == GameState.TITLE:
 		state = GameState.BRIEFING
 	elif state == GameState.BRIEFING:
 		start_stage(selected_stage)
@@ -305,6 +329,30 @@ func handle_play_key(keycode: int) -> void:
 		apply_branch_choice(2)
 
 
+func loading_ratio() -> float:
+	return clamp(loading_timer / max(0.1, loading_duration), 0.0, 1.0)
+
+
+func update_loading(delta: float) -> void:
+	loading_timer += delta
+	if loading_timer >= loading_duration:
+		finish_loading()
+
+
+func request_skip_loading() -> void:
+	# Avoid skipping before the player sees branding and the first background.
+	if loading_timer >= 1.0:
+		finish_loading()
+
+
+func finish_loading() -> void:
+	if state != GameState.LOADING:
+		return
+	loading_timer = loading_duration
+	state = GameState.TITLE
+	js_emit("loading_complete", {"backgrounds": loading_bg_keys.size(), "next": "title"})
+
+
 func load_textures() -> void:
 	var paths = {
 		# AI-painted PNG sprites used in gameplay. SVG files remain as editable fallbacks/source references.
@@ -333,7 +381,11 @@ func load_textures() -> void:
 		"storm_icon": "res://assets/weather/storm_icon.svg",
 		"rain_icon": "res://assets/weather/rain_icon.svg",
 		"wind_icon": "res://assets/weather/wind_icon.svg",
-		"cloud_icon": "res://assets/weather/cloud_icon.svg"
+		"cloud_icon": "res://assets/weather/cloud_icon.svg",
+		"loading_monsoon": "res://assets/rendered/loading_monsoon_convoy.png",
+		"loading_hangar": "res://assets/rendered/loading_thunder_hangar.png",
+		"loading_delta": "res://assets/rendered/loading_black_delta.png",
+		"logo_wordmark": "res://assets/rendered/logo_force_war_wordmark.png"
 	}
 	textures.clear()
 	for key in paths.keys():
@@ -2434,6 +2486,8 @@ func js_emit(event_name: String, detail: Dictionary) -> void:
 
 func state_name() -> String:
 	match state:
+		GameState.LOADING:
+			return "loading"
 		GameState.TITLE:
 			return "title"
 		GameState.BRIEFING:
@@ -2454,6 +2508,9 @@ func state_name() -> String:
 
 
 func _draw() -> void:
+	if state == GameState.LOADING:
+		draw_loading()
+		return
 	if state == GameState.GROUND:
 		draw_ground_overlay()
 		return
@@ -2806,12 +2863,68 @@ func draw_effect(e: Dictionary) -> void:
 		draw_circle(pos + Vector2(sin(time * 9.0), cos(time * 7.0)) * r * 0.24, r * 0.42, Color(c.r, c.g, c.b, 0.22 * ratio))
 
 
+func draw_texture_cover(key: String, rect: Rect2, alpha: float = 1.0) -> void:
+	var tex = textures.get(key, null)
+	if tex == null:
+		draw_rect(rect, Color(0.02, 0.05, 0.10, alpha))
+		return
+	var tex_size = tex.get_size()
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
+		draw_texture_rect(tex, rect, false, Color(1, 1, 1, alpha))
+		return
+	var scale = max(rect.size.x / tex_size.x, rect.size.y / tex_size.y)
+	var src_size = rect.size / scale
+	var src_pos = (tex_size - src_size) * 0.5
+	draw_texture_rect_region(tex, rect, Rect2(src_pos, src_size), Color(1, 1, 1, alpha))
+
+
+func draw_loading() -> void:
+	var keys = loading_bg_keys
+	if keys.is_empty():
+		draw_background()
+	else:
+		var slide_time = 2.25
+		var raw_slide = loading_timer / slide_time
+		var idx = int(floor(raw_slide)) % keys.size()
+		var next_idx = (idx + 1) % keys.size()
+		var phase = fmod(raw_slide, 1.0)
+		var fade = clamp((phase - 0.72) / 0.28, 0.0, 1.0)
+		fade = fade * fade * (3.0 - 2.0 * fade)
+		draw_texture_cover(str(keys[idx]), Rect2(0, 0, W, H), 1.0)
+		if fade > 0.0:
+			draw_texture_cover(str(keys[next_idx]), Rect2(0, 0, W, H), fade)
+
+	# Dark mobile-safe readability layers.
+	draw_rect(Rect2(0, 0, W, H), Color(0.0, 0.02, 0.06, 0.38))
+	draw_rect(Rect2(0, 0, W, 150), Color(0.0, 0.0, 0.0, 0.36))
+	draw_rect(Rect2(0, H - 260, W, 260), Color(0.0, 0.0, 0.0, 0.58))
+
+	# Wordmark/logo lives on the loading page first, then repeats on title for brand recall.
+	draw_sprite("logo_wordmark", Vector2(W * 0.5, 212), Vector2(604, 310), 0.0, Color(1, 1, 1, 0.98))
+	draw_text_center("MOBILE ESCORT SHOOTER", 374, 18, Color(0.74, 0.94, 1.0, 0.86))
+
+	var ratio = loading_ratio()
+	var percent = int(round(ratio * 100.0))
+	var bar = Rect2(78, H - 138, W - 156, 16)
+	draw_bar(bar, ratio, Color(0.42, 0.92, 1.0, 1.0), Color(1.0, 1.0, 1.0, 0.14))
+	draw_text_center("LOADING WAR THEATER " + str(percent) + "%", H - 158, 18, Color(0.88, 0.98, 1.0, 0.95))
+	var tip_idx = int(floor(loading_timer / 1.7)) % max(1, loading_tips.size())
+	draw_text_wrapped("TIP: " + str(loading_tips[tip_idx]), Rect2(92, H - 104, W - 184, 46), 15, Color(0.82, 0.92, 1.0, 0.88))
+
+	var dot_y = H - 42.0
+	for i in range(keys.size()):
+		var active = i == int(floor(loading_timer / 2.25)) % keys.size()
+		var dot_color = Color(0.7, 0.95, 1.0, 0.92) if active else Color(1.0, 1.0, 1.0, 0.28)
+		draw_circle(Vector2(W * 0.5 - (keys.size() - 1) * 13.0 + i * 26.0, dot_y), 6.0 if active else 4.0, dot_color)
+	if ratio >= 1.0:
+		draw_text_center("TAP TO DEPLOY", H - 68 + sin(time * 5.0) * 2.0, 17, Color(1.0, 0.9, 0.36, 0.96))
+
+
 func draw_title() -> void:
 	draw_rect(Rect2(0, 0, W, H), Color(0, 0, 0, 0.24))
-	var y = 178.0 + sin(time * 1.5) * 8.0
-	draw_sprite("player", Vector2(W * 0.5, y), Vector2(128.0, 128.0), 0, Color.WHITE)
-	draw_text_center("FORCE WAR", 330.0, 64, Color(0.72, 0.95, 1.0, 1.0))
-	draw_text_center("STORM CONVOY", 382.0, 34, Color(1.0, 0.86, 0.28, 1.0))
+	var y = 170.0 + sin(time * 1.5) * 8.0
+	draw_sprite("player", Vector2(W * 0.5, y), Vector2(112.0, 112.0), 0, Color(1, 1, 1, 0.78))
+	draw_sprite("logo_wordmark", Vector2(W * 0.5, 306.0), Vector2(570.0, 293.0), 0, Color.WHITE)
 	draw_text_center("Escort shooter taktis: proteksi konvoi, pilih jalur, manfaatkan badai.", 435.0, 20, Color(0.86, 0.94, 1.0, 0.9))
 	draw_panel(Rect2(74, 512, W - 148, 214), "CORE LOOP")
 	draw_text("• Konvoi punya HP per kendaraan dan bisa hancur sebelum pemain mati.", 105, 575, 18, Color(1,1,1,0.9))

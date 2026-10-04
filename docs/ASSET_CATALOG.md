@@ -80,6 +80,18 @@ Tidak semua efek tembakan memakai file image baru. Pass terbaru menambahkan VFX 
 Status: pass awal sudah integrated. Masih perlu sound, sprite sheet ledakan final, smoke volumetric, dan tuning intensitas supaya tidak terlalu ramai di Web/mobile.
 
 
+
+## Loading Screen dan Branding
+
+Pass terbaru menambahkan asset untuk mobile loading/brand splash:
+
+- `assets/rendered/loading_monsoon_convoy.png` — key art konvoi menembus badai monsoon.
+- `assets/rendered/loading_thunder_hangar.png` — key art hangar pesawat/mobil sebelum operasi.
+- `assets/rendered/loading_black_delta.png` — key art delta banjir, drone, dan jet escort.
+- `assets/rendered/logo_force_war_wordmark.png` — logo/wordmark Force War: Storm Convoy.
+
+Asset ini dipakai oleh `GameState.LOADING` sebagai slideshow, loading bar, tips, dan branding sebelum masuk title screen.
+
 ## UI/UX dan Progression Screens
 
 Pass terbaru menambahkan UI procedural untuk `HANGAR & GARAGE`:

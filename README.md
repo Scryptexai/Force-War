@@ -32,6 +32,7 @@ Sudah dibuat:
   - boss/blockade
   - Web `JavaScriptBridge` state/events
   - local save/localStorage
+  - mobile loading page dengan slideshow background dan logo wordmark
 - Godot Web preset: `export_presets.cfg`
 - Build script Godot 4.6.2: `tools/export_web.sh`
 - Root Node web server untuk Vercel/local: `server.js` + `npm start`
@@ -53,6 +54,7 @@ Sudah dibuat:
 | Radar flare | 4 |
 | Lightning rod | 5 |
 | Abort/back | Esc |
+| Skip loading setelah logo tampil | Tap / click / key |
 
 ## Struktur Penting
 
