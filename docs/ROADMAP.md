@@ -14,14 +14,14 @@ Estimasi kasar status produksi:
 | Area | Status |
 | --- | --- |
 | Build/Web pipeline | 80% |
-| Core escort mechanics | 48% — sudah mencakup slice awal transisi 3D car-chase-to-air |
+| Core escort mechanics | 51% — vehicle types mulai mempengaruhi car chase dan aircraft phase |
 | Weather gameplay | 35% |
 | Route branching | 30% |
 | Enemy variety logic | 35% |
 | Visual production quality | 42% setelah PNG/GLB + procedural VFX pass |
-| Campaign/content polish | 15% |
+| Campaign/content polish | 18% — hangar/garage progression loop mulai terbentuk |
 | Audio/VFX/juice | 16% — research Sky Force-style VFX + Storm Burst/salvage/laser/shield pass |
-| Overall menuju full version | ±38% |
+| Overall menuju full version | ±40% |
 
 ## Pilar Desain
 
@@ -58,6 +58,17 @@ Estimasi kasar status produksi:
 - [x] Python web server dengan MIME `application/wasm` dan security headers.
 - [ ] Kurangi ukuran repo/build artifact untuk production deploy.
 
+
+### M0.5 — Mobile UI/UX dan Progression Shell
+
+- [x] Research mobile game UI/UX dan dokumentasi ATM di `docs/UI_UX_RESEARCH.md`.
+- [x] Title/briefing diberi CTA besar untuk Start Mission dan Hangar/Garage.
+- [x] Hangar/Garage satu layar dengan tab Aircraft dan Ground Car.
+- [x] Salvage/star currency terlihat di upgrade screen.
+- [x] Touch/click buttons untuk menu utama, briefing launch, hangar back/action, tabs, dan vehicle navigation.
+- [ ] Safe-area/notch responsive pass untuk device mobile nyata.
+- [ ] Button press animation, sound feedback, dan accessibility font scale.
+
 ### M1 — Combat Escort Core
 
 - [x] Prototype konvoi multi-kendaraan dengan HP per unit.
@@ -82,6 +93,19 @@ Estimasi kasar status produksi:
 - [ ] Tambah physics/collision 3D yang lebih solid; saat ini collision masih logical AABB ringan.
 - [ ] Tambah camera shake, road curvature, enemy chase AI, dan VFX jet attack yang lebih kuat.
 - [ ] Integrasikan convoy choices/route branch ke prologue ground secara visual.
+
+
+### M1.6 — Vehicle Types dan Upgrade System
+
+- [x] Aircraft roster awal: Stormhawk Mk.I, Thunder Warden, Razorwing LX, Aegis Medic.
+- [x] Ground car roster awal: Warden Rover, Lynx Pursuit, Ironback APC, Specter Rail.
+- [x] Unlock cost, owned state, selected aircraft/car, dan upgrade state disimpan ke save/localStorage.
+- [x] Aircraft upgrade: Main Cannon, Armor, Storm Systems level 0–5.
+- [x] Car upgrade: Car Cannon, Armor, Handling level 0–5.
+- [x] Aircraft stat mempengaruhi HP, speed, gun, missile, dan Storm Burst utility.
+- [x] Car stat mempengaruhi HP, handling, fire-rate, dan cannon damage di ground chase.
+- [ ] Model/visual unik untuk tiap aircraft dan car type; saat ini beberapa masih shared preview/model.
+- [ ] Economy balancing untuk unlock/upgrade cost berdasarkan stage reward nyata.
 
 ### M2 — Branching Route System
 

@@ -79,6 +79,19 @@ Tidak semua efek tembakan memakai file image baru. Pass terbaru menambahkan VFX 
 
 Status: pass awal sudah integrated. Masih perlu sound, sprite sheet ledakan final, smoke volumetric, dan tuning intensitas supaya tidak terlalu ramai di Web/mobile.
 
+
+## UI/UX dan Progression Screens
+
+Pass terbaru menambahkan UI procedural untuk `HANGAR & GARAGE`:
+
+- Tab Aircraft dan Ground Car.
+- Preview unit procedural/canvas.
+- Stat bars dan upgrade bars.
+- CTA besar untuk mobile/touch.
+- Save data untuk selected vehicle, ownership, dan upgrade level.
+
+Catatan: ini UI functional/vertical-slice. Masih perlu final icon set, animation/tween, safe-area scaling, dan style guide visual supaya semua screen konsisten.
+
 ## SVG Fallback / Reference Assets
 
 SVG tetap ada untuk fallback, documentation, dan future vector UI pass:
@@ -97,7 +110,7 @@ Prioritas asset berikutnya:
 2. Upgrade VFX tembakan/Storm Burst/salvage dari procedural boxes/canvas ke sprite sheet/particle material final.
 3. Boss/blockade unique per biome, bukan satu shared boss sprite.
 4. Support supply/radar/rod generated unique, bukan derived tint.
-5. UI/hangar/briefing background.
+5. UI/hangar/briefing background final dan icon stat vehicle.
 6. Explosion/smoke/lightning VFX sprite sheets.
 7. Manual edge cleanup untuk semua sprite supaya tidak ada green/white fringe.
 8. Sprite atlas agar Web build lebih efisien.

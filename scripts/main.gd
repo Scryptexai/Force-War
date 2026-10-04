@@ -14,7 +14,7 @@ const CONVOY_RADIUS = 25.0
 const ROAD_WIDTH = 156.0
 const MAX_STAGE = 6
 
-enum GameState { TITLE, BRIEFING, GROUND, PLAYING, STAGE_CLEAR, GAME_OVER, PAUSED }
+enum GameState { TITLE, BRIEFING, HANGAR, GROUND, PLAYING, STAGE_CLEAR, GAME_OVER, PAUSED }
 
 var rng = RandomNumberGenerator.new()
 var font: Font
@@ -25,9 +25,15 @@ var textures = {}
 
 var stages = []
 var loadouts = []
+var aircraft_defs = []
+var car_defs = []
 var save_data = {}
 var selected_stage = 0
 var selected_loadout = 0
+var selected_aircraft = 0
+var selected_car = 0
+var selected_hangar_tab = 0 # 0 aircraft, 1 ground car
+var selected_upgrade_slot = 0
 var stage_index = 0
 var stage = {}
 var loadout = {}
@@ -125,10 +131,14 @@ func _ready() -> void:
 	load_textures()
 	stages = make_stage_defs()
 	loadouts = make_loadouts()
+	aircraft_defs = make_aircraft_defs()
+	car_defs = make_car_defs()
 	save_data = default_save()
 	load_save()
 	selected_stage = int(clamp(int(save_data.get("unlocked_stage", 1)) - 1, 0, stages.size() - 1))
 	selected_loadout = int(save_data.get("last_loadout", 0))
+	selected_aircraft = int(save_data.get("selected_aircraft", 0))
+	selected_car = int(save_data.get("selected_car", 0))
 	init_background()
 	reset_player()
 	js_emit("ready", {
@@ -172,6 +182,13 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and pointer_active:
 		pointer_target = event.position
 
+	if event is InputEventScreenTouch and event.pressed and (state == GameState.TITLE or state == GameState.BRIEFING or state == GameState.HANGAR):
+		handle_menu_tap(event.position)
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and (state == GameState.TITLE or state == GameState.BRIEFING or state == GameState.HANGAR):
+		handle_menu_tap(event.position)
+		return
+
 	if event.is_action_pressed("pause"):
 		if state == GameState.PLAYING or state == GameState.GROUND:
 			previous_state = state
@@ -187,8 +204,12 @@ func _input(event: InputEvent) -> void:
 			handle_ground_key(event.keycode)
 		elif state == GameState.PLAYING:
 			handle_play_key(event.keycode)
+		elif state == GameState.HANGAR:
+			handle_hangar_key(event.keycode)
 		elif state == GameState.BRIEFING:
 			handle_briefing_key(event.keycode)
+		elif state == GameState.TITLE and event.keycode == KEY_H:
+			state = GameState.HANGAR
 		elif event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER or event.keycode == KEY_SPACE:
 			handle_accept()
 		elif event.keycode == KEY_ESCAPE:
@@ -202,6 +223,8 @@ func handle_accept() -> void:
 		state = GameState.BRIEFING
 	elif state == GameState.BRIEFING:
 		start_stage(selected_stage)
+	elif state == GameState.HANGAR:
+		purchase_or_upgrade_selected()
 	elif state == GameState.STAGE_CLEAR:
 		state = GameState.BRIEFING
 		selected_stage = int(clamp(int(save_data.get("unlocked_stage", 1)) - 1, 0, stages.size() - 1))
@@ -213,6 +236,9 @@ func handle_accept() -> void:
 
 func handle_escape() -> void:
 	if state == GameState.TITLE:
+		return
+	if state == GameState.HANGAR:
+		state = GameState.BRIEFING
 		return
 	if state == GameState.PLAYING or state == GameState.GROUND:
 		previous_state = state
@@ -236,6 +262,8 @@ func handle_briefing_key(keycode: int) -> void:
 		selected_stage = max(0, selected_stage - 1)
 	elif keycode == KEY_DOWN:
 		selected_stage = min(unlocked - 1, selected_stage + 1)
+	elif keycode == KEY_H:
+		state = GameState.HANGAR
 	elif keycode == KEY_ENTER or keycode == KEY_KP_ENTER or keycode == KEY_SPACE:
 		start_stage(selected_stage)
 	elif keycode == KEY_ESCAPE:
@@ -436,6 +464,34 @@ func make_loadouts() -> Array:
 	]
 
 
+func make_aircraft_defs() -> Array:
+	return [
+		{"id": "stormhawk", "name": "Stormhawk Mk.I", "role": "Balanced escort fighter", "cost": 0, "hp": 120, "speed": 350.0, "gun": 1.0, "missile": 1.0, "utility": 1.0, "color": Color(0.35, 0.85, 1.0, 1.0)},
+		{"id": "thunder_warden", "name": "Thunder Warden", "role": "Heavy armor, convoy defense", "cost": 420, "hp": 152, "speed": 318.0, "gun": 0.92, "missile": 1.18, "utility": 1.15, "color": Color(0.55, 0.72, 1.0, 1.0)},
+		{"id": "razorwing", "name": "Razorwing LX", "role": "Fast glass-cannon interceptor", "cost": 520, "hp": 96, "speed": 418.0, "gun": 1.25, "missile": 0.92, "utility": 0.9, "color": Color(1.0, 0.65, 0.28, 1.0)},
+		{"id": "aegis_medic", "name": "Aegis Medic", "role": "Support drops and survival", "cost": 640, "hp": 132, "speed": 338.0, "gun": 0.88, "missile": 1.0, "utility": 1.35, "color": Color(0.45, 1.0, 0.65, 1.0)}
+	]
+
+
+func make_car_defs() -> Array:
+	return [
+		{"id": "warden_rover", "name": "Warden Rover", "role": "Balanced armored chase car", "cost": 0, "armor": 1.0, "handling": 1.0, "gun": 1.0, "speed": 1.0, "color": Color(0.2, 0.55, 1.0, 1.0)},
+		{"id": "lynx_pursuit", "name": "Lynx Pursuit", "role": "Fast steering and rapid fire", "cost": 300, "armor": 0.82, "handling": 1.28, "gun": 1.08, "speed": 1.12, "color": Color(1.0, 0.76, 0.28, 1.0)},
+		{"id": "ironback_apc", "name": "Ironback APC", "role": "Slow but very durable", "cost": 460, "armor": 1.38, "handling": 0.82, "gun": 0.96, "speed": 0.94, "color": Color(0.55, 0.78, 0.58, 1.0)},
+		{"id": "specter_rail", "name": "Specter Rail", "role": "High damage prototype escort", "cost": 620, "armor": 0.95, "handling": 1.08, "gun": 1.34, "speed": 1.02, "color": Color(0.86, 0.52, 1.0, 1.0)}
+	]
+
+
+func blank_upgrade_array(count: int, keys: Array) -> Array:
+	var arr = []
+	for i in range(count):
+		var d = {}
+		for key in keys:
+			d[key] = 0
+		arr.append(d)
+	return arr
+
+
 func default_save() -> Dictionary:
 	return {
 		"stars": 0,
@@ -443,8 +499,46 @@ func default_save() -> Dictionary:
 		"unlocked_stage": 1,
 		"campaign_cleared": false,
 		"last_loadout": 0,
-		"version": 2
+		"selected_aircraft": 0,
+		"selected_car": 0,
+		"owned_aircraft": [true],
+		"owned_cars": [true],
+		"aircraft_upgrades": blank_upgrade_array(aircraft_defs.size(), ["weapon", "armor", "systems"]),
+		"car_upgrades": blank_upgrade_array(car_defs.size(), ["cannon", "armor", "handling"]),
+		"version": 3
 	}
+
+
+func ensure_owned_array(key: String, count: int) -> void:
+	var arr = save_data.get(key, [])
+	if typeof(arr) != TYPE_ARRAY:
+		arr = []
+	while arr.size() < count:
+		arr.append(arr.size() == 0)
+	if arr.size() > count:
+		arr = arr.slice(0, count)
+	if arr.size() > 0:
+		arr[0] = true
+	save_data[key] = arr
+
+
+func ensure_upgrade_array(key: String, count: int, keys: Array) -> void:
+	var arr = save_data.get(key, [])
+	if typeof(arr) != TYPE_ARRAY:
+		arr = []
+	while arr.size() < count:
+		var d = {}
+		for ukey in keys:
+			d[ukey] = 0
+		arr.append(d)
+	if arr.size() > count:
+		arr = arr.slice(0, count)
+	for i in range(arr.size()):
+		if typeof(arr[i]) != TYPE_DICTIONARY:
+			arr[i] = {}
+		for ukey in keys:
+			arr[i][ukey] = int(clamp(int(arr[i].get(ukey, 0)), 0, 5))
+	save_data[key] = arr
 
 
 func ensure_save_shape() -> void:
@@ -456,6 +550,14 @@ func ensure_save_shape() -> void:
 	save_data["best_score"] = max(0, int(save_data.get("best_score", 0)))
 	save_data["unlocked_stage"] = int(clamp(int(save_data.get("unlocked_stage", 1)), 1, MAX_STAGE))
 	save_data["last_loadout"] = int(clamp(int(save_data.get("last_loadout", 0)), 0, loadouts.size() - 1))
+	ensure_owned_array("owned_aircraft", aircraft_defs.size())
+	ensure_owned_array("owned_cars", car_defs.size())
+	ensure_upgrade_array("aircraft_upgrades", aircraft_defs.size(), ["weapon", "armor", "systems"])
+	ensure_upgrade_array("car_upgrades", car_defs.size(), ["cannon", "armor", "handling"])
+	save_data["selected_aircraft"] = int(clamp(int(save_data.get("selected_aircraft", 0)), 0, max(0, aircraft_defs.size() - 1)))
+	save_data["selected_car"] = int(clamp(int(save_data.get("selected_car", 0)), 0, max(0, car_defs.size() - 1)))
+	selected_aircraft = int(save_data["selected_aircraft"])
+	selected_car = int(save_data["selected_car"])
 
 
 func apply_loaded_save(data) -> void:
@@ -491,6 +593,269 @@ func save_game() -> void:
 		Engine.get_singleton("JavaScriptBridge").eval("localStorage.setItem('" + SAVE_KEY + "', " + JSON.stringify(text) + ");", false)
 
 
+func active_aircraft_index() -> int:
+	if aircraft_defs.is_empty():
+		return 0
+	var idx = int(clamp(int(save_data.get("selected_aircraft", selected_aircraft)), 0, aircraft_defs.size() - 1))
+	if not is_vehicle_owned(0, idx):
+		idx = 0
+	return idx
+
+
+func active_car_index() -> int:
+	if car_defs.is_empty():
+		return 0
+	var idx = int(clamp(int(save_data.get("selected_car", selected_car)), 0, car_defs.size() - 1))
+	if not is_vehicle_owned(1, idx):
+		idx = 0
+	return idx
+
+
+func active_aircraft() -> Dictionary:
+	if aircraft_defs.is_empty():
+		return {}
+	return aircraft_defs[active_aircraft_index()]
+
+
+func active_car() -> Dictionary:
+	if car_defs.is_empty():
+		return {}
+	return car_defs[active_car_index()]
+
+
+func get_upgrade_array(tab: int) -> Array:
+	return save_data.get("aircraft_upgrades", []) if tab == 0 else save_data.get("car_upgrades", [])
+
+
+func is_vehicle_owned(tab: int, index: int) -> bool:
+	var key = "owned_aircraft" if tab == 0 else "owned_cars"
+	var owned = save_data.get(key, [])
+	if typeof(owned) != TYPE_ARRAY or index < 0 or index >= owned.size():
+		return index == 0
+	return bool(owned[index])
+
+
+func current_hangar_index() -> int:
+	return selected_aircraft if selected_hangar_tab == 0 else selected_car
+
+
+func current_hangar_defs() -> Array:
+	return aircraft_defs if selected_hangar_tab == 0 else car_defs
+
+
+func current_upgrade_keys() -> Array:
+	return ["weapon", "armor", "systems"] if selected_hangar_tab == 0 else ["cannon", "armor", "handling"]
+
+
+func upgrade_label(key: String) -> String:
+	match key:
+		"weapon":
+			return "Main Cannon"
+		"systems":
+			return "Storm Systems"
+		"cannon":
+			return "Car Cannon"
+		"handling":
+			return "Handling"
+		"armor":
+			return "Armor"
+	return key.capitalize()
+
+
+func get_upgrade_level(tab: int, index: int, key: String) -> int:
+	var upgrades = get_upgrade_array(tab)
+	if index < 0 or index >= upgrades.size() or typeof(upgrades[index]) != TYPE_DICTIONARY:
+		return 0
+	return int(upgrades[index].get(key, 0))
+
+
+func set_upgrade_level(tab: int, index: int, key: String, value: int) -> void:
+	var save_key = "aircraft_upgrades" if tab == 0 else "car_upgrades"
+	var upgrades = save_data.get(save_key, [])
+	if index < 0 or index >= upgrades.size():
+		return
+	if typeof(upgrades[index]) != TYPE_DICTIONARY:
+		upgrades[index] = {}
+	upgrades[index][key] = int(clamp(value, 0, 5))
+	save_data[save_key] = upgrades
+
+
+func selected_vehicle_cost(tab: int, index: int) -> int:
+	var defs = aircraft_defs if tab == 0 else car_defs
+	if index < 0 or index >= defs.size():
+		return 0
+	return int(defs[index].get("cost", 0))
+
+
+func upgrade_cost(tab: int, index: int, key: String) -> int:
+	var level = get_upgrade_level(tab, index, key)
+	var base = 90 if tab == 0 else 70
+	var vehicle_cost = selected_vehicle_cost(tab, index)
+	return int(base + level * level * 35 + level * 95 + vehicle_cost * 0.18)
+
+
+func aircraft_stat_multiplier(key: String) -> float:
+	var def = active_aircraft()
+	var idx = active_aircraft_index()
+	var upgrades = save_data.get("aircraft_upgrades", [])
+	var up = {} if idx >= upgrades.size() else upgrades[idx]
+	match key:
+		"hp":
+			return float(def.get("hp", 120)) + int(up.get("armor", 0)) * 14.0
+		"speed":
+			return float(def.get("speed", 350.0)) + int(up.get("systems", 0)) * 10.0
+		"gun":
+			return float(def.get("gun", 1.0)) * (1.0 + int(up.get("weapon", 0)) * 0.085)
+		"missile":
+			return float(def.get("missile", 1.0)) * (1.0 + int(up.get("weapon", 0)) * 0.05)
+		"utility":
+			return float(def.get("utility", 1.0)) * (1.0 + int(up.get("systems", 0)) * 0.08)
+	return 1.0
+
+
+func car_stat_multiplier(key: String) -> float:
+	var def = active_car()
+	var idx = active_car_index()
+	var upgrades = save_data.get("car_upgrades", [])
+	var up = {} if idx >= upgrades.size() else upgrades[idx]
+	match key:
+		"armor":
+			return float(def.get("armor", 1.0)) * (1.0 + int(up.get("armor", 0)) * 0.095)
+		"handling":
+			return float(def.get("handling", 1.0)) * (1.0 + int(up.get("handling", 0)) * 0.07)
+		"gun":
+			return float(def.get("gun", 1.0)) * (1.0 + int(up.get("cannon", 0)) * 0.09)
+		"speed":
+			return float(def.get("speed", 1.0)) * (1.0 + int(up.get("handling", 0)) * 0.035)
+	return 1.0
+
+
+func purchase_or_upgrade_selected() -> void:
+	var index = current_hangar_index()
+	var tab = selected_hangar_tab
+	var defs = current_hangar_defs()
+	if index < 0 or index >= defs.size():
+		return
+	var stars = int(save_data.get("stars", 0))
+	if not is_vehicle_owned(tab, index):
+		var cost = selected_vehicle_cost(tab, index)
+		if stars < cost:
+			show_warning("Need " + str(cost) + " salvage stars to unlock")
+			return
+		save_data["stars"] = stars - cost
+		var owned_key = "owned_aircraft" if tab == 0 else "owned_cars"
+		var owned = save_data.get(owned_key, [])
+		owned[index] = true
+		save_data[owned_key] = owned
+		show_warning("Unlocked " + str(defs[index]["name"]))
+	else:
+		var keys = current_upgrade_keys()
+		selected_upgrade_slot = int(clamp(selected_upgrade_slot, 0, keys.size() - 1))
+		var ukey = keys[selected_upgrade_slot]
+		var level = get_upgrade_level(tab, index, ukey)
+		if level >= 5:
+			show_warning(upgrade_label(ukey) + " already maxed")
+			return
+		var cost = upgrade_cost(tab, index, ukey)
+		if stars < cost:
+			show_warning("Need " + str(cost) + " salvage stars for upgrade")
+			return
+		set_upgrade_level(tab, index, ukey, level + 1)
+		save_data["stars"] = stars - cost
+		show_warning("Upgraded " + upgrade_label(ukey) + " to Lv " + str(level + 1))
+	if tab == 0:
+		selected_aircraft = index
+		save_data["selected_aircraft"] = index
+	else:
+		selected_car = index
+		save_data["selected_car"] = index
+	save_game()
+
+
+func equip_selected_vehicle() -> void:
+	var index = current_hangar_index()
+	if not is_vehicle_owned(selected_hangar_tab, index):
+		show_warning("Vehicle locked — buy first")
+		return
+	if selected_hangar_tab == 0:
+		selected_aircraft = index
+		save_data["selected_aircraft"] = index
+	else:
+		selected_car = index
+		save_data["selected_car"] = index
+	save_game()
+	show_warning("Equipped " + str(current_hangar_defs()[index]["name"]))
+
+
+func change_hangar_selection(step: int) -> void:
+	var defs = current_hangar_defs()
+	if defs.is_empty():
+		return
+	if selected_hangar_tab == 0:
+		selected_aircraft = posmod(selected_aircraft + step, defs.size())
+	else:
+		selected_car = posmod(selected_car + step, defs.size())
+
+
+func handle_hangar_key(keycode: int) -> void:
+	if keycode == KEY_TAB:
+		selected_hangar_tab = 1 - selected_hangar_tab
+		selected_upgrade_slot = 0
+	elif keycode == KEY_LEFT or keycode == KEY_A:
+		change_hangar_selection(-1)
+	elif keycode == KEY_RIGHT or keycode == KEY_D:
+		change_hangar_selection(1)
+	elif keycode == KEY_UP or keycode == KEY_W:
+		selected_upgrade_slot = posmod(selected_upgrade_slot - 1, current_upgrade_keys().size())
+	elif keycode == KEY_DOWN or keycode == KEY_S:
+		selected_upgrade_slot = posmod(selected_upgrade_slot + 1, current_upgrade_keys().size())
+	elif keycode == KEY_U:
+		purchase_or_upgrade_selected()
+	elif keycode == KEY_E:
+		equip_selected_vehicle()
+	elif keycode == KEY_ENTER or keycode == KEY_KP_ENTER or keycode == KEY_SPACE:
+		purchase_or_upgrade_selected()
+	elif keycode == KEY_L:
+		state = GameState.BRIEFING
+		start_stage(selected_stage)
+	elif keycode == KEY_ESCAPE or keycode == KEY_H:
+		state = GameState.BRIEFING
+
+
+func handle_menu_tap(pos: Vector2) -> void:
+	if state == GameState.TITLE:
+		if Rect2(W * 0.5 - 170.0, 748.0, 340.0, 54.0).has_point(pos):
+			state = GameState.BRIEFING
+		elif Rect2(W * 0.5 - 170.0, 816.0, 340.0, 54.0).has_point(pos):
+			state = GameState.HANGAR
+	elif state == GameState.BRIEFING:
+		if Rect2(W - 218.0, 830.0, 170.0, 54.0).has_point(pos):
+			state = GameState.HANGAR
+		elif Rect2(48.0, 830.0, 170.0, 54.0).has_point(pos):
+			start_stage(selected_stage)
+	elif state == GameState.HANGAR:
+		if Rect2(54.0, 116.0, 280.0, 54.0).has_point(pos):
+			selected_hangar_tab = 0
+			selected_upgrade_slot = 0
+		elif Rect2(386.0, 116.0, 280.0, 54.0).has_point(pos):
+			selected_hangar_tab = 1
+			selected_upgrade_slot = 0
+		elif Rect2(54.0, 520.0, 88.0, 54.0).has_point(pos):
+			change_hangar_selection(-1)
+		elif Rect2(W - 142.0, 520.0, 88.0, 54.0).has_point(pos):
+			change_hangar_selection(1)
+		elif Rect2(74.0, 810.0, 170.0, 58.0).has_point(pos):
+			state = GameState.BRIEFING
+		elif Rect2(W - 244.0, 810.0, 170.0, 58.0).has_point(pos):
+			purchase_or_upgrade_selected()
+		else:
+			var keys = current_upgrade_keys()
+			for i in range(keys.size()):
+				if Rect2(78.0, 625.0 + i * 56.0, W - 156.0, 44.0).has_point(pos):
+					selected_upgrade_slot = i
+					return
+
+
 func init_background() -> void:
 	bg_stars.clear()
 	for i in range(120):
@@ -514,11 +879,12 @@ func update_background(delta: float) -> void:
 
 
 func reset_player() -> void:
+	var hp = int(aircraft_stat_multiplier("hp"))
 	player = {
 		"pos": Vector2(W * 0.5, H - 150.0),
-		"hp": 120,
-		"max_hp": 120,
-		"speed": 350.0,
+		"hp": hp,
+		"max_hp": hp,
+		"speed": aircraft_stat_multiplier("speed"),
 		"shot_cd": 0.0,
 		"missile_cd": 0.5,
 		"invuln": 1.0
@@ -581,7 +947,7 @@ func start_stage(index: int) -> void:
 	overcharge_timer = 0.0
 	supply_turret_timer = 0.0
 	support_cooldown = 0.0
-	storm_burst_charges = 1
+	storm_burst_charges = 1 + int(aircraft_stat_multiplier("utility") >= 1.38)
 	storm_burst_cooldown = 0.0
 	laser_fx_cooldown = 0.0
 	screen_flash = 0.0
@@ -630,7 +996,7 @@ func start_ground_phase() -> void:
 	ground_time = 0.0
 	ground_distance = 0.0
 	ground_player_x = 0.0
-	ground_car_max_hp = 120 + stage_index * 12
+	ground_car_max_hp = int((120 + stage_index * 12) * car_stat_multiplier("armor"))
 	ground_car_hp = ground_car_max_hp
 	ground_spawn_timer = 0.7
 	ground_shot_cd = 0.0
@@ -846,20 +1212,20 @@ func update_ground_chase(delta: float) -> void:
 	var steer = Input.get_axis("move_left", "move_right")
 	if touch_active or pointer_active:
 		steer = clamp((pointer_target.x - W * 0.5) / (W * 0.35), -1.0, 1.0)
-	ground_player_x = clamp(ground_player_x + steer * 7.2 * delta, -3.4, 3.4)
+	ground_player_x = clamp(ground_player_x + steer * 7.2 * car_stat_multiplier("handling") * delta, -3.4, 3.4)
 	if ground_player_node != null:
 		ground_player_node.position.x = ground_player_x
 		ground_player_node.rotation.z = lerp(ground_player_node.rotation.z, -steer * 0.08, min(1.0, delta * 8.0))
 		ground_player_node.rotation.y = lerp(ground_player_node.rotation.y, -steer * 0.05, min(1.0, delta * 5.0))
 
 	for marker in ground_road_markers:
-		marker.position.z += delta * 36.0
+		marker.position.z += delta * 36.0 * car_stat_multiplier("speed")
 		if marker.position.z > 8.0:
 			marker.position.z -= 210.0
 
 	if ground_shot_cd <= 0.0:
 		spawn_ground_bullet(Vector3(ground_player_x, 0.65, -1.8), -52.0, true)
-		ground_shot_cd = 0.16
+		ground_shot_cd = 0.16 / car_stat_multiplier("gun")
 
 	ground_spawn_timer -= delta
 	if ground_spawn_timer <= 0.0 and not ground_jet_called:
@@ -959,7 +1325,7 @@ func update_ground_bullets(delta: float) -> void:
 		for ei in range(ground_enemies.size() - 1, -1, -1):
 			var e = ground_enemies[ei]
 			if abs(float(e["x"]) - bnode.position.x) < 0.75 and abs(float(e["z"]) - bnode.position.z) < 1.25:
-				e["hp"] = float(e["hp"]) - 34.0
+				e["hp"] = float(e["hp"]) - 34.0 * car_stat_multiplier("gun")
 				spawn_ground_impact(bnode.position, Color(0.25, 0.95, 1.0, 1.0), false)
 				remove_ground_bullet(ground_bullets, bi)
 				if float(e["hp"]) <= 0.0:
@@ -1190,7 +1556,7 @@ func spawn_salvage_pickups(pos: Vector2, count: int, value: int = 8) -> void:
 
 func fire_player_shot() -> void:
 	var pos = player["pos"]
-	var gun_mod = float(loadout.get("gun", 1.0))
+	var gun_mod = float(loadout.get("gun", 1.0)) * aircraft_stat_multiplier("gun")
 	if overcharge_timer > 0.0:
 		gun_mod *= 1.65
 	var lanes = 2 if gun_mod < 1.2 else 3
@@ -1219,8 +1585,8 @@ func fire_micro_missile() -> void:
 	for side in [-1, 1]:
 		var missile_pos = pos + Vector2(side * 24.0, -5.0)
 		spawn_muzzle_flash_2d(missile_pos, Vector2(side * 70.0, -430.0), true, 1.15)
-		bullets.append({"pos": missile_pos, "vel": Vector2(side * 70.0, -430.0), "damage": 38.0, "radius": 8.0, "life": 4.0, "kind": "missile", "target_id": int(target.get("id", -1)), "trail": 0.0})
-	player["missile_cd"] = 2.4 if overcharge_timer <= 0.0 else 1.15
+		bullets.append({"pos": missile_pos, "vel": Vector2(side * 70.0, -430.0), "damage": 38.0 * aircraft_stat_multiplier("missile"), "radius": 8.0, "life": 4.0, "kind": "missile", "target_id": int(target.get("id", -1)), "trail": 0.0})
+	player["missile_cd"] = (2.4 if overcharge_timer <= 0.0 else 1.15) / max(0.75, aircraft_stat_multiplier("missile"))
 
 
 func update_route_and_convoy(delta: float) -> void:
@@ -2072,6 +2438,8 @@ func state_name() -> String:
 			return "title"
 		GameState.BRIEFING:
 			return "briefing"
+		GameState.HANGAR:
+			return "hangar"
 		GameState.GROUND:
 			return "ground_chase"
 		GameState.PLAYING:
@@ -2099,6 +2467,8 @@ func _draw() -> void:
 			draw_title()
 		GameState.BRIEFING:
 			draw_briefing()
+		GameState.HANGAR:
+			draw_hangar()
 		GameState.PLAYING:
 			draw_game_world()
 			draw_hud()
@@ -2448,8 +2818,13 @@ func draw_title() -> void:
 	draw_text("• Route bercabang: aman/lambat, cepat/berbahaya, atau jalur badai reward tinggi.", 105, 607, 18, Color(1,1,1,0.9))
 	draw_text("• Cuaca mengubah peluru, visibility, petir, dan flood road.", 105, 639, 18, Color(1,1,1,0.9))
 	draw_text("• Drop repair, smoke, supply, radar, lightning rod sesuai forecast.", 105, 671, 18, Color(1,1,1,0.9))
-	draw_text_center("ENTER / SPACE: Mission Briefing", 805 + sin(time * 4) * 3, 28, Color(1,1,1,0.96))
-	draw_text_center("Godot 4.6.2 Web target • Original art/gameplay direction", 875, 15, Color(0.65,0.75,0.86,0.78))
+	draw_rect(Rect2(W * 0.5 - 170.0, 748.0, 340.0, 54.0), Color(0.18, 0.55, 0.75, 0.82))
+	draw_rect(Rect2(W * 0.5 - 170.0, 748.0, 340.0, 54.0), Color(0.7, 0.95, 1.0, 0.35), false, 2.0)
+	draw_text_center("START MISSION", 783 + sin(time * 4) * 3, 25, Color(1,1,1,0.96))
+	draw_rect(Rect2(W * 0.5 - 170.0, 816.0, 340.0, 54.0), Color(0.10, 0.18, 0.28, 0.88))
+	draw_rect(Rect2(W * 0.5 - 170.0, 816.0, 340.0, 54.0), Color(1.0, 0.86, 0.28, 0.35), false, 2.0)
+	draw_text_center("HANGAR / GARAGE", 850, 24, Color(1.0,0.9,0.35,0.96))
+	draw_text_center("Tap buttons • H: upgrade vehicles • ENTER/SPACE: briefing", 912, 15, Color(0.65,0.75,0.86,0.78))
 
 
 func draw_briefing() -> void:
@@ -2457,7 +2832,7 @@ func draw_briefing() -> void:
 	var lo = loadouts[selected_loadout]
 	draw_rect(Rect2(0, 0, W, H), Color(0, 0, 0, 0.28))
 	draw_text_center("MISSION BRIEFING", 62, 38, Color(0.74, 0.94, 1.0, 1.0))
-	draw_text_center("↑/↓ pilih operation • ←/→ pilih loadout • ENTER launch", 97, 17, Color(0.88, 0.96, 1.0, 0.82))
+	draw_text_center("↑/↓ operation • ←/→ loadout • H hangar • ENTER launch", 97, 17, Color(0.88, 0.96, 1.0, 0.82))
 	draw_panel(Rect2(48, 128, W - 96, 246), "OPERATION")
 	draw_text_center(str(st["codename"]), 184, 34, Color(1.0, 0.86, 0.25, 1.0))
 	draw_text_center(str(st["name"]), 225, 23, Color(0.86, 0.96, 1.0, 1.0))
@@ -2485,7 +2860,113 @@ func draw_briefing() -> void:
 		var x = 110.0 + i * 125.0
 		draw_sprite(key, Vector2(x, 758), Vector2(38, 38), 0, Color.WHITE)
 		draw_text_centered_at(key.capitalize() + " x" + str(int(support.get(key, 0))), Vector2(x, 792), 14, Color(1,1,1,0.9))
-	draw_text_center("ENTER: launch escort mission", 875 + sin(time * 4) * 3, 26, Color(1,1,1,0.96))
+	draw_rect(Rect2(48.0, 830.0, 170.0, 54.0), Color(0.18, 0.55, 0.75, 0.82))
+	draw_rect(Rect2(48.0, 830.0, 170.0, 54.0), Color(0.7, 0.95, 1.0, 0.34), false, 2.0)
+	draw_text("LAUNCH", 92, 864, 20, Color(1,1,1,0.96))
+	draw_rect(Rect2(W - 218.0, 830.0, 170.0, 54.0), Color(0.10, 0.18, 0.28, 0.88))
+	draw_rect(Rect2(W - 218.0, 830.0, 170.0, 54.0), Color(1.0, 0.86, 0.28, 0.34), false, 2.0)
+	draw_text("HANGAR", W - 184, 864, 20, Color(1.0,0.9,0.35,0.96))
+	draw_text_center("Active: " + str(active_aircraft().get("name", "Stormhawk")) + " + " + str(active_car().get("name", "Warden Rover")) + "  • ENTER launch • H upgrade", 912, 16, Color(1,1,1,0.86))
+
+
+func draw_hangar_vehicle_preview(center: Vector2, tab: int, color: Color) -> void:
+	if tab == 0:
+		draw_circle(center, 88.0 + sin(time * 2.0) * 4.0, Color(color.r, color.g, color.b, 0.10))
+		draw_sprite("player", center, Vector2(118.0, 118.0), 0.0, Color(1.0, 1.0, 1.0, 0.95))
+		draw_arc(center, 78.0, -time * 1.4, TAU - time * 1.4, 80, Color(color.r, color.g, color.b, 0.45), 3.0)
+		for i in range(3):
+			var a = -PI * 0.5 + (float(i) - 1.0) * 0.25
+			draw_line(center + Vector2(cos(a), sin(a)) * 40.0, center + Vector2(cos(a), sin(a)) * 92.0, Color(color.r, color.g, color.b, 0.35), 3.0)
+	else:
+		draw_circle(center, 82.0 + sin(time * 2.0) * 3.0, Color(color.r, color.g, color.b, 0.10))
+		var body = Rect2(center.x - 62.0, center.y - 92.0, 124.0, 184.0)
+		draw_rect(body, Color(color.r, color.g, color.b, 0.86))
+		draw_rect(Rect2(center.x - 42.0, center.y - 58.0, 84.0, 76.0), Color(0.08, 0.16, 0.20, 0.94))
+		for sx in [-1, 1]:
+			draw_rect(Rect2(center.x + sx * 55.0 - 8.0, center.y - 70.0, 16.0, 52.0), Color(0.02, 0.025, 0.03, 1.0))
+			draw_rect(Rect2(center.x + sx * 55.0 - 8.0, center.y + 30.0, 16.0, 52.0), Color(0.02, 0.025, 0.03, 1.0))
+		draw_line(center + Vector2(0, -94), center + Vector2(0, -135), Color(0.8, 0.92, 1.0, 0.82), 7.0)
+		draw_arc(center, 93.0, -time * 1.2, TAU - time * 1.2, 80, Color(color.r, color.g, color.b, 0.42), 3.0)
+
+
+func draw_stat_row(label: String, value: float, rect: Rect2, color: Color) -> void:
+	draw_text(label, rect.position.x, rect.position.y + 16.0, 14, Color(0.86, 0.96, 1.0, 0.86))
+	draw_bar(Rect2(rect.position.x + 116.0, rect.position.y + 5.0, rect.size.x - 118.0, 10.0), clamp(value, 0.0, 1.0), color, Color(1,1,1,0.10))
+
+
+func draw_hangar() -> void:
+	draw_rect(Rect2(0, 0, W, H), Color(0, 0, 0, 0.32))
+	draw_text_center("HANGAR & GARAGE", 54, 36, Color(0.74, 0.94, 1.0, 1.0))
+	draw_text_center("Mobile-first: big tap zones, one-screen stats, no nested upgrade menus", 86, 15, Color(0.80, 0.90, 1.0, 0.78))
+	draw_text("SALVAGE ★ " + str(int(save_data.get("stars", 0))), 54, 104, 18, Color(1.0, 0.86, 0.25, 1.0))
+
+	var aircraft_tab = Rect2(54.0, 116.0, 280.0, 54.0)
+	var car_tab = Rect2(386.0, 116.0, 280.0, 54.0)
+	draw_rect(aircraft_tab, Color(0.18, 0.55, 0.75, 0.82) if selected_hangar_tab == 0 else Color(0.08, 0.13, 0.20, 0.78))
+	draw_rect(car_tab, Color(0.18, 0.55, 0.75, 0.82) if selected_hangar_tab == 1 else Color(0.08, 0.13, 0.20, 0.78))
+	draw_rect(aircraft_tab, Color(0.7, 0.95, 1.0, 0.30), false, 2.0)
+	draw_rect(car_tab, Color(0.7, 0.95, 1.0, 0.30), false, 2.0)
+	draw_text_centered_at("AIRCRAFT", aircraft_tab.get_center() + Vector2(0, 6), 18, Color(1,1,1,0.94))
+	draw_text_centered_at("GROUND CAR", car_tab.get_center() + Vector2(0, 6), 18, Color(1,1,1,0.94))
+
+	var defs = current_hangar_defs()
+	if defs.is_empty():
+		return
+	var index = current_hangar_index()
+	index = int(clamp(index, 0, defs.size() - 1))
+	var def = defs[index]
+	var owned = is_vehicle_owned(selected_hangar_tab, index)
+	var color = def.get("color", Color(0.45, 0.9, 1.0, 1.0))
+
+	draw_panel(Rect2(48, 194, W - 96, 390), "SELECTED UNIT")
+	draw_text_center(str(def["name"]), 248, 30, Color(1.0, 0.86, 0.25, 1.0))
+	draw_text_center(str(def["role"]), 282, 16, Color(0.86, 0.96, 1.0, 0.85))
+	draw_hangar_vehicle_preview(Vector2(W * 0.5, 408), selected_hangar_tab, color)
+	draw_rect(Rect2(54.0, 520.0, 88.0, 54.0), Color(0.10, 0.18, 0.28, 0.82))
+	draw_rect(Rect2(W - 142.0, 520.0, 88.0, 54.0), Color(0.10, 0.18, 0.28, 0.82))
+	draw_text("‹", 88, 558, 36, Color(1,1,1,0.95))
+	draw_text("›", W - 107, 558, 36, Color(1,1,1,0.95))
+	var status = "OWNED / EQUIPPED" if owned else "LOCKED — COST ★" + str(selected_vehicle_cost(selected_hangar_tab, index))
+	draw_text_center(status, 572, 17, Color(0.45, 1.0, 0.62, 0.95) if owned else Color(1.0, 0.55, 0.35, 0.95))
+
+	var stat_x = 84.0
+	var stat_y = 304.0
+	if selected_hangar_tab == 0:
+		draw_stat_row("Armor", clamp(float(def.get("hp", 120)) / 170.0, 0.0, 1.0), Rect2(stat_x, stat_y, 210, 22), Color(0.35, 0.92, 1.0, 1.0))
+		draw_stat_row("Speed", clamp(float(def.get("speed", 350.0)) / 430.0, 0.0, 1.0), Rect2(stat_x, stat_y + 32, 210, 22), Color(0.45, 1.0, 0.55, 1.0))
+		draw_stat_row("Gun", clamp(float(def.get("gun", 1.0)) / 1.35, 0.0, 1.0), Rect2(W - 294, stat_y, 210, 22), Color(1.0, 0.82, 0.25, 1.0))
+		draw_stat_row("Utility", clamp(float(def.get("utility", 1.0)) / 1.4, 0.0, 1.0), Rect2(W - 294, stat_y + 32, 210, 22), Color(0.86, 0.55, 1.0, 1.0))
+	else:
+		draw_stat_row("Armor", clamp(float(def.get("armor", 1.0)) / 1.45, 0.0, 1.0), Rect2(stat_x, stat_y, 210, 22), Color(0.35, 0.92, 1.0, 1.0))
+		draw_stat_row("Handling", clamp(float(def.get("handling", 1.0)) / 1.35, 0.0, 1.0), Rect2(stat_x, stat_y + 32, 210, 22), Color(0.45, 1.0, 0.55, 1.0))
+		draw_stat_row("Cannon", clamp(float(def.get("gun", 1.0)) / 1.4, 0.0, 1.0), Rect2(W - 294, stat_y, 210, 22), Color(1.0, 0.82, 0.25, 1.0))
+		draw_stat_row("Speed", clamp(float(def.get("speed", 1.0)) / 1.15, 0.0, 1.0), Rect2(W - 294, stat_y + 32, 210, 22), Color(0.86, 0.55, 1.0, 1.0))
+
+	draw_panel(Rect2(48, 606, W - 96, 184), "UPGRADES")
+	var keys = current_upgrade_keys()
+	for i in range(keys.size()):
+		var ukey = keys[i]
+		var y = 625.0 + i * 56.0
+		var selected = i == selected_upgrade_slot
+		var rect = Rect2(78.0, y, W - 156.0, 44.0)
+		draw_rect(rect, Color(0.16, 0.38, 0.54, 0.74) if selected else Color(0.05, 0.10, 0.16, 0.74))
+		draw_rect(rect, Color(0.75, 0.95, 1.0, 0.28), false, 1.5)
+		var lvl = get_upgrade_level(selected_hangar_tab, index, ukey)
+		draw_text(upgrade_label(ukey), rect.position.x + 14, rect.position.y + 28, 15, Color(1,1,1,0.92))
+		draw_bar(Rect2(rect.position.x + 168, rect.position.y + 15, 150, 9), float(lvl) / 5.0, Color(1.0, 0.86, 0.25, 1.0), Color(1,1,1,0.10))
+		var cost_text = "MAX" if lvl >= 5 else "★" + str(upgrade_cost(selected_hangar_tab, index, ukey))
+		draw_text("Lv " + str(lvl) + "/5   " + cost_text, rect.position.x + 345, rect.position.y + 28, 14, Color(0.84,0.94,1,0.86))
+
+	draw_rect(Rect2(74.0, 810.0, 170.0, 58.0), Color(0.10, 0.18, 0.28, 0.86))
+	draw_rect(Rect2(74.0, 810.0, 170.0, 58.0), Color(0.7, 0.95, 1.0, 0.25), false, 2.0)
+	draw_text("BACK", 123, 848, 20, Color(1,1,1,0.94))
+	draw_rect(Rect2(W - 244.0, 810.0, 170.0, 58.0), Color(0.18, 0.55, 0.75, 0.88))
+	draw_rect(Rect2(W - 244.0, 810.0, 170.0, 58.0), Color(1.0, 0.86, 0.28, 0.32), false, 2.0)
+	var action = "BUY" if not owned else "UPGRADE"
+	draw_text(action, W - 196, 848, 20, Color(1,1,1,0.96))
+	draw_text_center("TAB switch • ←/→ vehicle • ↑/↓ upgrade • U/ENTER action • L launch", 914, 15, Color(0.76, 0.86, 0.96, 0.78))
+	if warning_timer > 0.0:
+		draw_text_center(warning_text, 598, 17, Color(1.0, 0.9, 0.35, min(1.0, warning_timer)))
 
 
 func current_stage_weather_value(st: Dictionary, key: String) -> float:
@@ -2498,7 +2979,7 @@ func draw_ground_overlay() -> void:
 	draw_rect(Rect2(0, 0, W, 96), Color(0.0, 0.0, 0.0, 0.56))
 	draw_rect(Rect2(0, H - 92, W, 92), Color(0.0, 0.0, 0.0, 0.48))
 	draw_text("GROUND CHASE", 18, 30, 18, Color(0.92, 0.98, 1.0, 1.0))
-	draw_text("3D GLB car combat — top-down begins only after aircraft switch", 18, 60, 14, Color(0.62, 0.82, 1.0, 0.92))
+	draw_text("Car: " + str(active_car().get("name", "Warden Rover")) + " — 3D GLB chase before aircraft switch", 18, 60, 14, Color(0.62, 0.82, 1.0, 0.92))
 	var car_ratio = float(ground_car_hp) / max(1.0, float(ground_car_max_hp))
 	draw_text("CAR ARMOR", 360, 30, 14, Color(0.86, 0.96, 1.0, 0.9))
 	draw_bar(Rect2(452, 18, 170, 13), car_ratio, Color(0.25, 0.9, 1.0, 1.0), Color(0.2, 0.02, 0.02, 0.75))
@@ -2524,7 +3005,7 @@ func draw_hud() -> void:
 	draw_text("SCORE " + str(stage_score).pad_zeros(7), 15, 28, 18, Color(0.86, 0.96, 1, 1))
 	draw_text("★ " + str(stage_stars), 15, 57, 18, Color(1.0, 0.86, 0.25, 1))
 	var hp_ratio = float(player.get("hp", 0)) / max(1.0, float(player.get("max_hp", 1)))
-	draw_text("JET", 170, 28, 14, Color(0.86, 0.96, 1, 0.88))
+	draw_text("JET " + str(active_aircraft().get("name", "Stormhawk")), 170, 28, 14, Color(0.86, 0.96, 1, 0.88))
 	draw_bar(Rect2(205, 17, 145, 12), hp_ratio, Color(0.35, 0.92, 1, 1), Color(0.1,0.02,0.02,0.7))
 	var cv_ratio = float(convoy_total_hp()) / max(1.0, float(convoy_max_hp()))
 	draw_text("CONVOY", 170, 59, 14, Color(0.86, 0.96, 1, 0.88))
