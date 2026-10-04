@@ -33,6 +33,7 @@ Sudah dibuat:
   - Web `JavaScriptBridge` state/events
   - local save/localStorage
   - mobile loading page dengan slideshow background dan logo wordmark
+  - custom Web boot splash/icon supaya browser tidak menampilkan logo Godot default
 - Godot Web preset: `export_presets.cfg`
 - Build script Godot 4.6.2: `tools/export_web.sh`
 - Root Node web server untuk Vercel/local: `server.js` + `npm start`

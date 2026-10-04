@@ -7,7 +7,11 @@ config/name="Force War: Storm Convoy"
 config/description="Original tactical escort shooter built in Godot 4.6.2 and ready for Web export."
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.6")
-config/icon="res://icon.svg"
+config/icon="res://assets/rendered/app_icon_force_war.png"
+boot_splash/image="res://assets/rendered/web_boot_splash_force_war.png"
+boot_splash/fullsize=true
+boot_splash/use_filter=true
+boot_splash/bg_color=Color(0, 0, 0, 1)
 
 [display]
 window/size/viewport_width=720

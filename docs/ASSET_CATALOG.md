@@ -89,6 +89,9 @@ Pass terbaru menambahkan asset untuk mobile loading/brand splash:
 - `assets/rendered/loading_thunder_hangar.png` — key art hangar pesawat/mobil sebelum operasi.
 - `assets/rendered/loading_black_delta.png` — key art delta banjir, drone, dan jet escort.
 - `assets/rendered/logo_force_war_wordmark.png` — logo/wordmark Force War: Storm Convoy.
+- `assets/rendered/web_boot_splash_force_war.png` — boot splash Web/Godot runtime agar tidak tampil logo default Godot.
+- `assets/rendered/app_icon_force_war.png` — app/favicon source untuk export Web.
+- `index.png`, `index.icon.png`, `index.apple-touch-icon.png` — hasil export root yang sekarang memakai branding Force War, bukan logo Godot default.
 
 Asset ini dipakai oleh `GameState.LOADING` sebagai slideshow, loading bar, tips, dan branding sebelum masuk title screen.
 
