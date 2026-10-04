@@ -53,7 +53,7 @@ function setGodotHeaders(res, pathname) {
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Permissions-Policy', 'interest-cohort=()');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  const noCachePaths = new Set(['/', '/index.html', '/index.png', '/index.icon.png', '/index.apple-touch-icon.png']);
+  const noCachePaths = new Set(['/', '/index.html', '/index.js', '/index.wasm', '/index.pck', '/index.png', '/index.icon.png', '/index.apple-touch-icon.png']);
   res.setHeader('Cache-Control', noCachePaths.has(pathname) ? 'no-cache' : 'public, max-age=3600');
 }
 
