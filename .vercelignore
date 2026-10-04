@@ -1,0 +1,19 @@
+# Vercel serves the already-exported Godot Web files from the repository root.
+# Keep the deployment small; index.pck already contains the imported game resources.
+.godot/
+.cache/
+node_modules/
+web-build/
+assets/
+docs/
+scenes/
+scripts/
+tools/
+Godot_v*.zip
+web_nothreads_*.zip
+*.tpz
+*.import
+project.godot
+export_presets.cfg
+icon.svg
+README.md

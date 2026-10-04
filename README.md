@@ -34,7 +34,7 @@ Sudah dibuat:
   - local save/localStorage
 - Godot Web preset: `export_presets.cfg`
 - Build script Godot 4.6.2: `tools/export_web.sh`
-- Python web server: `tools/serve_web.py`
+- Root Node web server untuk Vercel/local: `server.js` + `npm start`
 
 ## Kontrol
 
@@ -64,7 +64,10 @@ assets/                               # SVG game assets original
 assets/*/*.svg.import                 # Godot import metadata
 tools/generate_assets.py              # Deterministic SVG asset generator
 tools/export_web.sh                   # Export Web dengan Godot 4.6.2
-tools/serve_web.py                    # Server Python dengan header WebAssembly
+server.js                            # Root server Node untuk Vercel/local WebAssembly headers
+package.json                         # npm start/qa scripts agar Vercel otomatis deteksi project Node
+vercel.json                          # Header COOP/COEP/MIME untuk deploy Vercel
+tools/serve_web.py                    # Legacy helper; tidak dipakai sebagai server utama
 docs/ROADMAP.md                       # Roadmap full version
 docs/ASSET_CATALOG.md                 # Daftar asset dan fungsi gameplay
 docs/WEB_BUILD_FLOW.md                # Alur teknis Web build
@@ -125,13 +128,22 @@ index.wasm
 index.pck
 ```
 
-## Serve Web Build
+## Serve Web Build dari Root Repo
+
+Untuk local preview dan deployment flow Vercel, server utama sekarang berada di root repo/home directory, bukan di `tools/`:
 
 ```bash
-python3 tools/serve_web.py --directory . --port 8000
+npm install
+npm start
 ```
 
-Server bind ke `0.0.0.0` dan mengirim header penting:
+Port custom:
+
+```bash
+PORT=8000 npm start
+```
+
+`server.js` bind ke `0.0.0.0` dan mengirim header penting:
 
 - `.wasm` → `application/wasm`
 - `.js` → `text/javascript`
@@ -143,7 +155,7 @@ Server bind ke `0.0.0.0` dan mengirim header penting:
 ## Alur Teknis Web
 
 1. **Build:** Godot 4.6.2 mengekspor proyek ke `index.html`, `index.js`, `index.wasm`, `index.pck`.
-2. **Serve:** `tools/serve_web.py` mengirim file dengan MIME `application/wasm` dan security headers.
+2. **Serve:** `npm start` menjalankan `server.js` dari root repo/home directory dan mengirim file dengan MIME `application/wasm` plus security headers.
 3. **Load:** Browser memuat `index.html`; `index.js` menginisialisasi engine; `index.wasm` dieksekusi.
 4. **Render:** Godot Web runtime menggambar ke `<canvas>` melalui WebGL 2.0/Compatibility renderer.
 5. **Interaksi:** `JavaScriptBridge` menulis state/event game ke `window.ForceWarBridge` dan menyimpan progress ke `localStorage`.
@@ -164,3 +176,37 @@ godot --headless --path . --check-only --script scripts/main.gd
 godot --headless --path . --import
 godot --headless --path . --quit-after 10
 ```
+
+## Deploy Vercel
+
+Project ini sudah punya konfigurasi root untuk Vercel:
+
+```text
+package.json   # npm scripts: start, vercel-build, qa:web
+server.js      # root static server untuk Godot Web export
+vercel.json    # headers COOP/COEP/CORP dan MIME untuk index.wasm/index.pck/index.js
+.vercelignore  # mengecilkan upload deploy; index.pck sudah berisi resource game
+```
+
+Vercel akan menjalankan `npm run vercel-build` untuk memverifikasi file export root (`index.html`, `index.js`, `index.wasm`, `index.pck`). Local run tetap langsung dari root:
+
+```bash
+npm start
+```
+
+## QA Web Debug Template
+
+QA browser memakai template debug yang sudah ada di repo root:
+
+```text
+web_nothreads_debug.zip
+web_nothreads_release.zip
+```
+
+Jalankan:
+
+```bash
+npm run qa:web
+```
+
+Script ini melakukan debug export dengan Godot 4.6.2, menjalankan `server.js` dari root repo dengan `STATIC_ROOT` ke hasil debug export, lalu membuka Chromium via Playwright Core + `@sparticuz/chromium`.

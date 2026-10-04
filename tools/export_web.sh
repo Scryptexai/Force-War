@@ -89,6 +89,10 @@ MSG
 
 prepare_godot
 prepare_templates
+# If npm dependencies are installed for Vercel/QA, keep Godot from scanning or packing node_modules.
+if [[ -d "$ROOT_DIR/node_modules" ]]; then
+  touch "$ROOT_DIR/node_modules/.gdignore"
+fi
 "$GODOT_BIN" --headless --path "$ROOT_DIR" --export-release "Web" "$ROOT_DIR/index.html"
 
 cat <<MSG
@@ -99,6 +103,9 @@ Export selesai dengan Godot $GODOT_VERSION:
   $ROOT_DIR/index.wasm
   $ROOT_DIR/index.pck
 
-Jalankan:
-  python3 tools/serve_web.py --directory . --port 8000
+Jalankan dari root repo/home directory:
+  npm start
+
+Opsional port custom:
+  PORT=8000 npm start
 MSG

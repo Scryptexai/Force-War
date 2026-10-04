@@ -1,0 +1,20 @@
+{
+  "name": "force-war-storm-convoy",
+  "version": "0.4.0",
+  "private": true,
+  "description": "Force War: Storm Convoy Godot Web export root server and QA harness.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "serve": "node server.js",
+    "qa:web": "node qa/web-template-debug-qa.mjs",
+    "vercel-build": "node qa/verify-root-export.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@sparticuz/chromium": "153.0.0",
+    "playwright-core": "1.63.0"
+  }
+}
