@@ -18,10 +18,10 @@ Estimasi kasar status produksi:
 | Weather gameplay | 35% |
 | Route branching | 30% |
 | Enemy variety logic | 35% |
-| Visual production quality | 40% setelah PNG pass kedua + low-poly GLB ground vehicles |
+| Visual production quality | 42% setelah PNG/GLB + procedural VFX pass |
 | Campaign/content polish | 15% |
-| Audio/VFX/juice | 9% — pass awal VFX tembakan/impact prosedural |
-| Overall menuju full version | ±36% |
+| Audio/VFX/juice | 16% — research Sky Force-style VFX + Storm Burst/salvage/laser/shield pass |
+| Overall menuju full version | ±38% |
 
 ## Pilar Desain
 
@@ -77,6 +77,7 @@ Estimasi kasar status produksi:
 - [x] Enemy car GLB spawn di depan, menembak balik, dan bisa merusak mobil player.
 - [x] Jet support GLB masuk/menyerang dan membuka prompt switch ke aircraft.
 - [x] Pass awal efek tembakan ground: muzzle flash 3D, bullet trail, impact sparks, jet fire lance, dan camera shake ringan.
+- [x] Tambah efek referensi vertical shooter: screen-clear Storm Burst, salvage pickup magnet, shield bubble, dan overcharge laser.
 - [x] Transisi langsung dari ground chase ke mode top-down aircraft escort.
 - [ ] Tambah physics/collision 3D yang lebih solid; saat ini collision masih logical AABB ringan.
 - [ ] Tambah camera shake, road curvature, enemy chase AI, dan VFX jet attack yang lebih kuat.
@@ -146,6 +147,10 @@ Estimasi kasar status produksi:
 - [x] localStorage save.
 - [ ] Sound FX procedural / open-license.
 - [x] Pass awal VFX tembakan prosedural: muzzle flash, tracer glow, hit flash, rocket smoke, dan 3D ground sparks.
+- [x] Research efek Sky Force-style dan catat jenis efek utama di `docs/FX_RESEARCH.md`.
+- [x] Storm Burst `B`: radial screen-clear pulse, clear bullets, damage area, screen flash/shake.
+- [x] Salvage shards/magnet pickup dari musuh hancur.
+- [x] Overcharge laser beam dan shield bubble saat invulnerable.
 - [ ] Screen shake/hit-stop final, damage feedback, convoy radio warning.
 - [ ] Responsive mobile HUD final.
 - [ ] Touch radial support actions.

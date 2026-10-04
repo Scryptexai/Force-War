@@ -81,6 +81,11 @@ var supply_turret_timer = 0.0
 var lightning_timer = 0.0
 var lightning_next = 5.0
 var weather_flash = 0.0
+var screen_flash = 0.0
+var screen_shake = 0.0
+var storm_burst_charges = 0
+var storm_burst_cooldown = 0.0
+var laser_fx_cooldown = 0.0
 var warning_text = ""
 var warning_timer = 0.0
 
@@ -138,6 +143,8 @@ func _process(delta: float) -> void:
 	update_background(delta)
 	warning_timer = max(0.0, warning_timer - delta)
 	weather_flash = max(0.0, weather_flash - delta * 2.6)
+	screen_flash = max(0.0, screen_flash - delta * 3.6)
+	screen_shake = max(0.0, screen_shake - delta * 4.2)
 	if state == GameState.GROUND:
 		update_ground_chase(delta)
 	elif state == GameState.PLAYING:
@@ -262,6 +269,8 @@ func handle_play_key(keycode: int) -> void:
 		drop_support("radar")
 	elif keycode == KEY_5:
 		drop_support("rod")
+	elif keycode == KEY_B:
+		trigger_storm_burst()
 	elif keycode == KEY_Q and branch_pending:
 		apply_branch_choice(0)
 	elif keycode == KEY_E and branch_pending:
@@ -572,6 +581,11 @@ func start_stage(index: int) -> void:
 	overcharge_timer = 0.0
 	supply_turret_timer = 0.0
 	support_cooldown = 0.0
+	storm_burst_charges = 1
+	storm_burst_cooldown = 0.0
+	laser_fx_cooldown = 0.0
+	screen_flash = 0.0
+	screen_shake = 0.0
 	lightning_next = max(1.8, 7.0 - weather_value("lightning") * 4.0)
 	lightning_timer = lightning_next
 
@@ -1038,6 +1052,8 @@ func enter_air_phase() -> void:
 
 func update_playing(delta: float) -> void:
 	support_cooldown = max(0.0, support_cooldown - delta)
+	storm_burst_cooldown = max(0.0, storm_burst_cooldown - delta)
+	laser_fx_cooldown = max(0.0, laser_fx_cooldown - delta)
 	smoke_timer = max(0.0, smoke_timer - delta)
 	radar_timer = max(0.0, radar_timer - delta)
 	overcharge_timer = max(0.0, overcharge_timer - delta)
@@ -1052,6 +1068,7 @@ func update_playing(delta: float) -> void:
 	update_bullets(delta)
 	update_enemy_bullets(delta)
 	update_support_drops(delta)
+	update_pickups(delta)
 	update_effects(delta)
 	update_hazards(delta)
 	update_convoy_turrets(delta)
@@ -1105,6 +1122,72 @@ func spawn_hit_flash_2d(pos: Vector2, color: Color, strong: bool = false) -> voi
 	spawn_particles(pos, color, 14 if strong else 7, 260.0 if strong else 170.0)
 
 
+func fire_overcharge_laser(origin: Vector2) -> void:
+	var start = origin + Vector2(0.0, -46.0)
+	var target = Vector2(origin.x + current_wind() * 34.0, 22.0)
+	effects.append({"kind": "laser", "origin": start, "target": target, "color": Color(0.46, 0.95, 1.0, 1.0), "radius": 34.0, "life": 0.18, "max_life": 0.18})
+	for i in range(enemies.size() - 1, -1, -1):
+		var e = enemies[i]
+		var ep = Vector2(e["pos"])
+		if ep.y < origin.y and abs(ep.x - origin.x) < 32.0:
+			e["hp"] = float(e["hp"]) - 28.0
+			e["flash"] = 1.0
+			spawn_hit_flash_2d(ep, Color(0.46, 0.95, 1.0, 1.0), false)
+			if float(e["hp"]) <= 0.0:
+				kill_enemy_at(i)
+	screen_shake = max(screen_shake, 0.55)
+
+
+func trigger_storm_burst() -> void:
+	if state != GameState.PLAYING:
+		return
+	if storm_burst_charges <= 0:
+		show_warning("STORM BURST depleted")
+		return
+	if storm_burst_cooldown > 0.0:
+		return
+	storm_burst_charges -= 1
+	storm_burst_cooldown = 9.0
+	var center = player.get("pos", Vector2(W * 0.5, H * 0.66))
+	effects.append({"kind": "mega_bomb", "pos": center, "color": Color(0.35, 0.92, 1.0, 1.0), "radius": 48.0, "life": 0.95, "max_life": 0.95})
+	screen_flash = 1.0
+	screen_shake = max(screen_shake, 2.7)
+	weather_flash = max(weather_flash, 0.65)
+	var cleared = enemy_bullets.size()
+	enemy_bullets.clear()
+	for h in hazards:
+		h["triggered"] = true
+	for i in range(enemies.size() - 1, -1, -1):
+		var e = enemies[i]
+		var ep = Vector2(e["pos"])
+		if ep.y < H - 70.0:
+			var dmg = 520.0 if str(e["kind"]) != "boss" else 360.0
+			e["hp"] = float(e["hp"]) - dmg
+			e["flash"] = 1.0
+			spawn_hit_flash_2d(ep, enemy_color(str(e["kind"])), true)
+			if float(e["hp"]) <= 0.0:
+				kill_enemy_at(i)
+	spawn_particles(center, Color(0.35, 0.92, 1.0, 1.0), 90, 720.0)
+	stage_score += 80 + cleared * 12
+	show_warning("STORM BURST: bullets cleared, enemies overloaded")
+	js_emit("storm_burst", {"cleared": cleared, "charges": storm_burst_charges})
+
+
+func spawn_salvage_pickups(pos: Vector2, count: int, value: int = 8) -> void:
+	for i in range(count):
+		var a = rng.randf_range(0.0, TAU)
+		var speed = rng.randf_range(55.0, 180.0)
+		pickups.append({
+			"kind": "salvage",
+			"pos": pos + Vector2(rng.randf_range(-12.0, 12.0), rng.randf_range(-12.0, 12.0)),
+			"vel": Vector2(cos(a), sin(a)) * speed,
+			"life": 5.0,
+			"max_life": 5.0,
+			"value": value,
+			"phase": rng.randf_range(0.0, TAU)
+		})
+
+
 func fire_player_shot() -> void:
 	var pos = player["pos"]
 	var gun_mod = float(loadout.get("gun", 1.0))
@@ -1121,6 +1204,9 @@ func fire_player_shot() -> void:
 		var muzzle_pos = pos + Vector2(t * 30.0, -35.0)
 		spawn_muzzle_flash_2d(muzzle_pos, vel, true, 0.85 if overcharge_timer <= 0.0 else 1.2)
 		bullets.append({"pos": pos + Vector2(t * 30.0, -30.0), "vel": vel, "damage": 12.0 * gun_mod, "radius": 5.0, "life": 1.6, "kind": "plasma"})
+	if overcharge_timer > 0.0 and laser_fx_cooldown <= 0.0:
+		fire_overcharge_laser(pos)
+		laser_fx_cooldown = 0.38
 	player["shot_cd"] = max(0.065, 0.15 / gun_mod)
 
 
@@ -1483,6 +1569,32 @@ func update_support_drops(delta: float) -> void:
 			support_drops.remove_at(i)
 
 
+func update_pickups(delta: float) -> void:
+	for p in pickups:
+		var pos = Vector2(p.get("pos", Vector2.ZERO))
+		var vel = Vector2(p.get("vel", Vector2.ZERO))
+		var target = Vector2(player.get("pos", Vector2(W * 0.5, H * 0.5)))
+		var to_target = target - pos
+		p["life"] = float(p.get("life", 1.0)) - delta
+		if to_target.length() < 280.0 or float(p.get("life", 0.0)) < 4.35:
+			var desired = to_target.normalized() * (430.0 + max(0.0, 260.0 - to_target.length()))
+			vel = vel.lerp(desired, min(1.0, delta * 4.4))
+		else:
+			vel = vel * (1.0 - min(0.5, delta * 0.8)) + Vector2(0.0, 22.0) * delta
+		pos += vel * delta
+		p["pos"] = pos
+		p["vel"] = vel
+		if to_target.length() < PLAYER_RADIUS + 16.0:
+			stage_score += int(p.get("value", 8))
+			stage_stars += 1
+			p["life"] = -1.0
+			spawn_particles(pos, Color(1.0, 0.88, 0.28, 1.0), 5, 120.0)
+	for i in range(pickups.size() - 1, -1, -1):
+		var pos = Vector2(pickups[i].get("pos", Vector2.ZERO))
+		if float(pickups[i].get("life", 0.0)) <= 0.0 or pos.y > H + 70.0 or pos.x < -80.0 or pos.x > W + 80.0:
+			pickups.remove_at(i)
+
+
 func drop_support(kind: String) -> void:
 	if support_cooldown > 0.0:
 		return
@@ -1557,6 +1669,8 @@ func trigger_hazard(h: Dictionary) -> void:
 	var pos = h["pos"]
 	var radius = float(h.get("radius", 50.0))
 	var damage = float(h.get("damage", 35.0))
+	spawn_hit_flash_2d(pos, Color(1.0, 0.45, 0.1, 1.0), true)
+	screen_shake = max(screen_shake, 1.4)
 	spawn_particles(pos, Color(1.0, 0.45, 0.1, 1.0), 44, 380.0)
 	if kind == "artillery" or kind == "bomb" or kind == "mine":
 		for v in convoy:
@@ -1708,7 +1822,10 @@ func kill_enemy_at(index: int) -> void:
 	stage_score += score
 	stage_stars += max(1, int(score / 110))
 	kills += 1
+	spawn_hit_flash_2d(pos, enemy_color(kind), kind == "boss")
 	spawn_particles(pos, enemy_color(kind), 22 if kind != "boss" else 110, 300.0 if kind != "boss" else 620.0)
+	spawn_salvage_pickups(pos, 18 if kind == "boss" else 5 + int(score / 180), 10 if kind != "boss" else 25)
+	screen_shake = max(screen_shake, 0.9 if kind != "boss" else 2.8)
 	enemies.remove_at(index)
 	if kind == "boss":
 		boss_defeated = true
@@ -1724,6 +1841,8 @@ func damage_player(amount: float) -> void:
 		return
 	player["hp"] = int(player["hp"]) - int(amount)
 	player["invuln"] = 0.9
+	screen_shake = max(screen_shake, 1.2)
+	screen_flash = max(screen_flash, 0.35)
 	spawn_particles(player["pos"], Color(1.0, 0.2, 0.13, 1.0), 26, 280.0)
 
 
@@ -1737,6 +1856,7 @@ func damage_convoy(amount: float, source: Vector2, reason: String) -> void:
 	v["hp"] = int(v["hp"]) - int(reduced)
 	v["flash"] = 1.0
 	convoy_damage_taken += int(reduced)
+	screen_shake = max(screen_shake, 0.65)
 	spawn_particles(v["pos"], Color(1.0, 0.36, 0.12, 1.0), 16, 190.0)
 	if int(v["hp"]) <= 0 and bool(v.get("alive", true)):
 		v["alive"] = false
@@ -2076,13 +2196,34 @@ func draw_weather_backdrop() -> void:
 		draw_circle(pos, 100.0 * (1.0 - ratio + 0.25), Color(0.7, 0.85, 1.0, 0.22 * ratio))
 
 
+func draw_pickup(p: Dictionary) -> void:
+	var pos = Vector2(p.get("pos", Vector2.ZERO))
+	var life = float(p.get("life", 1.0))
+	var max_life = max(0.01, float(p.get("max_life", 1.0)))
+	var ratio = clamp(life / max_life, 0.0, 1.0)
+	var phase = float(p.get("phase", 0.0))
+	var pulse = 0.75 + sin(time * 11.0 + phase) * 0.25
+	var r = 6.0 + pulse * 3.0
+	var col = Color(1.0, 0.86, 0.24, min(1.0, ratio * 1.4))
+	draw_circle(pos, r * 2.0, Color(1.0, 0.72, 0.12, 0.10 * ratio))
+	draw_colored_polygon(PackedVector2Array([pos + Vector2(0, -r * 1.4), pos + Vector2(r, 0), pos + Vector2(0, r * 1.4), pos + Vector2(-r, 0)]), col)
+	draw_line(pos + Vector2(-r * 1.8, 0), pos + Vector2(r * 1.8, 0), Color(1.0, 0.96, 0.62, 0.42 * ratio), 1.6)
+	draw_line(pos + Vector2(0, -r * 2.0), pos + Vector2(0, r * 2.0), Color(1.0, 0.96, 0.62, 0.42 * ratio), 1.6)
+
+
 func draw_game_world() -> void:
+	var shake_offset = Vector2.ZERO
+	if screen_shake > 0.0:
+		shake_offset = Vector2(sin(time * 91.0) * screen_shake * 4.0, cos(time * 73.0) * screen_shake * 3.2)
+	draw_set_transform(shake_offset, 0.0, Vector2.ONE)
 	for h in hazards:
 		draw_hazard(h)
 	for d in support_drops:
 		draw_sprite(str(d["kind"]), d["pos"], Vector2(34.0, 34.0), time * 3.0, Color.WHITE)
 	for e in effects:
 		draw_effect(e)
+	for p in pickups:
+		draw_pickup(p)
 	for v in convoy:
 		draw_convoy_vehicle(v)
 	for e in enemies:
@@ -2117,6 +2258,7 @@ func draw_game_world() -> void:
 		var c = p["color"]
 		c.a = ratio
 		draw_circle(p["pos"], float(p["size"]) * ratio, c)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	draw_visibility_overlay()
 
 
@@ -2127,18 +2269,32 @@ func draw_visibility_overlay() -> void:
 		draw_rect(Rect2(0, 0, W, H), Color(0.0, 0.02, 0.05, darkness * 0.58))
 	if weather_flash > 0.0:
 		draw_rect(Rect2(0, 0, W, H), Color(0.75, 0.88, 1.0, weather_flash * 0.25))
+	if screen_flash > 0.0:
+		draw_rect(Rect2(0, 0, W, H), Color(0.62, 0.92, 1.0, screen_flash * 0.32))
 
 
 func draw_player() -> void:
 	if state == GameState.GAME_OVER and int(player.get("hp", 0)) <= 0:
 		return
-	if float(player.get("invuln", 0.0)) > 0.0 and int(time * 20.0) % 2 == 0:
-		return
 	var pos = player["pos"]
+	var inv = float(player.get("invuln", 0.0))
+	if inv > 0.0:
+		var shield_alpha = clamp(inv / 0.9, 0.0, 1.0)
+		draw_circle(pos, 48.0 + sin(time * 18.0) * 3.0, Color(0.35, 0.85, 1.0, 0.10 + shield_alpha * 0.18))
+		for i in range(6):
+			var a0 = float(i) / 6.0 * TAU + time * 1.8
+			var a1 = a0 + 0.62
+			draw_arc(pos, 50.0, a0, a1, 8, Color(0.65, 0.96, 1.0, 0.55 * shield_alpha), 2.2)
 	var tex_key = "player_support" if selected_loadout == 3 else "player"
-	draw_sprite(tex_key, pos, Vector2(74.0, 74.0), 0.0, Color.WHITE)
+	var mod = Color.WHITE
+	if inv > 0.0 and int(time * 20.0) % 2 == 0:
+		mod = Color(1.0, 1.0, 1.0, 0.42)
+	draw_sprite(tex_key, pos, Vector2(74.0, 74.0), 0.0, mod)
 	if overcharge_timer > 0.0:
 		draw_arc(pos, 47.0 + sin(time * 8.0) * 3.0, -time * 3.0, TAU - time * 3.0, 60, Color(0.8, 0.92, 1.0, 0.65), 3.0)
+		for i in range(3):
+			var a = time * 4.0 + float(i) * TAU / 3.0
+			draw_line(pos + Vector2(cos(a), sin(a)) * 28.0, pos + Vector2(cos(a + 0.55), sin(a + 0.55)) * 55.0, Color(0.55, 0.92, 1.0, 0.38), 2.0)
 	var flame = 16.0 + sin(time * 32.0) * 7.0
 	draw_colored_polygon(PackedVector2Array([pos + Vector2(-8, 28), pos + Vector2(0, 28 + flame), pos + Vector2(8, 28)]), Color(1.0, 0.45, 0.08, 0.82))
 
@@ -2225,6 +2381,27 @@ func draw_effect(e: Dictionary) -> void:
 	elif kind == "rod":
 		draw_line(pos + Vector2(0, 34), pos + Vector2(0, -42), Color(0.92, 0.75, 1.0, 0.85 * ratio), 5.0)
 		draw_arc(pos, 58.0, 0, TAU, 48, Color(0.75, 0.5, 1.0, 0.24 * ratio), 2.0)
+	elif kind == "laser":
+		var c = e.get("color", Color(0.5, 0.95, 1.0, 1.0))
+		var a = e.get("origin", pos)
+		var b = e.get("target", pos + Vector2(0.0, -400.0))
+		var width = float(e.get("radius", 28.0)) * (0.35 + ratio * 0.65)
+		draw_line(a, b, Color(c.r, c.g, c.b, 0.14 * ratio), width * 2.2)
+		draw_line(a, b, Color(c.r, c.g, c.b, 0.42 * ratio), width)
+		draw_line(a, b, Color(1.0, 1.0, 1.0, 0.82 * ratio), max(2.0, width * 0.18))
+		draw_circle(a, width * 0.75, Color(c.r, c.g, c.b, 0.22 * ratio))
+	elif kind == "mega_bomb":
+		var c = e.get("color", Color(0.35, 0.92, 1.0, 1.0))
+		var grow = 1.0 - ratio
+		var r = lerp(float(e.get("radius", 48.0)), H * 0.92, grow)
+		draw_circle(pos, r * 0.32, Color(c.r, c.g, c.b, 0.08 * ratio))
+		draw_arc(pos, r, 0.0, TAU, 96, Color(c.r, c.g, c.b, 0.64 * ratio), 5.0)
+		draw_arc(pos, r * 0.62, -time * 4.0, TAU - time * 4.0, 96, Color(1.0, 1.0, 1.0, 0.28 * ratio), 3.0)
+		for i in range(18):
+			var a = float(i) / 18.0 * TAU + time * 0.45
+			var start = pos + Vector2(cos(a), sin(a)) * r * 0.12
+			var end = pos + Vector2(cos(a), sin(a)) * r
+			draw_line(start, end, Color(c.r, c.g, c.b, 0.18 * ratio), 2.0)
 	elif kind == "text":
 		draw_text_centered_at(str(e.get("text", "")), pos + Vector2(0, -20.0 * (1.0 - ratio)), 16, Color(0.84, 0.92, 1.0, ratio))
 	elif kind == "muzzle":
@@ -2366,6 +2543,8 @@ func draw_hud() -> void:
 		var x = 72.0 + i * 116.0
 		draw_sprite(key, Vector2(x, 86), Vector2(22, 22), 0, Color.WHITE)
 		draw_text(str(i + 1) + ":" + str(int(support_counts.get(key, 0))), x + 18, 91, 14, Color(1,1,1,0.9))
+	var burst_col = Color(0.65, 0.95, 1.0, 0.96) if storm_burst_charges > 0 and storm_burst_cooldown <= 0.0 else Color(0.55, 0.62, 0.68, 0.72)
+	draw_text("B:BURST x" + str(storm_burst_charges), 610, 91, 14, burst_col)
 	if branch_pending:
 		draw_branch_prompt()
 	if warning_timer > 0:

@@ -74,7 +74,8 @@ Catatan: asset GLB ini sengaja ringan untuk Web export. Mereka sudah menggantika
 Tidak semua efek tembakan memakai file image baru. Pass terbaru menambahkan VFX prosedural di `scripts/main.gd`:
 
 - Ground chase 3D: muzzle flash, bullet glow/trail, impact sparks, jet fire lance, explosion flash, dan camera shake ringan.
-- Aircraft top-down: muzzle flash, tracer glow sesuai arah peluru, hit flash/shock ring, dan rocket smoke.
+- Aircraft top-down: muzzle flash, tracer glow sesuai arah peluru, hit flash/shock ring, rocket smoke, overcharge laser, shield bubble, Storm Burst, dan salvage shard magnet pickup.
+- Research/design reference dicatat di `docs/FX_RESEARCH.md`.
 
 Status: pass awal sudah integrated. Masih perlu sound, sprite sheet ledakan final, smoke volumetric, dan tuning intensitas supaya tidak terlalu ramai di Web/mobile.
 
@@ -93,7 +94,7 @@ SVG tetap ada untuk fallback, documentation, dan future vector UI pass:
 Prioritas asset berikutnya:
 
 1. Detail pass untuk GLB car/jet: wheel animation, wet material, dan collision mesh.
-2. Upgrade VFX tembakan dari procedural boxes/canvas ke sprite sheet/particle material final.
+2. Upgrade VFX tembakan/Storm Burst/salvage dari procedural boxes/canvas ke sprite sheet/particle material final.
 3. Boss/blockade unique per biome, bukan satu shared boss sprite.
 4. Support supply/radar/rod generated unique, bukan derived tint.
 5. UI/hangar/briefing background.
