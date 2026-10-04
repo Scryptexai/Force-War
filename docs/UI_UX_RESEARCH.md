@@ -62,7 +62,7 @@ Metode ATM dipakai sebagai proses desain, bukan menyalin aset/IP:
 ## Implementasi Pass Ini
 
 - Tambah screen `HANGAR & GARAGE`.
-- Tambah tab `AIRCRAFT` dan `GROUND CAR`.
+- Tambah tab `AIRCRAFT` dan `AIRCRAFT ONLY`.
 - Tambah 4 aircraft type:
   - Stormhawk Mk.I
   - Thunder Warden

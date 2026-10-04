@@ -22,7 +22,7 @@ Loading / Brand Splash
    - Sekarang ditambahkan `GameState.LOADING` sebagai layar pertama.
 
 2. **Brand recall**
-   - Logo wordmark `FORCE WAR: STORM CONVOY` muncul di loading dan title.
+   - Logo wordmark `FORCE WAR: SKY FORCE WAR` muncul di loading dan title.
    - Ini membantu game terlihat seperti produk lengkap, bukan debug prototype.
 
 3. **Slideshow background loading**

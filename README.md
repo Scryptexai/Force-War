@@ -1,18 +1,18 @@
-# Force War: Storm Convoy
+# Force War: Sky Force War
 
-Force War: Storm Convoy adalah tactical vertical escort shooter original untuk **Godot 4.6.2 stable** dan Web export. Fokus game bukan hanya membunuh semua musuh, tetapi **mengawal konvoi darat** melewati rute bercabang di tengah cuaca ekstrem.
+Force War sekarang diarahkan sebagai **Sky Force War**: vertical air-war shooter original untuk **Godot 4.6.2 stable** dan Web export. Build terbaru langsung masuk ke aircraft combat 9:16 tanpa prologue mobil dan tanpa layer konvoi/mobil di awal gameplay.
 
 ## Konsep Utama
 
-Kamu adalah pilot support-combat yang menjaga konvoi di bawah. Konvoi punya beberapa kendaraan dengan HP sendiri-sendiri: command truck, fuel tanker, APC, dan supply truck. Stage selesai jika konvoi mencapai ekstraksi dan blockade/boss dihancurkan. Stage gagal jika konvoi hancur atau pesawat pemain jatuh.
+Kamu adalah pilot support-combat yang langsung deploy ke zona perang vertikal. Stage selesai saat air corridor/blockade diamankan dan boss dihancurkan. Stage gagal jika pesawat pemain jatuh.
 
 ### Yang membedakan dari shooter pasaran
 
-- **Objektif proteksi:** konvoi adalah pusat misi, bukan kill count.
-- **Rute bercabang:** di tengah stage kamu memilih jalur aman/lambat, jalur cepat/berisiko, atau jalur badai dengan reward tinggi.
-- **Cuaca sebagai puzzle:** angin membelokkan peluru, awan menyembunyikan musuh, hujan menurunkan visibility, flood memperlambat konvoi, petir bisa overcharge senjata atau menghancurkan unit.
+- **Direct aircraft combat:** tidak ada car/convoy prologue; pemain langsung masuk arena Sky Force War.
+- **Flight path bercabang:** di tengah stage kamu memilih jalur aman/lambat, jalur cepat/berisiko, atau jalur badai dengan reward tinggi.
+- **Cuaca sebagai puzzle:** angin membelokkan peluru, awan menyembunyikan musuh, hujan menurunkan visibility, flood/terrain hazard memperlambat flow arena, petir bisa overcharge senjata atau menghancurkan unit.
 - **Loadout berdasarkan forecast:** sebelum stage pilih paket support yang cocok dengan prakiraan cuaca.
-- **Support tools:** repair pod, smoke screen, supply drop, radar flare, lightning rod.
+- **Support tools aircraft:** repair pod memperbaiki jet, smoke screen melindungi jet, supply memberi overcharge/Storm Burst, radar flare, lightning rod.
 
 ## Status Produksi Saat Ini
 
@@ -21,11 +21,11 @@ Sudah dibuat:
 - Roadmap full version: `docs/ROADMAP.md`
 - Asset catalog: `docs/ASSET_CATALOG.md`
 - SVG asset generator: `tools/generate_assets.py`
-- Asset original untuk player, musuh udara, musuh darat, konvoi, support pod, dan weather icon di `assets/`
-- Gameplay escort di `scripts/main.gd`:
+- Asset original untuk player, musuh udara/darat, support pod, background arena, dan weather icon di `assets/`
+- Gameplay Sky Force War di `scripts/main.gd`:
   - 6 operation campaign skeleton
-  - multi-vehicle convoy HP
-  - route branching
+  - direct Sky Force War mode tanpa car/convoy prologue
+  - flight-path branching
   - weather systems
   - air + ground enemies
   - support drops
@@ -37,7 +37,7 @@ Sudah dibuat:
   - 9:16 mobile portrait canvas (`720x1280`) untuk Web/mobile QA
   - aircraft arena scroll/loop vertical dengan cloud/ground parallax, bukan foto statis
   - enemy bullets aim saat ditembakkan saja; tidak terus mengejar pemain
-  - convoy di aircraft phase diganti menjadi ground-link/HUD signal agar mobil tidak terlihat terbang
+  - convoy/ground-link visual di aircraft phase dihapus total agar tidak ada mobil/konvoi di arena
 - Godot Web preset: `export_presets.cfg`
 - Build script Godot 4.6.2: `tools/export_web.sh`
 - Root Node web server untuk Vercel/local: `server.js` + `npm start`
@@ -66,7 +66,7 @@ Sudah dibuat:
 ```text
 project.godot                         # Konfigurasi Godot 4.6.2
 scenes/Main.tscn                      # Main scene
-scripts/main.gd                       # Gameplay escort, route, weather, combat, JS bridge
+scripts/main.gd                       # Gameplay Sky Force War, flight path, weather, combat, JS bridge
 assets/                               # SVG game assets original
 assets/*/*.svg.import                 # Godot import metadata
 tools/generate_assets.py              # Deterministic SVG asset generator

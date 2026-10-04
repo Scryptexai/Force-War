@@ -1,14 +1,14 @@
 extends Node2D
 
-# Force War: Storm Convoy
-# Original tactical escort shooter for Godot Web. The player protects a ground
-# convoy through branching routes and extreme weather instead of simply clearing
-# every enemy on screen.
+# Force War: Sky Force War
+# Original vertical air-war shooter for Godot Web. The current build deploys
+# directly into aircraft combat: no car prologue and no visible convoy layer.
 
 const W = 720.0
 const H = 1280.0
 const SAVE_PATH = "user://force_war_storm_convoy_save.json"
 const SAVE_KEY = "force-war-storm-convoy-v2"
+const DIRECT_SKY_FORCE_MODE = true
 const PLAYER_RADIUS = 19.0
 const CONVOY_RADIUS = 25.0
 const ROAD_WIDTH = 156.0
@@ -24,12 +24,12 @@ var time = 0.0
 var textures = {}
 var loading_timer = 0.0
 var loading_duration = 4.8
-var loading_bg_keys = ["loading_monsoon", "loading_hangar", "loading_delta"]
+var loading_bg_keys = ["bg_thunder", "bg_delta", "bg_monsoon"]
 var loading_tips = [
-	"Protect the convoy first — kills are secondary.",
+	"Direct air deployment: dodge, shoot, survive, and break the blockade.",
 	"Read the weather forecast before launch; wind bends bullets.",
-	"Upgrade both car and aircraft: the mission starts on the road.",
-	"Smoke screens buy time when the convoy enters a kill zone.",
+	"Upgrade aircraft armor, weapons, and storm systems before sortie.",
+	"Smoke pods can mask your jet when bullet pressure gets too high.",
 	"Lightning can overcharge weapons if you survive the storm."
 ]
 
@@ -42,7 +42,7 @@ var selected_stage = 0
 var selected_loadout = 0
 var selected_aircraft = 0
 var selected_car = 0
-var selected_hangar_tab = 0 # 0 aircraft, 1 ground car
+var selected_hangar_tab = 0 # aircraft-only in direct Sky Force War mode
 var selected_upgrade_slot = 0
 var stage_index = 0
 var stage = {}
@@ -152,9 +152,9 @@ func _ready() -> void:
 	init_background()
 	reset_player()
 	js_emit("ready", {
-		"game": "Force War: Storm Convoy",
+		"game": "Force War: Sky Force War",
 		"engine_target": "Godot 4.6.2 stable Web",
-		"objective": "escort_convoy"
+		"objective": "direct_sky_force_war"
 	})
 
 
@@ -508,7 +508,7 @@ func make_loadouts() -> Array:
 		},
 		{
 			"name": "Recon Warden",
-			"role": "Anti-awan/jammer: radar banyak dan convoy turret sustain.",
+			"role": "Anti-awan/jammer: radar banyak dan supply memberi overcharge.",
 			"gun": 0.98,
 			"armor": 1.05,
 			"support": {"repair": 3, "smoke": 3, "supply": 3, "radar": 5, "rod": 1}
@@ -518,8 +518,8 @@ func make_loadouts() -> Array:
 
 func make_aircraft_defs() -> Array:
 	return [
-		{"id": "stormhawk", "name": "Stormhawk Mk.I", "role": "Balanced escort fighter", "cost": 0, "hp": 120, "speed": 350.0, "gun": 1.0, "missile": 1.0, "utility": 1.0, "color": Color(0.35, 0.85, 1.0, 1.0)},
-		{"id": "thunder_warden", "name": "Thunder Warden", "role": "Heavy armor, convoy defense", "cost": 420, "hp": 152, "speed": 318.0, "gun": 0.92, "missile": 1.18, "utility": 1.15, "color": Color(0.55, 0.72, 1.0, 1.0)},
+		{"id": "stormhawk", "name": "Stormhawk Mk.I", "role": "Balanced air-war fighter", "cost": 0, "hp": 120, "speed": 350.0, "gun": 1.0, "missile": 1.0, "utility": 1.0, "color": Color(0.35, 0.85, 1.0, 1.0)},
+		{"id": "thunder_warden", "name": "Thunder Warden", "role": "Heavy armor, blockade breaker", "cost": 420, "hp": 152, "speed": 318.0, "gun": 0.92, "missile": 1.18, "utility": 1.15, "color": Color(0.55, 0.72, 1.0, 1.0)},
 		{"id": "razorwing", "name": "Razorwing LX", "role": "Fast glass-cannon interceptor", "cost": 520, "hp": 96, "speed": 418.0, "gun": 1.25, "missile": 0.92, "utility": 0.9, "color": Color(1.0, 0.65, 0.28, 1.0)},
 		{"id": "aegis_medic", "name": "Aegis Medic", "role": "Support drops and survival", "cost": 640, "hp": 132, "speed": 338.0, "gun": 0.88, "missile": 1.0, "utility": 1.35, "color": Color(0.45, 1.0, 0.65, 1.0)}
 	]
@@ -688,15 +688,15 @@ func is_vehicle_owned(tab: int, index: int) -> bool:
 
 
 func current_hangar_index() -> int:
-	return selected_aircraft if selected_hangar_tab == 0 else selected_car
+	return selected_aircraft if DIRECT_SKY_FORCE_MODE else (selected_aircraft if selected_hangar_tab == 0 else selected_car)
 
 
 func current_hangar_defs() -> Array:
-	return aircraft_defs if selected_hangar_tab == 0 else car_defs
+	return aircraft_defs if DIRECT_SKY_FORCE_MODE else (aircraft_defs if selected_hangar_tab == 0 else car_defs)
 
 
 func current_upgrade_keys() -> Array:
-	return ["weapon", "armor", "systems"] if selected_hangar_tab == 0 else ["cannon", "armor", "handling"]
+	return ["weapon", "armor", "systems"] if DIRECT_SKY_FORCE_MODE or selected_hangar_tab == 0 else ["cannon", "armor", "handling"]
 
 
 func upgrade_label(key: String) -> String:
@@ -829,7 +829,7 @@ func equip_selected_vehicle() -> void:
 	if not is_vehicle_owned(selected_hangar_tab, index):
 		show_warning("Vehicle locked — buy first")
 		return
-	if selected_hangar_tab == 0:
+	if DIRECT_SKY_FORCE_MODE or selected_hangar_tab == 0:
 		selected_aircraft = index
 		save_data["selected_aircraft"] = index
 	else:
@@ -843,7 +843,7 @@ func change_hangar_selection(step: int) -> void:
 	var defs = current_hangar_defs()
 	if defs.is_empty():
 		return
-	if selected_hangar_tab == 0:
+	if DIRECT_SKY_FORCE_MODE or selected_hangar_tab == 0:
 		selected_aircraft = posmod(selected_aircraft + step, defs.size())
 	else:
 		selected_car = posmod(selected_car + step, defs.size())
@@ -851,8 +851,9 @@ func change_hangar_selection(step: int) -> void:
 
 func handle_hangar_key(keycode: int) -> void:
 	if keycode == KEY_TAB:
-		selected_hangar_tab = 1 - selected_hangar_tab
+		selected_hangar_tab = 0
 		selected_upgrade_slot = 0
+		show_warning("Aircraft-only mode: car prologue removed")
 	elif keycode == KEY_LEFT or keycode == KEY_A:
 		change_hangar_selection(-1)
 	elif keycode == KEY_RIGHT or keycode == KEY_D:
@@ -914,8 +915,9 @@ func handle_menu_tap(pos: Vector2) -> void:
 			selected_hangar_tab = 0
 			selected_upgrade_slot = 0
 		elif Rect2(386.0, 116.0, 280.0, 54.0).has_point(pos):
-			selected_hangar_tab = 1
+			selected_hangar_tab = 0
 			selected_upgrade_slot = 0
+			show_warning("Car mode removed — launching directly to aircraft combat")
 		elif Rect2(54.0, 520.0, 88.0, 54.0).has_point(pos):
 			change_hangar_selection(-1)
 		elif Rect2(W - 142.0, 520.0, 88.0, 54.0).has_point(pos):
@@ -990,10 +992,11 @@ func start_stage(index: int) -> void:
 	player["hp"] = player["max_hp"]
 
 	convoy.clear()
-	convoy.append(make_convoy_vehicle("command", "Command Truck", 165, -86.0, -20.0))
-	convoy.append(make_convoy_vehicle("fuel", "Fuel Tanker", 135, -28.0, 24.0))
-	convoy.append(make_convoy_vehicle("apc", "APC Guardian", 190, 34.0, -28.0))
-	convoy.append(make_convoy_vehicle("supply_truck", "Supply Truck", 150, 92.0, 20.0))
+	if not DIRECT_SKY_FORCE_MODE:
+		convoy.append(make_convoy_vehicle("command", "Command Truck", 165, -86.0, -20.0))
+		convoy.append(make_convoy_vehicle("fuel", "Fuel Tanker", 135, -28.0, 24.0))
+		convoy.append(make_convoy_vehicle("apc", "APC Guardian", 190, 34.0, -28.0))
+		convoy.append(make_convoy_vehicle("supply_truck", "Supply Truck", 150, 92.0, 20.0))
 
 	bullets.clear()
 	enemy_bullets.clear()
@@ -1047,8 +1050,14 @@ func start_stage(index: int) -> void:
 	for key in ["repair", "smoke", "supply", "radar", "rod"]:
 		support_counts[key] = int(support.get(key, 0))
 	spawn_weather_field()
-	start_ground_phase()
-	js_emit("stage_start", {"stage": stage_index + 1, "name": stage["name"], "loadout": loadout["name"], "weather": stage["weather"], "phase": "ground_chase"})
+	if DIRECT_SKY_FORCE_MODE:
+		cleanup_ground_scene()
+		state = GameState.PLAYING
+		show_warning("SKY FORCE WAR: direct aircraft deployment")
+		js_emit("stage_start", {"stage": stage_index + 1, "name": stage["name"], "loadout": loadout["name"], "weather": stage["weather"], "phase": "sky_force_war"})
+	else:
+		start_ground_phase()
+		js_emit("stage_start", {"stage": stage_index + 1, "name": stage["name"], "loadout": loadout["name"], "weather": stage["weather"], "phase": "ground_chase"})
 
 
 func make_convoy_vehicle(kind: String, name: String, hp: int, y_offset: float, lane: float) -> Dictionary:
@@ -1527,7 +1536,7 @@ func update_playing(delta: float) -> void:
 	update_convoy_turrets(delta)
 	update_particles(delta)
 	check_collisions()
-	if convoy_total_hp() <= 0:
+	if (not DIRECT_SKY_FORCE_MODE) and convoy_total_hp() <= 0:
 		game_over("Convoy destroyed")
 	elif int(player.get("hp", 0)) <= 0:
 		game_over("Aircraft lost")
@@ -1682,7 +1691,7 @@ func update_route_and_convoy(delta: float) -> void:
 	if is_convoy_in_flood():
 		speed_factor *= max(0.62, 1.0 - flood * 0.38)
 		smoke_timer = max(0.0, smoke_timer - delta * 0.2)
-	var alive_ratio = float(convoy_alive_count()) / max(1.0, float(convoy.size()))
+	var alive_ratio = 1.0 if DIRECT_SKY_FORCE_MODE or convoy.is_empty() else float(convoy_alive_count()) / max(1.0, float(convoy.size()))
 	route_progress += route_speed * speed_factor * (0.55 + alive_ratio * 0.45) * delta
 	for i in range(convoy.size()):
 		var v = convoy[i]
@@ -1862,7 +1871,7 @@ func update_enemies(delta: float) -> void:
 					shoot_at_player(pos, 260.0 + stage_index * 15.0, 13.0)
 					e["shoot_cd"] = rng.randf_range(1.0, 1.8)
 			"bomber":
-				var cpos = convoy_center()
+				var cpos = Vector2(player.get("pos", Vector2(W * 0.5, H - 220.0))) if DIRECT_SKY_FORCE_MODE else convoy_center()
 				var desired = (cpos - pos).normalized() * (125.0 + stage_index * 8.0)
 				vel = vel.lerp(desired, min(1.0, delta * 0.8))
 				pos += vel * delta
@@ -1930,19 +1939,22 @@ func shoot_at_player(origin: Vector2, speed: float, damage: float, color: Color 
 
 
 func shoot_at_convoy(origin: Vector2, speed: float, damage: float, color: Color = Color(1.0, 0.65, 0.25, 1.0), guided: bool = false) -> void:
-	var target = convoy_center()
+	# Legacy enemy patterns now target the player in direct Sky Force War mode.
+	var target = Vector2(player.get("pos", convoy_center())) if DIRECT_SKY_FORCE_MODE else convoy_center()
 	var dir = (target - origin).normalized()
 	spawn_muzzle_flash_2d(origin, dir, false, 1.05 if not guided else 1.25)
-	enemy_bullets.append({"pos": origin, "vel": dir * speed, "damage": damage, "radius": 7.0, "target": "convoy", "color": color, "life": 5.0, "guided": false})
+	enemy_bullets.append({"pos": origin, "vel": dir * speed, "damage": damage, "radius": 7.0, "target": "player" if DIRECT_SKY_FORCE_MODE else "convoy", "color": color, "life": 5.0, "guided": false})
 
 
 func shoot_spread_at_convoy(origin: Vector2, count: int, spread: float, speed: float, damage: float) -> void:
-	var base = (convoy_center() - origin).angle()
+	# Legacy spread pattern: in direct mode it becomes a readable player-directed bullet fan.
+	var target = Vector2(player.get("pos", convoy_center())) if DIRECT_SKY_FORCE_MODE else convoy_center()
+	var base = (target - origin).angle()
 	spawn_muzzle_flash_2d(origin, Vector2(cos(base), sin(base)), false, 1.4)
 	for i in range(count):
 		var t = 0.0 if count == 1 else float(i) / float(count - 1) - 0.5
 		var a = base + t * spread
-		enemy_bullets.append({"pos": origin, "vel": Vector2(cos(a), sin(a)) * speed, "damage": damage, "radius": 6.0, "target": "convoy", "color": Color(1.0, 0.28, 0.38, 1.0), "life": 5.0, "guided": false})
+		enemy_bullets.append({"pos": origin, "vel": Vector2(cos(a), sin(a)) * speed, "damage": damage, "radius": 6.0, "target": "player" if DIRECT_SKY_FORCE_MODE else "convoy", "color": Color(1.0, 0.28, 0.38, 1.0), "life": 5.0, "guided": false})
 
 
 func drop_bomb(origin: Vector2, target: Vector2) -> void:
@@ -1965,7 +1977,8 @@ func boss_attack(pos: Vector2) -> void:
 
 func spawn_artillery_marker(count: int = 1) -> void:
 	for i in range(count):
-		var target = convoy_center() + Vector2(rng.randf_range(-95.0, 95.0), rng.randf_range(-70.0, 45.0))
+		var base_target = Vector2(player.get("pos", convoy_center())) if DIRECT_SKY_FORCE_MODE else convoy_center()
+		var target = base_target + Vector2(rng.randf_range(-95.0, 95.0), rng.randf_range(-70.0, 45.0))
 		hazards.append({"kind": "artillery", "pos": target, "radius": 62.0, "timer": 1.8 + i * 0.25, "armed": false, "damage": 42.0})
 
 
@@ -2064,20 +2077,34 @@ func resolve_support_drop(d: Dictionary) -> void:
 	var pos = d["pos"]
 	match kind:
 		"repair":
-			var v = nearest_convoy_vehicle(pos, true)
-			if not v.is_empty():
-				v["hp"] = min(int(v["max_hp"]), int(v["hp"]) + 72)
-				v["flash"] = 1.0
-				stage_score += 280
-				spawn_particles(v["pos"], Color(0.3, 1.0, 0.45, 1.0), 24, 210.0)
+			if DIRECT_SKY_FORCE_MODE:
+				player["hp"] = min(int(player.get("max_hp", 1)), int(player.get("hp", 0)) + 64)
+				stage_score += 220
+				spawn_particles(player["pos"], Color(0.3, 1.0, 0.45, 1.0), 24, 210.0)
+				show_warning("Aircraft repaired")
+			else:
+				var v = nearest_convoy_vehicle(pos, true)
+				if not v.is_empty():
+					v["hp"] = min(int(v["max_hp"]), int(v["hp"]) + 72)
+					v["flash"] = 1.0
+					stage_score += 280
+					spawn_particles(v["pos"], Color(0.3, 1.0, 0.45, 1.0), 24, 210.0)
 		"smoke":
-			effects.append({"kind": "smoke", "pos": Vector2(pos.x, H - 175.0), "radius": 125.0, "life": 8.0, "max_life": 8.0})
+			var smoke_pos = Vector2(player.get("pos", pos)) if DIRECT_SKY_FORCE_MODE else Vector2(pos.x, H - 175.0)
+			effects.append({"kind": "smoke", "pos": smoke_pos, "radius": 125.0, "life": 8.0, "max_life": 8.0})
 			smoke_timer = max(smoke_timer, 8.0)
 			stage_score += 120
 		"supply":
-			supply_turret_timer = max(supply_turret_timer, 12.0)
-			stage_score += 240
-			spawn_particles(convoy_center(), Color(1.0, 0.85, 0.28, 1.0), 26, 220.0)
+			if DIRECT_SKY_FORCE_MODE:
+				overcharge_timer = max(overcharge_timer, 8.0)
+				storm_burst_charges += 1
+				stage_score += 240
+				spawn_particles(player["pos"], Color(1.0, 0.85, 0.28, 1.0), 26, 220.0)
+				show_warning("Supply pod: overcharge + Storm Burst")
+			else:
+				supply_turret_timer = max(supply_turret_timer, 12.0)
+				stage_score += 240
+				spawn_particles(convoy_center(), Color(1.0, 0.85, 0.28, 1.0), 26, 220.0)
 		"radar":
 			radar_timer = max(radar_timer, 11.0)
 			stage_score += 180
@@ -2223,7 +2250,11 @@ func check_collisions() -> void:
 		if str(b.get("target", "")) == "player":
 			if player["pos"].distance_to(b["pos"]) <= PLAYER_RADIUS + float(b["radius"]):
 				spawn_hit_flash_2d(b["pos"], b.get("color", Color(1.0, 0.25, 0.12, 1.0)), false)
-				damage_player(float(b["damage"]))
+				var dmg = float(b["damage"])
+				if DIRECT_SKY_FORCE_MODE and is_smoke_covering(player["pos"]):
+					dmg *= 0.35
+					display_miss(player["pos"])
+				damage_player(dmg)
 				enemy_bullets.remove_at(i)
 		else:
 			var v = nearest_convoy_vehicle(b["pos"], true)
@@ -2282,7 +2313,7 @@ func kill_enemy_at(index: int) -> void:
 		finish_timer = 2.5
 		stage_score += int(4000 * stage_reward_mod)
 		stage_stars += int(80 * stage_reward_mod)
-		show_warning("BLOCKADE DOWN: convoy pushing to extraction")
+		show_warning("BLOCKADE DOWN: air corridor secured")
 		js_emit("boss_down", {"score": stage_score})
 
 
@@ -2320,11 +2351,13 @@ func complete_stage() -> void:
 	if state != GameState.PLAYING:
 		return
 	state = GameState.STAGE_CLEAR
-	var convoy_bonus = int(convoy_total_hp() * 6.0)
+	var survival_ratio = float(player.get("hp", 0)) / max(1.0, float(player.get("max_hp", 1)))
+	var convoy_bonus = 0 if DIRECT_SKY_FORCE_MODE else int(convoy_total_hp() * 6.0)
+	var survival_bonus = int(survival_ratio * 900.0) if DIRECT_SKY_FORCE_MODE else convoy_bonus
 	var support_bonus = int((support_counts.get("repair", 0) + support_counts.get("smoke", 0) + support_counts.get("supply", 0)) * 60)
 	var route_bonus = int(stage_reward_mod * 450.0)
-	var clear_stars = int(60 + stage_index * 25 + convoy_bonus / 25 + route_bonus / 20)
-	stage_score += convoy_bonus + support_bonus + route_bonus
+	var clear_stars = int(70 + stage_index * 25 + survival_bonus / 25 + route_bonus / 20)
+	stage_score += survival_bonus + support_bonus + route_bonus
 	stage_stars += clear_stars
 	save_data["stars"] = int(save_data.get("stars", 0)) + stage_stars
 	if stage_score > int(save_data.get("best_score", 0)):
@@ -2334,7 +2367,7 @@ func complete_stage() -> void:
 	if stage_index == stages.size() - 1:
 		save_data["campaign_cleared"] = true
 	save_game()
-	js_emit("stage_clear", {"stage": stage_index + 1, "score": stage_score, "stars": stage_stars, "convoy_hp": convoy_total_hp(), "branches": applied_branches})
+	js_emit("stage_clear", {"stage": stage_index + 1, "score": stage_score, "stars": stage_stars, "survival": survival_ratio, "branches": applied_branches, "mode": "sky_force_war" if DIRECT_SKY_FORCE_MODE else "escort"})
 
 
 func game_over(reason: String) -> void:
@@ -2346,7 +2379,7 @@ func game_over(reason: String) -> void:
 	if stage_score > int(save_data.get("best_score", 0)):
 		save_data["best_score"] = stage_score
 	save_game()
-	spawn_particles(convoy_center(), Color(1.0, 0.2, 0.08, 1.0), 80, 500.0)
+	spawn_particles(Vector2(player.get("pos", convoy_center())), Color(1.0, 0.2, 0.08, 1.0), 80, 500.0)
 	show_warning(reason)
 	js_emit("game_over", {"reason": reason, "score": stage_score, "stars": stage_stars})
 
@@ -2496,9 +2529,10 @@ func push_js_state() -> void:
 		"stars": stage_stars,
 		"stage": stage_index + 1,
 		"progress": route_progress / max(1.0, route_distance),
-		"convoyHp": convoy_total_hp(),
-		"convoyMaxHp": convoy_max_hp(),
+		"convoyHp": 0 if DIRECT_SKY_FORCE_MODE else convoy_total_hp(),
+		"convoyMaxHp": 0 if DIRECT_SKY_FORCE_MODE else convoy_max_hp(),
 		"playerHp": int(player.get("hp", 0)),
+		"missionMode": "sky_force_war" if DIRECT_SKY_FORCE_MODE else "escort_convoy",
 		"weather": stage.get("weather", {})
 	}
 	Engine.get_singleton("JavaScriptBridge").eval("window.ForceWarBridge=window.ForceWarBridge||{events:[]};window.ForceWarBridge.state=" + JSON.stringify(payload) + ";", false)
@@ -2689,7 +2723,6 @@ func draw_game_world() -> void:
 		draw_effect(e)
 	for p in pickups:
 		draw_pickup(p)
-	draw_convoy_signal_path()
 	for e in enemies:
 		draw_enemy(e)
 	for b in bullets:
@@ -2761,20 +2794,6 @@ func draw_player() -> void:
 			draw_line(pos + Vector2(cos(a), sin(a)) * 28.0, pos + Vector2(cos(a + 0.55), sin(a + 0.55)) * 55.0, Color(0.55, 0.92, 1.0, 0.38), 2.0)
 	var flame = 16.0 + sin(time * 32.0) * 7.0
 	draw_colored_polygon(PackedVector2Array([pos + Vector2(-8, 28), pos + Vector2(0, 28 + flame), pos + Vector2(8, 28)]), Color(1.0, 0.45, 0.08, 0.82))
-
-
-func draw_convoy_signal_path() -> void:
-	# Aircraft phase represents the convoy as a protected ground-link signal only.
-	# No cars are drawn in the sky/space arena.
-	var ratio = float(convoy_total_hp()) / max(1.0, float(convoy_max_hp()))
-	var y = H - 118.0
-	var x = route_x_for_y(y)
-	var col = Color(0.35, 1.0, 0.58, 0.42) if ratio > 0.45 else Color(1.0, 0.55, 0.25, 0.46)
-	draw_arc(Vector2(x, y), 52.0 + sin(time * 2.8) * 4.0, 0.0, TAU, 56, col, 2.0)
-	draw_arc(Vector2(x, y), 88.0 + sin(time * 2.1) * 5.0, -time * 0.8, TAU - time * 0.8, 64, Color(col.r, col.g, col.b, col.a * 0.55), 1.5)
-	draw_line(Vector2(x - 34.0, y), Vector2(x + 34.0, y), col, 2.0)
-	draw_line(Vector2(x, y - 34.0), Vector2(x, y + 34.0), col, 2.0)
-	draw_text_centered_at("GROUND CONVOY LINK", Vector2(x, y + 70.0), 12, Color(0.78, 0.95, 0.86, 0.56))
 
 
 func draw_convoy_vehicle(v: Dictionary) -> void:
@@ -2952,7 +2971,7 @@ func draw_loading() -> void:
 
 	# Wordmark/logo lives on the loading page first, then repeats on title for brand recall.
 	draw_sprite("logo_wordmark", Vector2(W * 0.5, 212), Vector2(604, 310), 0.0, Color(1, 1, 1, 0.98))
-	draw_text_center("MOBILE ESCORT SHOOTER", 374, 18, Color(0.74, 0.94, 1.0, 0.86))
+	draw_text_center("MOBILE SKY FORCE WAR", 374, 18, Color(0.74, 0.94, 1.0, 0.86))
 
 	var ratio = loading_ratio()
 	var percent = int(round(ratio * 100.0))
@@ -2976,12 +2995,12 @@ func draw_title() -> void:
 	var y = 168.0 + sin(time * 1.5) * 8.0
 	draw_sprite("player", Vector2(W * 0.5, y), Vector2(112.0, 112.0), 0, Color(1, 1, 1, 0.78))
 	draw_sprite("logo_wordmark", Vector2(W * 0.5, 332.0), Vector2(590.0, 303.0), 0, Color.WHITE)
-	draw_text_center("Escort shooter taktis: proteksi konvoi, pilih jalur, manfaatkan badai.", 514.0, 20, Color(0.86, 0.94, 1.0, 0.9))
-	draw_panel(Rect2(74, 590, W - 148, 214), "CORE LOOP")
-	draw_text("• Konvoi dilindungi dari udara; link HP tampil di HUD, bukan mobil terbang.", 105, 653, 18, Color(1,1,1,0.9))
-	draw_text("• Route bercabang: aman/lambat, cepat/berbahaya, atau jalur badai reward tinggi.", 105, 685, 18, Color(1,1,1,0.9))
-	draw_text("• Cuaca mengubah peluru, visibility, petir, dan flood road.", 105, 717, 18, Color(1,1,1,0.9))
-	draw_text("• Drop repair, smoke, supply, radar, lightning rod sesuai forecast.", 105, 749, 18, Color(1,1,1,0.9))
+	draw_text_center("Vertical shooter taktis: langsung masuk jet, tembus badai, hancurkan blockade.", 514.0, 20, Color(0.86, 0.94, 1.0, 0.9))
+	draw_panel(Rect2(74, 590, W - 148, 214), "SKY FORCE WAR LOOP")
+	draw_text("• Tidak ada prologue mobil/konvoi: misi langsung masuk aircraft battle.", 105, 653, 18, Color(1,1,1,0.9))
+	draw_text("• Scroll arena 9:16 bergerak terus dengan awan, hujan, petir, dan blockade.", 105, 685, 18, Color(1,1,1,0.9))
+	draw_text("• Peluru musuh aim saat ditembakkan, bukan terus mengejar player.", 105, 717, 18, Color(1,1,1,0.9))
+	draw_text("• Drop repair, smoke, supply, radar, lightning rod untuk aircraft survival.", 105, 749, 18, Color(1,1,1,0.9))
 	var start_rect = title_start_rect()
 	var hangar_rect = title_hangar_rect()
 	draw_rect(start_rect, Color(0.18, 0.55, 0.75, 0.82))
@@ -2989,8 +3008,8 @@ func draw_title() -> void:
 	draw_text_centered_at("START MISSION", start_rect.get_center() + Vector2(0, 9 + sin(time * 4) * 3), 25, Color(1,1,1,0.96))
 	draw_rect(hangar_rect, Color(0.10, 0.18, 0.28, 0.88))
 	draw_rect(hangar_rect, Color(1.0, 0.86, 0.28, 0.35), false, 2.0)
-	draw_text_centered_at("HANGAR / GARAGE", hangar_rect.get_center() + Vector2(0, 8), 24, Color(1.0,0.9,0.35,0.96))
-	draw_text_center("Tap buttons • H: upgrade vehicles • ENTER/SPACE: briefing", H - 42.0, 15, Color(0.65,0.75,0.86,0.78))
+	draw_text_centered_at("AIRCRAFT HANGAR", hangar_rect.get_center() + Vector2(0, 8), 24, Color(1.0,0.9,0.35,0.96))
+	draw_text_center("Tap buttons • H: aircraft upgrades • ENTER/SPACE: briefing", H - 42.0, 15, Color(0.65,0.75,0.86,0.78))
 
 
 func draw_briefing() -> void:
@@ -2998,7 +3017,7 @@ func draw_briefing() -> void:
 	var lo = loadouts[selected_loadout]
 	draw_rect(Rect2(0, 0, W, H), Color(0, 0, 0, 0.28))
 	draw_text_center("MISSION BRIEFING", 62, 38, Color(0.74, 0.94, 1.0, 1.0))
-	draw_text_center("↑/↓ operation • ←/→ loadout • H hangar • ENTER launch", 97, 17, Color(0.88, 0.96, 1.0, 0.82))
+	draw_text_center("↑/↓ operation • ←/→ loadout • H aircraft hangar • ENTER direct launch", 97, 17, Color(0.88, 0.96, 1.0, 0.82))
 	draw_panel(Rect2(48, 128, W - 96, 246), "OPERATION")
 	draw_text_center(str(st["codename"]), 184, 34, Color(1.0, 0.86, 0.25, 1.0))
 	draw_text_center(str(st["name"]), 225, 23, Color(0.86, 0.96, 1.0, 1.0))
@@ -3034,7 +3053,7 @@ func draw_briefing() -> void:
 	draw_rect(hangar_rect, Color(0.10, 0.18, 0.28, 0.88))
 	draw_rect(hangar_rect, Color(1.0, 0.86, 0.28, 0.34), false, 2.0)
 	draw_text_centered_at("HANGAR", hangar_rect.get_center() + Vector2(0, 8), 20, Color(1.0,0.9,0.35,0.96))
-	draw_text_center("Active: " + str(active_aircraft().get("name", "Stormhawk")) + " + " + str(active_car().get("name", "Warden Rover")) + "  • ENTER launch • H upgrade", H - 42.0, 16, Color(1,1,1,0.86))
+	draw_text_center("Active aircraft: " + str(active_aircraft().get("name", "Stormhawk")) + "  • ENTER direct Sky Force launch • H upgrade", H - 42.0, 16, Color(1,1,1,0.86))
 
 
 func draw_hangar_vehicle_preview(center: Vector2, tab: int, color: Color) -> void:
@@ -3063,19 +3082,16 @@ func draw_stat_row(label: String, value: float, rect: Rect2, color: Color) -> vo
 
 
 func draw_hangar() -> void:
+	selected_hangar_tab = 0
 	draw_rect(Rect2(0, 0, W, H), Color(0, 0, 0, 0.32))
-	draw_text_center("HANGAR & GARAGE", 54, 36, Color(0.74, 0.94, 1.0, 1.0))
-	draw_text_center("Mobile-first: big tap zones, one-screen stats, no nested upgrade menus", 86, 15, Color(0.80, 0.90, 1.0, 0.78))
+	draw_text_center("AIRCRAFT HANGAR", 54, 36, Color(0.74, 0.94, 1.0, 1.0))
+	draw_text_center("Car/convoy prologue removed: upgrade aircraft for direct Sky Force War", 86, 15, Color(0.80, 0.90, 1.0, 0.78))
 	draw_text("SALVAGE ★ " + str(int(save_data.get("stars", 0))), 54, 104, 18, Color(1.0, 0.86, 0.25, 1.0))
 
-	var aircraft_tab = Rect2(54.0, 116.0, 280.0, 54.0)
-	var car_tab = Rect2(386.0, 116.0, 280.0, 54.0)
-	draw_rect(aircraft_tab, Color(0.18, 0.55, 0.75, 0.82) if selected_hangar_tab == 0 else Color(0.08, 0.13, 0.20, 0.78))
-	draw_rect(car_tab, Color(0.18, 0.55, 0.75, 0.82) if selected_hangar_tab == 1 else Color(0.08, 0.13, 0.20, 0.78))
+	var aircraft_tab = Rect2(54.0, 116.0, W - 108.0, 54.0)
+	draw_rect(aircraft_tab, Color(0.18, 0.55, 0.75, 0.82))
 	draw_rect(aircraft_tab, Color(0.7, 0.95, 1.0, 0.30), false, 2.0)
-	draw_rect(car_tab, Color(0.7, 0.95, 1.0, 0.30), false, 2.0)
-	draw_text_centered_at("AIRCRAFT", aircraft_tab.get_center() + Vector2(0, 6), 18, Color(1,1,1,0.94))
-	draw_text_centered_at("GROUND CAR", car_tab.get_center() + Vector2(0, 6), 18, Color(1,1,1,0.94))
+	draw_text_centered_at("AIRCRAFT ONLY — DIRECT SKY FORCE WAR", aircraft_tab.get_center() + Vector2(0, 6), 18, Color(1,1,1,0.94))
 
 	var defs = current_hangar_defs()
 	if defs.is_empty():
@@ -3132,7 +3148,7 @@ func draw_hangar() -> void:
 	draw_rect(hangar_action_rect(), Color(1.0, 0.86, 0.28, 0.32), false, 2.0)
 	var action = "BUY" if not owned else "UPGRADE"
 	draw_text_centered_at(action, hangar_action_rect().get_center() + Vector2(0, 8), 20, Color(1,1,1,0.96))
-	draw_text_center("TAB switch • ←/→ vehicle • ↑/↓ upgrade • U/ENTER action • L launch", H - 42.0, 15, Color(0.76, 0.86, 0.96, 0.78))
+	draw_text_center("←/→ aircraft • ↑/↓ upgrade • U/ENTER action • L launch", H - 42.0, 15, Color(0.76, 0.86, 0.96, 0.78))
 	if warning_timer > 0.0:
 		draw_text_center(warning_text, 598, 17, Color(1.0, 0.9, 0.35, min(1.0, warning_timer)))
 
@@ -3174,12 +3190,11 @@ func draw_hud() -> void:
 	draw_text("★ " + str(stage_stars), 15, 57, 18, Color(1.0, 0.86, 0.25, 1))
 	var hp_ratio = float(player.get("hp", 0)) / max(1.0, float(player.get("max_hp", 1)))
 	draw_text("JET " + str(active_aircraft().get("name", "Stormhawk")), 170, 28, 14, Color(0.86, 0.96, 1, 0.88))
-	draw_bar(Rect2(205, 17, 145, 12), hp_ratio, Color(0.35, 0.92, 1, 1), Color(0.1,0.02,0.02,0.7))
-	var cv_ratio = float(convoy_total_hp()) / max(1.0, float(convoy_max_hp()))
-	draw_text("CONVOY", 170, 59, 14, Color(0.86, 0.96, 1, 0.88))
-	draw_bar(Rect2(238, 48, 164, 13), cv_ratio, Color(0.35, 1, 0.36, 1), Color(0.1,0.02,0.02,0.7))
+	draw_bar(Rect2(205, 17, 190, 12), hp_ratio, Color(0.35, 0.92, 1, 1), Color(0.1,0.02,0.02,0.7))
+	draw_text("SKY FORCE WAR", 170, 59, 14, Color(0.86, 0.96, 1, 0.88))
+	draw_text("HP " + str(int(player.get("hp", 0))) + "/" + str(int(player.get("max_hp", 0))), 300, 59, 14, Color(0.55, 1, 0.65, 0.9))
 	var progress = route_progress / max(1.0, route_distance)
-	draw_text("ROUTE", 430, 28, 14, Color(0.86,0.96,1,0.88))
+	draw_text("STAGE", 430, 28, 14, Color(0.86,0.96,1,0.88))
 	draw_bar(Rect2(489, 17, 190, 12), progress, Color(1.0, 0.86, 0.25, 1), Color(1,1,1,0.12))
 	draw_text("WIND " + str(snapped(current_wind(), 0.01)), 430, 58, 14, Color(0.72, 0.9, 1, 0.88))
 	if overcharge_timer > 0:
@@ -3217,24 +3232,24 @@ func draw_branch_prompt() -> void:
 
 func draw_stage_clear() -> void:
 	draw_rect(Rect2(0,0,W,H), Color(0,0,0,0.6))
-	draw_panel(Rect2(78, 248, W - 156, 420), "ESCORT COMPLETE")
-	draw_text_center("CONVOY EXTRACTED", 330, 42, Color(1.0,0.86,0.28,1))
+	draw_panel(Rect2(78, 248, W - 156, 420), "SKY FORCE COMPLETE")
+	draw_text_center("AIR CORRIDOR SECURED", 330, 42, Color(1.0,0.86,0.28,1))
 	draw_text_center(str(stage["name"]), 372, 22, Color(0.86,0.96,1,1))
 	draw_text("Score", 150, 440, 22, Color(0.82,0.92,1,0.9))
 	draw_text(str(stage_score), 430, 440, 22, Color(1,1,1,1))
 	draw_text("Stars earned", 150, 482, 22, Color(0.82,0.92,1,0.9))
 	draw_text(str(stage_stars), 430, 482, 22, Color(1,0.86,0.25,1))
-	draw_text("Convoy HP", 150, 524, 22, Color(0.82,0.92,1,0.9))
-	draw_text(str(convoy_total_hp()) + "/" + str(convoy_max_hp()), 430, 524, 22, Color(0.5,1,0.55,1))
-	draw_text("Branches", 150, 566, 22, Color(0.82,0.92,1,0.9))
-	draw_text(", ".join(applied_branches) if applied_branches.size() > 0 else "standard route", 300, 566, 16, Color(1,1,1,0.86))
+	draw_text("Aircraft HP", 150, 524, 22, Color(0.82,0.92,1,0.9))
+	draw_text(str(int(player.get("hp", 0))) + "/" + str(int(player.get("max_hp", 0))), 430, 524, 22, Color(0.5,1,0.55,1))
+	draw_text("Flight path", 150, 566, 22, Color(0.82,0.92,1,0.9))
+	draw_text(", ".join(applied_branches) if applied_branches.size() > 0 else "standard air route", 300, 566, 16, Color(1,1,1,0.86))
 	draw_text_center("ENTER: next briefing", 625 + sin(time * 4) * 3, 24, Color(1,1,1,0.96))
 
 
 func draw_game_over() -> void:
 	draw_rect(Rect2(0,0,W,H), Color(0,0,0,0.64))
 	draw_panel(Rect2(84, 288, W - 168, 330), "MISSION FAILED")
-	draw_text_center("CONVOY LOST", 368, 48, Color(1.0,0.32,0.22,1))
+	draw_text_center("AIRCRAFT LOST", 368, 48, Color(1.0,0.32,0.22,1))
 	draw_text_center("Score: " + str(stage_score), 430, 25, Color(0.9,0.98,1,1))
 	draw_text_center("Recovered stars: " + str(stage_stars), 470, 20, Color(1,0.86,0.25,1))
 	draw_text_center("R/ENTER: retry   ESC: briefing", 560, 22, Color(1,1,1,0.94))

@@ -1,8 +1,8 @@
-# Force War: Storm Convoy — Roadmap Full Version
+# Force War: Sky Force War — Roadmap Full Version
 
 ## Visi
 
-Force War: Storm Convoy adalah vertical tactical escort shooter. Pemain bukan hanya membersihkan layar, tetapi menjaga konvoi darat tetap hidup sampai titik ekstraksi. Cuaca ekstrem dan cabang rute mengubah cara bermain setiap stage: environment menjadi puzzle taktis, bukan sekadar background.
+Force War sekarang diarahkan sebagai Sky Force War: vertical air-war shooter yang langsung masuk ke pesawat tanpa prologue mobil/konvoi. Cuaca ekstrem dan cabang flight path tetap mengubah cara bermain setiap stage: environment menjadi puzzle taktis, bukan sekadar background.
 
 ## Status Realistis Saat Ini
 
@@ -14,9 +14,9 @@ Estimasi kasar status produksi:
 | Area | Status |
 | --- | --- |
 | Build/Web pipeline | 80% |
-| Core escort mechanics | 53% — vehicle types mulai mempengaruhi car chase/aircraft phase; air phase kini tidak menggambar mobil terbang |
+| Core air-war mechanics | 55% — direct aircraft combat aktif; car/convoy prologue dinonaktifkan |
 | Weather gameplay | 35% |
-| Route branching | 30% |
+| Flight-path branching | 30% |
 | Enemy variety logic | 35% |
 | Visual production quality | 45% setelah PNG/GLB + procedural VFX + 9:16 scrolling arena pass |
 | Campaign/content polish | 20% — hangar/garage + loading/brand splash flow mulai terbentuk |
@@ -27,7 +27,8 @@ Estimasi kasar status produksi:
 
 - Web/mobile viewport diset ke 720x1280 (9:16) dan QA browser mengecek rasio tersebut.
 - Enemy bullets sekarang hanya aim saat ditembakkan; tidak ada re-aim/homing terus-menerus ke player.
-- Aircraft arena mengganti render mobil konvoi menjadi ground-link signal/HUD, jadi tidak ada mobil yang terlihat terbang.
+- Aircraft arena tidak lagi menggambar mobil, konvoi, atau ground-link convoy signal.
+- Stage launch langsung masuk aircraft/Sky Force War; ground chase/car prologue dinonaktifkan.
 - Background aircraft phase sekarang loop-scrolling vertical dengan moving clouds/parallax agar tidak terasa seperti foto statis.
 
 ## Pilar Desain
