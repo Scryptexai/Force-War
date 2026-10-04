@@ -202,12 +202,103 @@ def build_jet(path: Path, body=(0.12, 0.18, 0.32, 1), glow=(0.0, 0.95, 1.0, 1)):
     b.write(path)
 
 
+
+def sphere(cx, cy, cz, rx, ry, rz, segments=14, rings=7):
+    positions, normals, indices = [], [], []
+    for r in range(rings + 1):
+        v = r / rings
+        theta = v * math.pi
+        st, ct = math.sin(theta), math.cos(theta)
+        for i in range(segments):
+            u = i / segments
+            phi = u * math.tau
+            cp, sp = math.cos(phi), math.sin(phi)
+            x = cx + cp * st * rx
+            y = cy + ct * ry
+            z = cz + sp * st * rz
+            positions.append((x, y, z))
+            normals.append((cp * st, ct, sp * st))
+    for r in range(rings):
+        for i in range(segments):
+            a = r * segments + i
+            b = r * segments + (i + 1) % segments
+            c = (r + 1) * segments + i
+            d = (r + 1) * segments + (i + 1) % segments
+            indices.extend([a, c, b, b, c, d])
+    return positions, normals, indices
+
+
+def plane_rect(cx, cy, cz, sx, sz):
+    x0, x1 = cx - sx / 2, cx + sx / 2
+    z0, z1 = cz - sz / 2, cz + sz / 2
+    return flat_triangles([
+        [(x0, cy, z0), (x1, cy, z0), (x1, cy, z1)],
+        [(x0, cy, z0), (x1, cy, z1), (x0, cy, z1)],
+    ], (0, 1, 0))
+
+
+def build_air_arena_tile(path: Path):
+    """Low-poly 3D terrain tile for the aircraft arena.
+
+    This replaces the old static painted photo layer during gameplay.  It is a
+    real GLB scene containing terrain/water/structures that Godot scrolls under
+    the aircraft camera.
+    """
+    mats = [
+        ("storm_water", (0.02, 0.11, 0.16, 1)),
+        ("wet_land", (0.10, 0.22, 0.13, 1)),
+        ("mud", (0.18, 0.13, 0.08, 1)),
+        ("runway", (0.08, 0.09, 0.10, 1)),
+        ("marking", (0.95, 0.80, 0.22, 1)),
+        ("metal", (0.28, 0.33, 0.34, 1)),
+        ("hazard_red", (0.70, 0.08, 0.06, 1)),
+        ("tree_dark", (0.03, 0.18, 0.09, 1)),
+    ]
+    b = GlbBuilder(mats)
+    add(b, box(0, -0.08, 0, 34.0, 0.12, 44.0), 0)
+    add(b, plane_rect(-8.5, 0.02, -3.5, 12.0, 31.0), 1)
+    add(b, plane_rect(8.8, 0.025, 5.0, 10.5, 27.0), 1)
+    add(b, plane_rect(0.0, 0.035, 0.0, 5.2, 42.0), 3)
+    for z in range(-18, 21, 6):
+        add(b, box(0.0, 0.08, float(z), 0.22, 0.04, 2.2), 4)
+    # Embankments / cliffs.
+    for x in (-14.0, -3.2, 3.2, 14.0):
+        add(b, box(x, 0.18, -7.0, 1.0, 0.32, 22.0), 2)
+    # Hangars, towers, SAM pads as visible 3D battlefield objects below.
+    for x, z, sx, sz in [(-9.5, -12, 2.4, 3.4), (-11.2, 8, 2.1, 2.6), (9.8, -2, 2.8, 2.8), (11.5, 14, 1.8, 3.2)]:
+        add(b, box(x, 0.55, z, sx, 1.0, sz), 5)
+        add(b, box(x, 1.18, z, sx * 0.82, 0.28, sz * 0.82), 6)
+    for x, z in [(-6.3, -17.0), (6.8, -16.0), (-6.8, 17.0), (6.4, 17.8), (13.0, -10.0), (-13.0, 13.0)]:
+        add(b, cylinder_x(x, 0.28, z, 0.65, 0.55, 16), 2)
+        add(b, box(x, 0.82, z, 0.40, 0.65, 0.40), 5)
+    # Tree/rock clumps for depth cues.
+    for i, (x, z) in enumerate([(-13,-18),(-12,-6),(-13,3),(-10,18),(13,-18),(12,-6),(14,4),(10,19),(-5,13),(5,-10)]):
+        add(b, box(float(x), 0.35, float(z), 0.9, 0.55 + (i % 3) * 0.15, 0.9), 7)
+    b.write(path)
+
+
+def build_air_cloud_cluster(path: Path):
+    mats = [
+        ("cloud_core", (0.78, 0.84, 0.90, 1)),
+        ("cloud_shadow", (0.42, 0.50, 0.60, 1)),
+        ("storm_glow", (0.65, 0.90, 1.0, 1)),
+    ]
+    b = GlbBuilder(mats)
+    add(b, sphere(0.0, 0.0, 0.0, 2.8, 0.55, 1.25), 0)
+    add(b, sphere(-1.9, 0.05, 0.1, 1.6, 0.42, 0.95), 0)
+    add(b, sphere(1.75, 0.02, -0.2, 1.7, 0.44, 1.0), 0)
+    add(b, sphere(0.4, -0.18, 0.35, 2.2, 0.35, 0.92), 1)
+    add(b, box(0.0, -0.26, 0.0, 3.4, 0.045, 0.12), 2)
+    b.write(path)
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     build_car(OUT / "player_car.glb", body=(0.08, 0.27, 0.85, 1), accent=(0.0, 0.8, 1.0, 1), hostile=False)
     build_car(OUT / "enemy_car.glb", body=(0.75, 0.08, 0.08, 1), accent=(1.0, 0.25, 0.05, 1), hostile=True)
     build_car(OUT / "convoy_car.glb", body=(0.1, 0.45, 0.18, 1), accent=(0.55, 1.0, 0.55, 1), hostile=False)
     build_jet(OUT / "support_jet.glb", body=(0.08, 0.12, 0.22, 1), glow=(0.0, 0.95, 1.0, 1))
+    build_air_arena_tile(OUT / "air_arena_tile.glb")
+    build_air_cloud_cluster(OUT / "air_cloud_cluster.glb")
     print(f"Generated GLB assets in {OUT}")
 
 

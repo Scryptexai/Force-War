@@ -134,6 +134,14 @@ var ground_jet_fire_timer = 0.0
 var ground_transition_ready = false
 var ground_camera_shake = 0.0
 
+# 3D aircraft arena state. This is engine-rendered GLB terrain/clouds behind
+# the 2D combat layer, not an HTML parallax overlay and not a static photo.
+var air_root: Node3D
+var air_camera: Camera3D
+var air_tiles: Array = []
+var air_cloud_nodes: Array = []
+var air_scene_cache: Dictionary = {}
+
 
 func _ready() -> void:
 	rng.randomize()
@@ -161,6 +169,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	time += delta
 	update_background(delta)
+	update_air_arena_3d(delta)
 	warning_timer = max(0.0, warning_timer - delta)
 	weather_flash = max(0.0, weather_flash - delta * 2.6)
 	screen_flash = max(0.0, screen_flash - delta * 3.6)
@@ -250,6 +259,7 @@ func handle_accept() -> void:
 	elif state == GameState.HANGAR:
 		purchase_or_upgrade_selected()
 	elif state == GameState.STAGE_CLEAR:
+		cleanup_air_arena_scene()
 		state = GameState.BRIEFING
 		selected_stage = int(clamp(int(save_data.get("unlocked_stage", 1)) - 1, 0, stages.size() - 1))
 	elif state == GameState.GAME_OVER:
@@ -270,6 +280,8 @@ func handle_escape() -> void:
 	elif state == GameState.PAUSED:
 		if previous_state == GameState.GROUND:
 			cleanup_ground_scene()
+		if previous_state == GameState.PLAYING:
+			cleanup_air_arena_scene()
 		state = GameState.BRIEFING
 		js_emit("abort_mission", {})
 	else:
@@ -969,6 +981,8 @@ func update_background(delta: float) -> void:
 
 func reset_player() -> void:
 	var hp = int(aircraft_stat_multiplier("hp"))
+	if DIRECT_SKY_FORCE_MODE:
+		hp = int(float(hp) * 1.45)
 	player = {
 		"pos": Vector2(W * 0.5, H - 150.0),
 		"hp": hp,
@@ -981,6 +995,8 @@ func reset_player() -> void:
 
 
 func start_stage(index: int) -> void:
+	cleanup_ground_scene()
+	cleanup_air_arena_scene()
 	stage_index = int(clamp(index, 0, stages.size() - 1))
 	selected_stage = stage_index
 	stage = stages[stage_index]
@@ -1052,8 +1068,9 @@ func start_stage(index: int) -> void:
 	spawn_weather_field()
 	if DIRECT_SKY_FORCE_MODE:
 		cleanup_ground_scene()
+		setup_air_arena_scene()
 		state = GameState.PLAYING
-		show_warning("SKY FORCE WAR: direct aircraft deployment")
+		show_warning("SKY FORCE WAR: direct 3D aircraft deployment")
 		js_emit("stage_start", {"stage": stage_index + 1, "name": stage["name"], "loadout": loadout["name"], "weather": stage["weather"], "phase": "sky_force_war"})
 	else:
 		start_ground_phase()
@@ -1123,6 +1140,129 @@ func cleanup_ground_scene() -> void:
 	ground_bullets.clear()
 	ground_enemy_bullets.clear()
 	ground_fx.clear()
+
+
+
+func cleanup_air_arena_scene() -> void:
+	if air_root != null and is_instance_valid(air_root):
+		air_root.queue_free()
+	air_root = null
+	air_camera = null
+	air_tiles.clear()
+	air_cloud_nodes.clear()
+
+
+func instantiate_air_model(path: String, node_name: String, pos: Vector3, yaw: float = 0.0, scale_value: Vector3 = Vector3.ONE) -> Node3D:
+	var node: Node3D = null
+	var packed = air_scene_cache.get(path, null)
+	if packed == null:
+		packed = load(path)
+		if packed != null:
+			air_scene_cache[path] = packed
+	if packed != null:
+		node = packed.instantiate()
+	else:
+		node = make_box_3d(Vector3.ZERO, Vector3(4.0, 0.18, 4.0), Color(0.08, 0.16, 0.18, 1.0), node_name)
+	node.name = node_name
+	node.position = pos
+	node.rotation.y = yaw
+	node.scale = scale_value
+	if air_root != null and is_instance_valid(air_root):
+		air_root.add_child(node)
+	return node
+
+
+func setup_air_arena_scene() -> void:
+	cleanup_air_arena_scene()
+	air_root = Node3D.new()
+	air_root.name = "SkyForceWar3DArena"
+	add_child(air_root)
+
+	var ambient = WorldEnvironment.new()
+	var env = Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.015, 0.026, 0.040, 1.0)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.34, 0.45, 0.56, 1.0)
+	env.ambient_light_energy = 1.05
+	env.glow_enabled = true
+	env.glow_intensity = 0.55
+	env.glow_strength = 0.75
+	ambient.environment = env
+	air_root.add_child(ambient)
+
+	var light = DirectionalLight3D.new()
+	light.name = "StormAerialSun"
+	light.light_energy = 2.6
+	light.rotation_degrees = Vector3(-62.0, 22.0, 0.0)
+	air_root.add_child(light)
+
+	air_camera = Camera3D.new()
+	air_camera.name = "SkyForceWarCamera"
+	air_camera.current = true
+	air_camera.fov = 54.0
+	air_camera.position = Vector3(0.0, 24.0, 18.0)
+	air_root.add_child(air_camera)
+	air_camera.look_at(Vector3(0.0, 0.0, -36.0), Vector3.UP)
+
+	var spacing = 38.0
+	for i in range(5):
+		var tile = instantiate_air_model("res://assets/models/air_arena_tile.glb", "ArenaTerrainTile", Vector3(0.0, -0.45, -float(i) * spacing), 0.0, Vector3(1.15, 1.0, 1.15))
+		air_tiles.append({"node": tile, "spacing": spacing})
+
+	for i in range(14):
+		var x = rng.randf_range(-14.0, 14.0)
+		var y = rng.randf_range(5.2, 12.5)
+		var z = rng.randf_range(-118.0, 10.0)
+		var s = rng.randf_range(0.72, 1.7)
+		var cloud = instantiate_air_model("res://assets/models/air_cloud_cluster.glb", "VolumetricCloudGLB", Vector3(x, y, z), rng.randf_range(-PI, PI), Vector3(s, s, s))
+		air_cloud_nodes.append({"node": cloud, "speed": rng.randf_range(10.0, 22.0), "phase": rng.randf_range(0.0, TAU), "base_x": x})
+
+	# Distant 3D wingmen sell real flight depth without replacing the 2D hitbox aircraft.
+	for i in range(2):
+		var side = -1.0 if i == 0 else 1.0
+		instantiate_air_model("res://assets/models/support_jet.glb", "AerialWingmanGLB", Vector3(side * 9.5, 7.0, -18.0 - i * 16.0), 0.0, Vector3(0.9, 0.9, 0.9))
+
+
+func update_air_arena_3d(delta: float) -> void:
+	if air_root == null or not is_instance_valid(air_root):
+		return
+	var moving = state == GameState.PLAYING or state == GameState.STAGE_CLEAR or state == GameState.GAME_OVER
+	var speed = 0.0 if state == GameState.PAUSED else (20.0 + route_speed * 0.38 if moving else 0.0)
+	var min_z = 0.0
+	for item in air_tiles:
+		var node: Node3D = item.get("node")
+		if node != null and is_instance_valid(node):
+			min_z = min(min_z, node.position.z)
+	for item in air_tiles:
+		var node: Node3D = item.get("node")
+		if node == null or not is_instance_valid(node):
+			continue
+		node.position.z += speed * delta
+		node.rotation.y = sin(time * 0.12 + node.position.z * 0.03) * 0.015
+		if node.position.z > 30.0:
+			node.position.z = min_z - float(item.get("spacing", 38.0))
+			min_z = node.position.z
+	for item in air_cloud_nodes:
+		var cloud: Node3D = item.get("node")
+		if cloud == null or not is_instance_valid(cloud):
+			continue
+		cloud.position.z += (speed + float(item.get("speed", 12.0))) * delta
+		cloud.position.x = float(item.get("base_x", cloud.position.x)) + sin(time * 0.45 + float(item.get("phase", 0.0))) * 1.5
+		cloud.rotation.y += delta * 0.08
+		if cloud.position.z > 22.0:
+			cloud.position.z = rng.randf_range(-128.0, -98.0)
+			cloud.position.y = rng.randf_range(5.2, 12.5)
+			cloud.position.x = rng.randf_range(-14.0, 14.0)
+			item["base_x"] = cloud.position.x
+	if air_camera != null and is_instance_valid(air_camera):
+		var shake = screen_shake * 0.05
+		air_camera.position = Vector3(sin(time * 19.0) * shake, 24.0 + cos(time * 17.0) * shake, 18.0)
+		air_camera.look_at(Vector3(0.0, 0.0, -36.0), Vector3.UP)
+
+
+func using_air_arena_3d() -> bool:
+	return DIRECT_SKY_FORCE_MODE and air_root != null and is_instance_valid(air_root) and (state == GameState.PLAYING or state == GameState.PAUSED or state == GameState.STAGE_CLEAR or state == GameState.GAME_OVER)
 
 
 func setup_ground_scene() -> void:
@@ -1382,7 +1522,7 @@ func update_ground_enemies(delta: float) -> void:
 			node.position = Vector3(float(e["x"]), 0.08, float(e["z"]))
 		if float(e["shoot_cd"]) <= 0.0 and float(e["z"]) < -8.0:
 			spawn_ground_bullet(Vector3(float(e["x"]), 0.62, float(e["z"]) + 1.7), 36.0, false)
-			e["shoot_cd"] = rng.randf_range(1.0, 1.8)
+			e["shoot_cd"] = enemy_fire_delay(1.45, 2.6)
 	for i in range(ground_enemies.size() - 1, -1, -1):
 		var e = ground_enemies[i]
 		if float(e["z"]) > 3.0:
@@ -1789,9 +1929,13 @@ func spawn_wave() -> void:
 		spawn_enemy("artillery", Vector2(W + 90.0, rng.randf_range(130.0, 360.0)))
 
 
+func enemy_fire_delay(min_seconds: float, max_seconds: float) -> float:
+	return rng.randf_range(min_seconds, max_seconds) * (1.85 if DIRECT_SKY_FORCE_MODE else 1.0)
+
+
 func spawn_enemy(kind: String, pos: Vector2) -> void:
 	var id = int(Time.get_ticks_msec()) + enemies.size() * 37 + rng.randi_range(0, 9999)
-	var e = {"id": id, "kind": kind, "pos": pos, "vel": Vector2.ZERO, "hp": 30.0, "max_hp": 30.0, "radius": 18.0, "shoot_cd": rng.randf_range(0.6, 1.8), "t": 0.0, "score": 120, "ground": false, "flash": 0.0}
+	var e = {"id": id, "kind": kind, "pos": pos, "vel": Vector2.ZERO, "hp": 30.0, "max_hp": 30.0, "radius": 18.0, "shoot_cd": enemy_fire_delay(1.1, 2.6), "t": 0.0, "score": 120, "ground": false, "flash": 0.0}
 	var diff = 1.0 + stage_index * 0.16 + route_progress / route_distance * 0.45
 	match kind:
 		"interceptor":
@@ -1869,15 +2013,15 @@ func update_enemies(delta: float) -> void:
 				pos.x += sin(t * 3.1 + float(e["id"]) * 0.01) * 80.0 * delta
 				if float(e["shoot_cd"]) <= 0.0 and pos.y > 30.0 and pos.y < H - 160.0:
 					shoot_at_player(pos, 260.0 + stage_index * 15.0, 13.0)
-					e["shoot_cd"] = rng.randf_range(1.0, 1.8)
+					e["shoot_cd"] = enemy_fire_delay(1.45, 2.6)
 			"bomber":
-				var cpos = Vector2(player.get("pos", Vector2(W * 0.5, H - 220.0))) if DIRECT_SKY_FORCE_MODE else convoy_center()
+				var cpos = Vector2(W * 0.5 + sin(t * 0.55 + float(e["id"]) * 0.01) * 210.0, H + 160.0) if DIRECT_SKY_FORCE_MODE else convoy_center()
 				var desired = (cpos - pos).normalized() * (125.0 + stage_index * 8.0)
 				vel = vel.lerp(desired, min(1.0, delta * 0.8))
 				pos += vel * delta
 				if float(e["shoot_cd"]) <= 0.0 and pos.y > 70.0:
 					drop_bomb(pos, cpos)
-					e["shoot_cd"] = rng.randf_range(1.5, 2.5)
+					e["shoot_cd"] = enemy_fire_delay(2.1, 3.4)
 			"gunship":
 				if pos.y < 165.0:
 					pos += vel * delta
@@ -1885,36 +2029,36 @@ func update_enemies(delta: float) -> void:
 					pos.x = W * 0.5 + sin(time * 0.8 + e["id"] * 0.01) * 210.0
 				if float(e["shoot_cd"]) <= 0.0 and pos.y > 70.0:
 					shoot_spread_at_convoy(pos, 5, 0.75, 215.0, 18.0)
-					e["shoot_cd"] = rng.randf_range(1.4, 2.0)
+					e["shoot_cd"] = enemy_fire_delay(2.0, 3.1)
 			"drone":
 				pos += vel * delta
 				pos.x += sin(t * 2.4) * 60.0 * delta
 				if float(e["shoot_cd"]) <= 0.0 and pos.y > 60.0:
 					shoot_at_convoy(pos, 240.0, 12.0, Color(0.65, 0.95, 1.0, 1.0), true)
-					e["shoot_cd"] = rng.randf_range(1.0, 1.6)
+					e["shoot_cd"] = enemy_fire_delay(1.7, 2.8)
 			"tank":
 				pos += vel * delta
 				if abs(pos.x - route_x_for_y(pos.y)) < ROAD_WIDTH * 0.8:
 					vel.x *= 0.96
 				if float(e["shoot_cd"]) <= 0.0:
 					shoot_at_convoy(pos, 225.0, 22.0, Color(1.0, 0.55, 0.2, 1.0))
-					e["shoot_cd"] = rng.randf_range(1.7, 2.6)
+					e["shoot_cd"] = enemy_fire_delay(2.2, 3.6)
 			"sam":
 				pos += vel * delta
 				if float(e["shoot_cd"]) <= 0.0 and pos.y > 20.0:
 					shoot_at_player(pos, 330.0, 20.0, Color(1.0, 0.24, 0.18, 1.0), true)
-					e["shoot_cd"] = rng.randf_range(2.0, 3.0)
+					e["shoot_cd"] = enemy_fire_delay(2.8, 4.2)
 			"artillery":
 				pos += vel * delta
 				if float(e["shoot_cd"]) <= 0.0:
 					spawn_artillery_marker()
-					e["shoot_cd"] = rng.randf_range(2.4, 3.6)
+					e["shoot_cd"] = enemy_fire_delay(3.2, 4.8)
 			"mine_layer":
 				pos += vel * delta
 				pos.x += sin(t * 2.0) * 48.0 * delta
 				if float(e["shoot_cd"]) <= 0.0:
 					hazards.append({"kind": "mine", "pos": Vector2(route_x_for_y(H - 160.0) + rng.randf_range(-42.0, 42.0), H - 165.0), "radius": 26.0, "timer": 7.0, "armed": true})
-					e["shoot_cd"] = rng.randf_range(1.6, 2.6)
+					e["shoot_cd"] = enemy_fire_delay(2.4, 4.0)
 			"boss":
 				if pos.y < 150.0:
 					pos.y += 70.0 * delta
@@ -1932,29 +2076,40 @@ func update_enemies(delta: float) -> void:
 			enemies.remove_at(i)
 
 
+func enemy_direct_bullet_dir(origin: Vector2, lane_bias: float = 0.0) -> Vector2:
+	# Direct Sky Force War uses authored lanes/patterns, not player-homing bullets.
+	# Every shot travels mostly downward with jitter; it never re-aims after spawn.
+	var lane = lane_bias + rng.randf_range(-0.34, 0.34) + sin(time * 1.7 + origin.x * 0.021) * 0.12
+	return Vector2(clamp(lane, -0.58, 0.58), 1.0).normalized()
+
+
 func shoot_at_player(origin: Vector2, speed: float, damage: float, color: Color = Color(1.0, 0.35, 0.22, 1.0), guided: bool = false) -> void:
-	var dir = (player["pos"] - origin).normalized()
+	var dir = enemy_direct_bullet_dir(origin) if DIRECT_SKY_FORCE_MODE else (player["pos"] - origin).normalized()
+	var shot_speed = speed * (0.82 if DIRECT_SKY_FORCE_MODE else 1.0)
+	var shot_damage = damage * (0.52 if DIRECT_SKY_FORCE_MODE else 1.0)
 	spawn_muzzle_flash_2d(origin, dir, false, 1.0 if not guided else 1.25)
-	enemy_bullets.append({"pos": origin, "vel": dir * speed, "damage": damage, "radius": 6.0, "target": "player", "color": color, "life": 5.0, "guided": false})
+	enemy_bullets.append({"pos": origin, "vel": dir * shot_speed, "damage": shot_damage, "radius": 5.0 if DIRECT_SKY_FORCE_MODE else 6.0, "target": "player", "color": color, "life": 5.0, "guided": false})
 
 
 func shoot_at_convoy(origin: Vector2, speed: float, damage: float, color: Color = Color(1.0, 0.65, 0.25, 1.0), guided: bool = false) -> void:
-	# Legacy enemy patterns now target the player in direct Sky Force War mode.
-	var target = Vector2(player.get("pos", convoy_center())) if DIRECT_SKY_FORCE_MODE else convoy_center()
-	var dir = (target - origin).normalized()
+	# Legacy convoy shots become non-homing downward lanes in direct Sky Force War mode.
+	var target = convoy_center()
+	var dir = enemy_direct_bullet_dir(origin) if DIRECT_SKY_FORCE_MODE else (target - origin).normalized()
+	var shot_speed = speed * (0.80 if DIRECT_SKY_FORCE_MODE else 1.0)
+	var shot_damage = damage * (0.50 if DIRECT_SKY_FORCE_MODE else 1.0)
 	spawn_muzzle_flash_2d(origin, dir, false, 1.05 if not guided else 1.25)
-	enemy_bullets.append({"pos": origin, "vel": dir * speed, "damage": damage, "radius": 7.0, "target": "player" if DIRECT_SKY_FORCE_MODE else "convoy", "color": color, "life": 5.0, "guided": false})
+	enemy_bullets.append({"pos": origin, "vel": dir * shot_speed, "damage": shot_damage, "radius": 5.5 if DIRECT_SKY_FORCE_MODE else 7.0, "target": "player" if DIRECT_SKY_FORCE_MODE else "convoy", "color": color, "life": 5.0, "guided": false})
 
 
 func shoot_spread_at_convoy(origin: Vector2, count: int, spread: float, speed: float, damage: float) -> void:
-	# Legacy spread pattern: in direct mode it becomes a readable player-directed bullet fan.
-	var target = Vector2(player.get("pos", convoy_center())) if DIRECT_SKY_FORCE_MODE else convoy_center()
-	var base = (target - origin).angle()
+	# Legacy spread pattern: in direct mode it becomes a fixed downward bullet fan.
+	var target = convoy_center()
+	var base = PI * 0.5 + rng.randf_range(-0.14, 0.14) if DIRECT_SKY_FORCE_MODE else (target - origin).angle()
 	spawn_muzzle_flash_2d(origin, Vector2(cos(base), sin(base)), false, 1.4)
 	for i in range(count):
 		var t = 0.0 if count == 1 else float(i) / float(count - 1) - 0.5
 		var a = base + t * spread
-		enemy_bullets.append({"pos": origin, "vel": Vector2(cos(a), sin(a)) * speed, "damage": damage, "radius": 6.0, "target": "player" if DIRECT_SKY_FORCE_MODE else "convoy", "color": Color(1.0, 0.28, 0.38, 1.0), "life": 5.0, "guided": false})
+		enemy_bullets.append({"pos": origin, "vel": Vector2(cos(a), sin(a)) * speed * (0.82 if DIRECT_SKY_FORCE_MODE else 1.0), "damage": damage * (0.48 if DIRECT_SKY_FORCE_MODE else 1.0), "radius": 5.2 if DIRECT_SKY_FORCE_MODE else 6.0, "target": "player" if DIRECT_SKY_FORCE_MODE else "convoy", "color": Color(1.0, 0.28, 0.38, 1.0), "life": 5.0, "guided": false})
 
 
 func drop_bomb(origin: Vector2, target: Vector2) -> void:
@@ -2017,6 +2172,8 @@ func update_enemy_bullets(delta: float) -> void:
 		var p = enemy_bullets[i]["pos"]
 		if p.y > H + 80.0 or p.y < -120.0 or p.x < -130.0 or p.x > W + 130.0 or float(enemy_bullets[i].get("life", 0.0)) <= 0.0:
 			enemy_bullets.remove_at(i)
+	while DIRECT_SKY_FORCE_MODE and enemy_bullets.size() > 54:
+		enemy_bullets.remove_at(0)
 
 
 func update_support_drops(delta: float) -> void:
@@ -2320,8 +2477,9 @@ func kill_enemy_at(index: int) -> void:
 func damage_player(amount: float) -> void:
 	if float(player.get("invuln", 0.0)) > 0.0:
 		return
-	player["hp"] = int(player["hp"]) - int(amount)
-	player["invuln"] = 0.9
+	var final_amount = amount * (0.58 if DIRECT_SKY_FORCE_MODE else 1.0)
+	player["hp"] = int(player["hp"]) - max(1, int(final_amount))
+	player["invuln"] = 1.35 if DIRECT_SKY_FORCE_MODE else 0.9
 	screen_shake = max(screen_shake, 1.2)
 	screen_flash = max(screen_flash, 0.35)
 	spawn_particles(player["pos"], Color(1.0, 0.2, 0.13, 1.0), 26, 280.0)
@@ -2584,7 +2742,10 @@ func _draw() -> void:
 		draw_ground_overlay()
 		draw_pause_overlay()
 		return
-	draw_background()
+	if using_air_arena_3d():
+		draw_air_weather_overlay()
+	else:
+		draw_background()
 	match state:
 		GameState.TITLE:
 			draw_title()
@@ -2693,6 +2854,27 @@ func draw_weather_backdrop() -> void:
 		var pos = m["pos"]
 		draw_line(Vector2(pos.x - 24.0, 0.0), pos, Color(0.82, 0.92, 1.0, ratio), 5.0)
 		draw_circle(pos, 100.0 * (1.0 - ratio + 0.25), Color(0.7, 0.85, 1.0, 0.22 * ratio))
+
+
+
+func draw_air_weather_overlay() -> void:
+	# Only translucent weather/lighting is drawn over the 3D GLB arena.
+	# No static photo or fake HTML-style parallax layer is used in aircraft combat.
+	var rain = weather_value("rain")
+	if rain > 0.05:
+		for i in range(int(95 * rain)):
+			var x = fmod(float(i) * 83.0 + time * 230.0 * (0.3 + rain), W + 90.0) - 45.0
+			var y = fmod(float(i) * 47.0 + time * 610.0, H + 100.0) - 50.0
+			var slant = current_wind() * 28.0
+			draw_line(Vector2(x, y), Vector2(x + slant, y + 34.0), Color(0.55, 0.86, 1.0, 0.12 + rain * 0.16), 1.5)
+	for m in lightning_marks:
+		var ratio = clamp(float(m["life"]) / float(m["max_life"]), 0.0, 1.0)
+		var pos = m["pos"]
+		draw_line(Vector2(pos.x - 24.0, 0.0), pos, Color(0.82, 0.92, 1.0, ratio), 5.0)
+		draw_circle(pos, 100.0 * (1.0 - ratio + 0.25), Color(0.7, 0.85, 1.0, 0.22 * ratio))
+	var visibility = weather_value("visibility")
+	if visibility < 0.85:
+		draw_rect(Rect2(0, 0, W, H), Color(0.62, 0.72, 0.82, (0.85 - visibility) * 0.20))
 
 
 func draw_pickup(p: Dictionary) -> void:

@@ -97,8 +97,8 @@ Brand/logo dipakai oleh `GameState.LOADING` bersama stage background (`bg_thunde
 
 ## Current Aircraft Arena Visual Rules
 
-- Painted stage backgrounds (`background_monsoon_pass.png`, `background_thunder_ridge.png`, `background_black_delta.png`) sekarang dipakai sebagai layer loop-scrolling vertikal selama aircraft phase, bukan satu foto statis.
-- Weather cloud blobs bergerak/parallax mengikuti arena agar jalur terasa berjalan ke bawah layar.
+- Aircraft phase sekarang memakai `SkyForceWar3DArena`: Camera3D + GLB terrain tile + GLB cloud cluster yang benar-benar bergerak di world 3D.
+- Painted stage backgrounds hanya dipakai di loading/menu; gameplay aircraft tidak lagi menggambar foto statis sebagai arena.
 - Mobil/konvoi tidak digambar di arena aircraft; ground-link convoy signal juga dihapus supaya game langsung terasa aircraft-only.
 
 ## UI/UX dan Progression Screens

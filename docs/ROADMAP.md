@@ -14,11 +14,11 @@ Estimasi kasar status produksi:
 | Area | Status |
 | --- | --- |
 | Build/Web pipeline | 80% |
-| Core air-war mechanics | 55% — direct aircraft combat aktif; car/convoy prologue dinonaktifkan |
+| Core air-war mechanics | 58% — direct aircraft combat aktif; enemy fire menjadi pattern/lane non-homing |
 | Weather gameplay | 35% |
 | Flight-path branching | 30% |
 | Enemy variety logic | 35% |
-| Visual production quality | 45% setelah PNG/GLB + procedural VFX + 9:16 scrolling arena pass |
+| Visual production quality | 48% setelah GLB 3D arena tile/cloud mengganti foto/parallax gameplay |
 | Campaign/content polish | 20% — hangar/garage + loading/brand splash flow mulai terbentuk |
 | Audio/VFX/juice | 16% — research Sky Force-style VFX + Storm Burst/salvage/laser/shield pass |
 | Overall menuju full version | ±41% |
@@ -26,10 +26,10 @@ Estimasi kasar status produksi:
 ## Update Gameplay/Visual Pass Terbaru
 
 - Web/mobile viewport diset ke 720x1280 (9:16) dan QA browser mengecek rasio tersebut.
-- Enemy bullets sekarang hanya aim saat ditembakkan; tidak ada re-aim/homing terus-menerus ke player.
+- Enemy bullets sekarang memakai fixed lane/pattern non-homing; fire-rate, damage, bullet cap, dan player invulnerability dituning agar tidak mati hanya karena ditembak terus.
 - Aircraft arena tidak lagi menggambar mobil, konvoi, atau ground-link convoy signal.
 - Stage launch langsung masuk aircraft/Sky Force War; ground chase/car prologue dinonaktifkan.
-- Background aircraft phase sekarang loop-scrolling vertical dengan moving clouds/parallax agar tidak terasa seperti foto statis.
+- Background aircraft phase sekarang `SkyForceWar3DArena`: Camera3D + GLB terrain/cloud moving world, bukan static photo + overlay.
 
 ## Pilar Desain
 

@@ -35,8 +35,8 @@ Sudah dibuat:
   - mobile loading page dengan slideshow background dan logo wordmark
   - custom Web boot splash/icon supaya browser tidak menampilkan logo Godot default
   - 9:16 mobile portrait canvas (`720x1280`) untuk Web/mobile QA
-  - aircraft arena scroll/loop vertical dengan cloud/ground parallax, bukan foto statis
-  - enemy bullets aim saat ditembakkan saja; tidak terus mengejar pemain
+  - aircraft arena memakai scene 3D GLB terrain/cloud (`air_arena_tile.glb`, `air_cloud_cluster.glb`), bukan foto statis/parallax HTML
+  - enemy bullets memakai pattern/lane shot non-homing dengan fire-rate/damage diturunkan agar tidak terus mengejar pemain
   - convoy/ground-link visual di aircraft phase dihapus total agar tidak ada mobil/konvoi di arena
 - Godot Web preset: `export_presets.cfg`
 - Build script Godot 4.6.2: `tools/export_web.sh`
@@ -67,7 +67,7 @@ Sudah dibuat:
 project.godot                         # Konfigurasi Godot 4.6.2
 scenes/Main.tscn                      # Main scene
 scripts/main.gd                       # Gameplay Sky Force War, flight path, weather, combat, JS bridge
-assets/                               # SVG game assets original
+assets/                               # SVG/PNG/GLB game assets original
 assets/*/*.svg.import                 # Godot import metadata
 tools/generate_assets.py              # Deterministic SVG asset generator
 tools/export_web.sh                   # Export Web dengan Godot 4.6.2
