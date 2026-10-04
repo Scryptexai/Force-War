@@ -1228,7 +1228,7 @@ func update_air_arena_3d(delta: float) -> void:
 	if air_root == null or not is_instance_valid(air_root):
 		return
 	var moving = state == GameState.PLAYING or state == GameState.STAGE_CLEAR or state == GameState.GAME_OVER
-	var speed = 0.0 if state == GameState.PAUSED else (20.0 + route_speed * 0.38 if moving else 0.0)
+	var speed = 0.0 if state == GameState.PAUSED else (7.5 + route_speed * 0.16 if moving else 0.0)
 	var min_z = 0.0
 	for item in air_tiles:
 		var node: Node3D = item.get("node")
@@ -1247,7 +1247,7 @@ func update_air_arena_3d(delta: float) -> void:
 		var cloud: Node3D = item.get("node")
 		if cloud == null or not is_instance_valid(cloud):
 			continue
-		cloud.position.z += (speed + float(item.get("speed", 12.0))) * delta
+		cloud.position.z += (speed * 1.15 + float(item.get("speed", 12.0)) * 0.38) * delta
 		cloud.position.x = float(item.get("base_x", cloud.position.x)) + sin(time * 0.45 + float(item.get("phase", 0.0))) * 1.5
 		cloud.rotation.y += delta * 0.08
 		if cloud.position.z > 22.0:
@@ -1795,21 +1795,34 @@ func fire_player_shot() -> void:
 	var gun_mod = float(loadout.get("gun", 1.0)) * aircraft_stat_multiplier("gun")
 	if overcharge_timer > 0.0:
 		gun_mod *= 1.65
-	var lanes = 2 if gun_mod < 1.2 else 3
+	# Direct Sky Force War should feel like a real shmup volley, not two thin bullets.
+	var lanes = 5
+	if gun_mod >= 1.28:
+		lanes = 6
+	if gun_mod >= 1.62:
+		lanes = 7
 	if overcharge_timer > 0.0:
 		lanes += 2
-	var spread = 0.13 + (lanes - 2) * 0.035
+	var spread = 0.34 + max(0, lanes - 5) * 0.035
+	var muzzle_span = 92.0 + max(0, lanes - 5) * 10.0
+	var muzzle_color = Color(0.42, 0.96, 1.0, 1.0) if overcharge_timer <= 0.0 else Color(0.80, 0.96, 1.0, 1.0)
 	for i in range(lanes):
 		var t = 0.0 if lanes == 1 else float(i) / float(lanes - 1) - 0.5
 		var angle = t * spread
-		var vel = Vector2(sin(angle), -cos(angle)) * (760.0 + gun_mod * 60.0)
-		var muzzle_pos = pos + Vector2(t * 30.0, -35.0)
-		spawn_muzzle_flash_2d(muzzle_pos, vel, true, 0.85 if overcharge_timer <= 0.0 else 1.2)
-		bullets.append({"pos": pos + Vector2(t * 30.0, -30.0), "vel": vel, "damage": 12.0 * gun_mod, "radius": 5.0, "life": 1.6, "kind": "plasma"})
+		var dir = Vector2(sin(angle), -cos(angle)).normalized()
+		var vel = dir * (840.0 + gun_mod * 70.0)
+		var muzzle_pos = pos + Vector2(t * muzzle_span, -38.0 - abs(t) * 8.0)
+		var is_center = abs(t) < 0.08
+		var damage = (10.5 if is_center else 8.4) * gun_mod
+		var radius = 6.2 if is_center else 5.1
+		spawn_muzzle_flash_2d(muzzle_pos, vel, true, 1.15 if overcharge_timer <= 0.0 else 1.55)
+		effects.append({"kind": "shot_lance", "origin": muzzle_pos + Vector2(0.0, 12.0), "target": muzzle_pos + dir * 86.0, "color": muzzle_color, "radius": 5.5 if is_center else 4.0, "life": 0.085, "max_life": 0.085})
+		bullets.append({"pos": muzzle_pos + dir * 10.0, "vel": vel, "damage": damage, "radius": radius, "life": 1.45, "kind": "plasma"})
+	spawn_particles(pos + Vector2(0.0, -30.0), muzzle_color, 5, 150.0)
 	if overcharge_timer > 0.0 and laser_fx_cooldown <= 0.0:
 		fire_overcharge_laser(pos)
-		laser_fx_cooldown = 0.38
-	player["shot_cd"] = max(0.065, 0.15 / gun_mod)
+		laser_fx_cooldown = 0.34
+	player["shot_cd"] = max(0.070, 0.17 / gun_mod)
 
 
 func fire_micro_missile() -> void:
@@ -2864,7 +2877,7 @@ func draw_air_weather_overlay() -> void:
 	if rain > 0.05:
 		for i in range(int(95 * rain)):
 			var x = fmod(float(i) * 83.0 + time * 230.0 * (0.3 + rain), W + 90.0) - 45.0
-			var y = fmod(float(i) * 47.0 + time * 610.0, H + 100.0) - 50.0
+			var y = fmod(float(i) * 47.0 + time * 430.0, H + 100.0) - 50.0
 			var slant = current_wind() * 28.0
 			draw_line(Vector2(x, y), Vector2(x + slant, y + 34.0), Color(0.55, 0.86, 1.0, 0.12 + rain * 0.16), 1.5)
 	for m in lightning_marks:
@@ -2915,6 +2928,10 @@ func draw_game_world() -> void:
 		var col = Color(0.5, 0.95, 1.0, 1.0) if kind != "aa" else Color(1.0, 0.85, 0.2, 1.0)
 		var width = 2.4
 		var trail_len = 28.0
+		if kind == "plasma":
+			col = Color(0.42, 0.96, 1.0, 1.0)
+			width = 3.3
+			trail_len = 46.0
 		if kind == "missile":
 			col = Color(1.0, 0.55, 0.16, 1.0)
 			width = 3.8
@@ -3081,6 +3098,15 @@ func draw_effect(e: Dictionary) -> void:
 			var start = pos + Vector2(cos(a), sin(a)) * r * 0.12
 			var end = pos + Vector2(cos(a), sin(a)) * r
 			draw_line(start, end, Color(c.r, c.g, c.b, 0.18 * ratio), 2.0)
+	elif kind == "shot_lance":
+		var c = e.get("color", Color(0.42, 0.96, 1.0, 1.0))
+		var a = e.get("origin", pos)
+		var b = e.get("target", pos + Vector2(0.0, -80.0))
+		var width = float(e.get("radius", 4.0)) * (0.55 + ratio * 0.75)
+		draw_line(a, b, Color(c.r, c.g, c.b, 0.22 * ratio), width * 3.2)
+		draw_line(a, b, Color(c.r, c.g, c.b, 0.68 * ratio), width)
+		draw_line(a, b, Color(1.0, 1.0, 1.0, 0.82 * ratio), max(1.5, width * 0.24))
+		draw_circle(b, width * 0.85, Color(c.r, c.g, c.b, 0.28 * ratio))
 	elif kind == "text":
 		draw_text_centered_at(str(e.get("text", "")), pos + Vector2(0, -20.0 * (1.0 - ratio)), 16, Color(0.84, 0.92, 1.0, ratio))
 	elif kind == "muzzle":
