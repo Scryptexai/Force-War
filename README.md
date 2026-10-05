@@ -49,6 +49,7 @@ docs/REPO_CLEANUP_AUDIT.md                # Audit setup lama dan daftar bersih-b
 docs/ROADMAP.md                           # Roadmap baru tanpa convoy/car/top-down sebagai target
 docs/ASSET_CATALOG.md                     # Katalog asset target GLB + legacy quarantine
 docs/ASSET_PRODUCTION_AUDIT.md            # Audit jujur asset nyata vs placeholder setelah texture/Blender pass
+docs/GODOT_BLENDER_MOBILE_ARCHITECTURE.md # Arsitektur target Godot+Blender mobile-first + web preview
 docs/FX_RESEARCH.md                       # Riset VFX forward air-combat
 docs/UI_UX_FLOW_AUDIT.md                  # Flow mobile baru
 docs/UI_UX_RESEARCH.md                    # Prinsip UX baru untuk forward air-combat
@@ -64,6 +65,7 @@ scripts/main.gd                       # Baseline gameplay lama; wajib dibedah pa
 assets/models/                        # Asset gameplay baru: GLB pesawat, enemy, boss, arena/deck chunks
 assets/vfx/                           # Authored projectile/explosion/smoke/shield/reticle/ocean/deck textures for 3D chase combat
 assets/source_textures/               # Source material textures for Blender pass; .gdignore prevents direct Godot import
+data/                                # Data contract for projectile/wave definitions and future data-driven combat
 assets/rendered/                      # Hanya untuk logo/loading/UI reference; tidak boleh menjadi player aircraft gameplay final
 gameplay_visual_lock_build.jpg        # Visual target reference, bukan gameplay texture
 tools/export_web.sh                   # Export Web Godot 4.6.2 ke root repo

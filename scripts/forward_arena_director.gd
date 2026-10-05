@@ -20,6 +20,7 @@ const CINEMATIC_MATTE_TEXTURE_PATH = "res://assets/rendered/forward_air_battlefi
 const ENEMY_HERO_JET_READY_PATH = "res://assets/models/enemy_hero_jet_blender_ready.glb"
 const ENEMY_HERO_JET_PATH = "res://assets/models/enemy_hero_jet.glb"
 const DEPTH_LAYER_COUNT = 5
+const PROJECTILE_VISUAL_POOL_SCRIPT = preload("res://scripts/projectiles/projectile_visual_pool_3d.gd")
 
 var active = false
 var is_setup = false
@@ -56,6 +57,8 @@ var boss_beams: Array = []
 var cinematic_bullets: Array = []
 var player_beams: Array = []
 var player_shot_pulses: Array = []
+var player_projectile_visual_pool: Node3D
+var enemy_projectile_visual_pool: Node3D
 var enemy_attack_jets: Array = []
 var missile_trails: Array = []
 var shield_bubbles: Array = []
@@ -197,6 +200,9 @@ func get_weather_effect() -> Dictionary:
 		"texturedBlenderAssets": arena_deck_cluster_scene != null and boss_dreadnought_scene != null and storm_ocean_texture != null,
 		"cinematicMatteAsset": cinematic_matte_texture != null,
 		"projectileAssetSprites": hero_shot_texture != null and enemy_shot_texture != null,
+		"projectileVisualPool": player_projectile_visual_pool != null and enemy_projectile_visual_pool != null,
+		"projectilePoolCount": _projectile_pool_count(),
+		"projectileArchitecture": "pooled_multimesh_visuals_logical_collision_target",
 		"cleanArenaOverlay": true,
 		"shotAnimation": "asset_sprite_hero_enemy_lanes",
 		"playerScaleMode": "reduced_mobile_readable",
@@ -482,6 +488,8 @@ func _create_visual_lock_composition_layer() -> void:
 		add_child(pulse)
 		player_shot_pulses.append(pulse)
 
+	_create_projectile_visual_pools()
+
 	for i in range(8):
 		var enemy = Node3D.new()
 		enemy.name = "EnemyHeroJetAttack_%02d" % i
@@ -523,6 +531,55 @@ func _create_visual_lock_composition_layer() -> void:
 		add_child(shield)
 		shield_bubbles.append(shield)
 
+
+func _create_projectile_visual_pools() -> void:
+	# Architecture pass: high-count projectile visuals are pooled and batched through MultiMesh.
+	# The current gameplay damage logic stays separate; this is the renderer-aware bullet field.
+	if hero_shot_texture != null:
+		player_projectile_visual_pool = PROJECTILE_VISUAL_POOL_SCRIPT.new()
+		add_child(player_projectile_visual_pool)
+		player_projectile_visual_pool.setup(
+			"player_cyan_plasma",
+			hero_shot_texture,
+			Color(0.62, 1.0, 1.0, 0.92),
+			36,
+			Vector2(0.42, 2.45),
+			[-0.98, -0.32, 0.32, 0.98],
+			1.65,
+			3.65,
+			-5.5,
+			-118.0,
+			false,
+			54.0,
+			84.0
+		)
+	if enemy_shot_texture != null:
+		enemy_projectile_visual_pool = PROJECTILE_VISUAL_POOL_SCRIPT.new()
+		add_child(enemy_projectile_visual_pool)
+		enemy_projectile_visual_pool.setup(
+			"enemy_orange_bolts",
+			enemy_shot_texture,
+			Color(1.0, 0.48, 0.18, 0.86),
+			48,
+			Vector2(0.30, 1.75),
+			[-4.1, -2.55, -1.05, 1.05, 2.55, 4.1],
+			1.8,
+			5.7,
+			8.0,
+			-126.0,
+			true,
+			34.0,
+			56.0
+		)
+
+
+func _projectile_pool_count() -> int:
+	var count = 0
+	if player_projectile_visual_pool != null and player_projectile_visual_pool.has_method("get_pool_count"):
+		count += int(player_projectile_visual_pool.get_pool_count())
+	if enemy_projectile_visual_pool != null and enemy_projectile_visual_pool.has_method("get_pool_count"):
+		count += int(enemy_projectile_visual_pool.get_pool_count())
+	return count
 
 func _play_first_animation(root: Node) -> void:
 	for child in root.get_children():
@@ -714,6 +771,10 @@ func _update_visual_lock_composition(delta: float, travel_speed: float) -> void:
 		pulse.scale.z = 1.0 + sin(forward_time * 18.0 + pulse.position.z) * 0.10
 		if pulse.position.z < -112.0:
 			pulse.position.z = -5.5
+	if player_projectile_visual_pool != null and player_projectile_visual_pool.has_method("update_pool"):
+		player_projectile_visual_pool.update_pool(delta, wind_drift, forward_time)
+	if enemy_projectile_visual_pool != null and enemy_projectile_visual_pool.has_method("update_pool"):
+		enemy_projectile_visual_pool.update_pool(delta, wind_drift, forward_time)
 	for enemy in enemy_attack_jets:
 		var side = float(enemy.get_meta("side", 1.0))
 		enemy.position.z += travel_speed * float(enemy.get_meta("speed_mul", 1.0)) * 0.62 * delta

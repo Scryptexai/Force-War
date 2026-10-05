@@ -44,10 +44,11 @@ This audit was added after the visual QA correction that the arena still looked 
 - `stormOceanTextureAsset === true`
 - `texturedBlenderAssets === true`
 - `projectileAssetSprites === true`
+- `projectileVisualPool === true` and `projectilePoolCount >= 80`
 - `cloudGeometry === false`
 - `canvas === 720x1280`
 
-Automated QA is still not enough by itself. Browser screenshot review remains required before claiming visual quality.
+Automated QA is still not enough by itself. Browser screenshot review remains required before claiming visual quality. The current projectile pool is a renderer-facing MultiMesh visual pool; logical bullet collision/data-driven boss patterns are the next implementation chunk.
 
 ## Latest verified build facts
 

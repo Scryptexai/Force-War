@@ -1,0 +1,20 @@
+{
+  "id": "vertical_slice_test_arena",
+  "goal": "30-60 second forward-air browser slice that proves camera, boss, ocean, projectile density, and battlefield composition before expanding levels.",
+  "required_runtime_flags": [
+    "missionMode=forward_air_combat",
+    "cameraMode=chase_behind_above",
+    "playerModel=glb",
+    "texturedBlenderAssets=true",
+    "projectileVisualPool=true",
+    "stormOceanTextureAsset=true"
+  ],
+  "projectile_budget": {
+    "player_visual_pool": 36,
+    "enemy_visual_pool": 48,
+    "future_gameplay_bullet_target_low": 100,
+    "future_gameplay_bullet_target_high": 300
+  },
+  "boss": "Dreadnought Leviathan",
+  "web_role": "preview_and_QA_not_final_mobile_visual_ground_truth"
+}

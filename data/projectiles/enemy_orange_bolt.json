@@ -1,0 +1,13 @@
+{
+  "id": "enemy_orange_bolt",
+  "role": "enemy_boss_lane_visual_and_future_gameplay_projectile",
+  "sprite": "res://assets/vfx/enemy_orange_shot.png",
+  "speed": 46.0,
+  "lifetime": 3.1,
+  "damage": 8,
+  "radius": 0.28,
+  "lanes": [-4.1, -2.55, -1.05, 1.05, 2.55, 4.1],
+  "render_pool_count": 48,
+  "collision_mode": "future_logical_radius",
+  "renderer": "multimesh_visual_pool"
+}

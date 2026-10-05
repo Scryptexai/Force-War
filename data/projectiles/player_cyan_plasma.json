@@ -1,0 +1,13 @@
+{
+  "id": "player_cyan_plasma",
+  "role": "player_primary_visual_and_future_gameplay_projectile",
+  "sprite": "res://assets/vfx/hero_cyan_shot.png",
+  "speed": 78.0,
+  "lifetime": 1.65,
+  "damage": 18,
+  "radius": 0.34,
+  "lanes": [-0.98, -0.32, 0.32, 0.98],
+  "render_pool_count": 36,
+  "collision_mode": "future_logical_radius",
+  "renderer": "multimesh_visual_pool"
+}
