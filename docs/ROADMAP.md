@@ -2,6 +2,8 @@
 
 Tanggal redesign lock: 2026-10-05
 
+Detail rebuild step-by-step dan progress gates sekarang dicatat di `docs/REBUILD_ROADMAP_AND_MILESTONES.md`. Dokumen ini tetap menjadi roadmap ringkas/high-level.
+
 ## Visi Baru
 
 Force War bukan lagi vertical/top-down Sky Force clone dan bukan lagi convoy/car escort. Force War sekarang diarahkan menjadi **3D forward air-combat**: player mengendalikan pesawat GLB dari kamera chase di belakang-sedikit-atas, bergerak maju ke medan perang badai, melawan drone/fighter/boss dreadnought dalam arena 3D sinematik.
