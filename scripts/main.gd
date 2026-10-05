@@ -13,6 +13,7 @@ const PLAYER_RADIUS = 19.0
 const CONVOY_RADIUS = 25.0
 const ROAD_WIDTH = 156.0
 const MAX_STAGE = 6
+const FORWARD_AIR_SCENE_SCRIPT = preload("res://scripts/forward_air_scene_3d.gd")
 
 enum GameState { LOADING, TITLE, BRIEFING, HANGAR, GROUND, PLAYING, STAGE_CLEAR, GAME_OVER, PAUSED }
 
@@ -141,6 +142,7 @@ var air_camera: Camera3D
 var air_tiles: Array = []
 var air_cloud_nodes: Array = []
 var air_scene_cache: Dictionary = {}
+var forward_scene: Node3D
 
 
 func _ready() -> void:
@@ -169,7 +171,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	time += delta
 	update_background(delta)
-	update_air_arena_3d(delta)
+	if not using_forward_air_scene():
+		update_air_arena_3d(delta)
 	warning_timer = max(0.0, warning_timer - delta)
 	weather_flash = max(0.0, weather_flash - delta * 2.6)
 	screen_flash = max(0.0, screen_flash - delta * 3.6)
@@ -260,6 +263,7 @@ func handle_accept() -> void:
 		purchase_or_upgrade_selected()
 	elif state == GameState.STAGE_CLEAR:
 		cleanup_air_arena_scene()
+		cleanup_forward_air_scene()
 		state = GameState.BRIEFING
 		selected_stage = int(clamp(int(save_data.get("unlocked_stage", 1)) - 1, 0, stages.size() - 1))
 	elif state == GameState.GAME_OVER:
@@ -282,6 +286,7 @@ func handle_escape() -> void:
 			cleanup_ground_scene()
 		if previous_state == GameState.PLAYING:
 			cleanup_air_arena_scene()
+			cleanup_forward_air_scene()
 		state = GameState.BRIEFING
 		js_emit("abort_mission", {})
 	else:
@@ -997,6 +1002,7 @@ func reset_player() -> void:
 func start_stage(index: int) -> void:
 	cleanup_ground_scene()
 	cleanup_air_arena_scene()
+	cleanup_forward_air_scene()
 	stage_index = int(clamp(index, 0, stages.size() - 1))
 	selected_stage = stage_index
 	stage = stages[stage_index]
@@ -1068,10 +1074,13 @@ func start_stage(index: int) -> void:
 	spawn_weather_field()
 	if DIRECT_SKY_FORCE_MODE:
 		cleanup_ground_scene()
-		setup_air_arena_scene()
+		cleanup_air_arena_scene()
+		ensure_forward_air_scene()
+		if forward_scene and forward_scene.has_method("start_mission"):
+			forward_scene.start_mission(stage, loadout, active_aircraft())
 		state = GameState.PLAYING
-		show_warning("SKY FORCE WAR: direct 3D aircraft deployment")
-		js_emit("stage_start", {"stage": stage_index + 1, "name": stage["name"], "loadout": loadout["name"], "weather": stage["weather"], "phase": "sky_force_war"})
+		show_warning("FORWARD AIR COMBAT: GLB chase camera deployment")
+		js_emit("stage_start", {"stage": stage_index + 1, "name": stage["name"], "loadout": loadout["name"], "weather": stage["weather"], "phase": "forward_air_combat", "camera": "chase_behind_above", "playerModel": "glb"})
 	else:
 		start_ground_phase()
 		js_emit("stage_start", {"stage": stage_index + 1, "name": stage["name"], "loadout": loadout["name"], "weather": stage["weather"], "phase": "ground_chase"})
@@ -1150,6 +1159,36 @@ func cleanup_air_arena_scene() -> void:
 	air_camera = null
 	air_tiles.clear()
 	air_cloud_nodes.clear()
+
+
+func ensure_forward_air_scene() -> void:
+	if forward_scene != null and is_instance_valid(forward_scene):
+		return
+	forward_scene = FORWARD_AIR_SCENE_SCRIPT.new()
+	add_child(forward_scene)
+	if forward_scene.has_method("setup"):
+		forward_scene.setup(self)
+
+
+func cleanup_forward_air_scene() -> void:
+	if forward_scene != null and is_instance_valid(forward_scene):
+		if forward_scene.has_method("stop_mission"):
+			forward_scene.stop_mission()
+
+
+func using_forward_air_scene() -> bool:
+	return forward_scene != null and is_instance_valid(forward_scene) and forward_scene.has_method("is_active") and bool(forward_scene.is_active())
+
+
+func forward_input_state() -> Dictionary:
+	var direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	return {
+		"move": direction,
+		"pointer_active": touch_active or pointer_active,
+		"pointer": pointer_target,
+		"viewport": Vector2(W, H),
+		"boost": Input.is_key_pressed(KEY_SHIFT)
+	}
 
 
 func instantiate_air_model(path: String, node_name: String, pos: Vector3, yaw: float = 0.0, scale_value: Vector3 = Vector3.ONE) -> Node3D:
@@ -1660,6 +1699,17 @@ func update_playing(delta: float) -> void:
 	radar_timer = max(0.0, radar_timer - delta)
 	overcharge_timer = max(0.0, overcharge_timer - delta)
 	supply_turret_timer = max(0.0, supply_turret_timer - delta)
+	if using_forward_air_scene():
+		if forward_scene.has_method("update_forward"):
+			forward_scene.update_forward(delta, forward_input_state())
+		if forward_scene.has_method("get_bridge_state"):
+			var forward_state = forward_scene.get_bridge_state()
+			route_progress = float(forward_state.get("progress", 0.0)) * route_distance
+			player["hp"] = int(forward_state.get("hp", player.get("hp", 0)))
+			player["max_hp"] = int(forward_state.get("maxHp", player.get("max_hp", 1)))
+		update_particles(delta)
+		update_effects(delta)
+		return
 	route_offset = lerp(route_offset, route_target_offset, min(1.0, delta * 1.2))
 	update_player(delta)
 	update_weather(delta)
@@ -2703,9 +2753,15 @@ func push_js_state() -> void:
 		"convoyHp": 0 if DIRECT_SKY_FORCE_MODE else convoy_total_hp(),
 		"convoyMaxHp": 0 if DIRECT_SKY_FORCE_MODE else convoy_max_hp(),
 		"playerHp": int(player.get("hp", 0)),
-		"missionMode": "sky_force_war" if DIRECT_SKY_FORCE_MODE else "escort_convoy",
+		"missionMode": "forward_air_combat" if using_forward_air_scene() else ("sky_force_war" if DIRECT_SKY_FORCE_MODE else "escort_convoy"),
 		"weather": stage.get("weather", {})
 	}
+	if using_forward_air_scene() and forward_scene.has_method("get_bridge_state"):
+		var forward_state = forward_scene.get_bridge_state()
+		for key in forward_state.keys():
+			payload[key] = forward_state[key]
+		payload["playerHp"] = int(forward_state.get("hp", payload["playerHp"]))
+		payload["progress"] = float(forward_state.get("progress", payload["progress"]))
 	Engine.get_singleton("JavaScriptBridge").eval("window.ForceWarBridge=window.ForceWarBridge||{events:[]};window.ForceWarBridge.state=" + JSON.stringify(payload) + ";", false)
 
 
@@ -2754,6 +2810,11 @@ func _draw() -> void:
 	if state == GameState.PAUSED and previous_state == GameState.GROUND:
 		draw_ground_overlay()
 		draw_pause_overlay()
+		return
+	if using_forward_air_scene() and (state == GameState.PLAYING or (state == GameState.PAUSED and previous_state == GameState.PLAYING)):
+		draw_forward_hud()
+		if state == GameState.PAUSED:
+			draw_pause_overlay()
 		return
 	if using_air_arena_3d():
 		draw_air_weather_overlay()
@@ -3390,6 +3451,40 @@ func draw_ground_overlay() -> void:
 	if warning_timer > 0.0:
 		draw_rect(Rect2(W * 0.5 - 310, 106, 620, 34), Color(0.0, 0.0, 0.0, 0.54))
 		draw_text_center(warning_text, 130, 14, Color(1.0, 0.9, 0.35, 1.0))
+
+
+func draw_forward_hud() -> void:
+	var forward_state = {}
+	if using_forward_air_scene() and forward_scene.has_method("get_bridge_state"):
+		forward_state = forward_scene.get_bridge_state()
+	draw_rect(Rect2(0, 0, W, 108), Color(0.0, 0.02, 0.06, 0.50))
+	draw_text("FORCE WAR // FORWARD AIR COMBAT", 18, 26, 18, Color(0.70, 0.93, 1.0, 0.96))
+	draw_text("CAM " + str(forward_state.get("cameraMode", "chase_behind_above")), 18, 56, 14, Color(0.86, 0.96, 1.0, 0.82))
+	var hp_ratio = float(forward_state.get("hp", player.get("hp", 0))) / max(1.0, float(forward_state.get("maxHp", player.get("max_hp", 1))))
+	draw_text("JET " + str(active_aircraft().get("name", "Stormhawk")), 330, 26, 14, Color(0.86, 0.96, 1.0, 0.92))
+	draw_bar(Rect2(330, 42, 190, 12), hp_ratio, Color(0.25, 0.90, 1.0, 1.0), Color(0.0, 0.0, 0.0, 0.55))
+	var progress = float(forward_state.get("progress", route_progress / max(1.0, route_distance)))
+	draw_text("DEPTH", 548, 26, 14, Color(0.86, 0.96, 1.0, 0.88))
+	draw_bar(Rect2(548, 42, 132, 12), progress, Color(1.0, 0.74, 0.24, 1.0), Color(1.0, 1.0, 1.0, 0.13))
+	draw_text("SPD " + str(int(float(forward_state.get("forwardSpeed", 0.0)))), 548, 76, 14, Color(0.72, 0.9, 1.0, 0.90))
+
+	var reticle = Vector2(W * 0.5, H * 0.43)
+	draw_circle(reticle, 34.0, Color(0.08, 0.50, 0.75, 0.16))
+	draw_arc(reticle, 42.0, 0.0, TAU, 64, Color(0.35, 0.95, 1.0, 0.72), 2.0)
+	draw_line(reticle + Vector2(-58, 0), reticle + Vector2(-16, 0), Color(0.35, 0.95, 1.0, 0.70), 2.0)
+	draw_line(reticle + Vector2(16, 0), reticle + Vector2(58, 0), Color(0.35, 0.95, 1.0, 0.70), 2.0)
+	draw_line(reticle + Vector2(0, -58), reticle + Vector2(0, -16), Color(0.35, 0.95, 1.0, 0.70), 2.0)
+	draw_line(reticle + Vector2(0, 16), reticle + Vector2(0, 58), Color(0.35, 0.95, 1.0, 0.70), 2.0)
+	draw_text_centered_at("FORWARD VECTOR", reticle + Vector2(0, 62), 13, Color(0.70, 0.93, 1.0, 0.78))
+
+	var cx = float(forward_state.get("corridorX", 0.0))
+	var cy = float(forward_state.get("corridorY", 0.0))
+	draw_rect(Rect2(22, H - 128, 252, 84), Color(0.0, 0.02, 0.06, 0.46))
+	draw_text("PHASE 1 FLIGHT CORE", 38, H - 100, 15, Color(1.0, 0.86, 0.30, 0.96))
+	draw_text("corridor x " + str(snapped(cx, 0.01)) + " / y " + str(snapped(cy, 0.01)), 38, H - 72, 13, Color(0.82, 0.94, 1.0, 0.86))
+	draw_text("drag or WASD/arrow to steer", 38, H - 48, 13, Color(0.82, 0.94, 1.0, 0.70))
+	if warning_timer > 0:
+		draw_text_center(warning_text, 132, 18, Color(1.0, 0.9, 0.35, min(1.0, warning_timer)))
 
 
 func draw_hud() -> void:

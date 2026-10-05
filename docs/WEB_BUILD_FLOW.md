@@ -137,3 +137,13 @@ Setelah implementation pass:
 - Legacy helper server under `tools/` is removed; use `server.js` only.
 - Do not commit `node_modules/`, `.godot/`, or temporary debug export folders.
 - Keep root export artifacts committed because Vercel serves them.
+
+## 9. Forward Flight Browser QA
+
+Phase 1 adds a focused browser QA command:
+
+```bash
+npm run qa:forward
+```
+
+This serves the root Web export, skips loading, launches a mission, and verifies `missionMode: forward_air_combat`, `cameraMode: chase_behind_above`, `playerModel: glb`, and a 720x1280 canvas.

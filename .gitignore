@@ -22,3 +22,6 @@ index.*.import
 
 node_modules/
 .qa-web-debug/
+
+# Godot import metadata for visual reference image; not a runtime asset.
+gameplay_visual_lock_build.jpg.import

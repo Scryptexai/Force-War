@@ -8,7 +8,8 @@
     "start": "node server.js",
     "serve": "node server.js",
     "qa:web": "node qa/web-template-debug-qa.mjs",
-    "vercel-build": "node qa/verify-root-export.mjs"
+    "vercel-build": "node qa/verify-root-export.mjs",
+    "qa:forward": "node qa/forward-flight-browser-qa.mjs"
   },
   "engines": {
     "node": ">=20"

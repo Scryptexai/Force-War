@@ -40,6 +40,7 @@ Gambar ini dipakai sebagai **mood/quality target**, bukan sebagai asset gameplay
 docs/THIRD_PERSON_AIR_COMBAT_REDESIGN.md  # Target kamera, gameplay, arena, VFX, benchmark
 docs/REBUILD_ROADMAP_AND_MILESTONES.md    # Big phase rebuild roadmap + progress gates
 docs/PHASE_0_DIRECTION_LOCK_REPORT.md     # Phase 0 completion report and Phase 1 entry gate
+docs/PHASE_1_CORE_FORWARD_FLIGHT_REPORT.md     # Phase 1 GLB/chase-camera forward flight completion report
 docs/CODE_REBUILD_MAP.md                  # Phase 1 prep map: keep/rewrite/delete + cut points
 docs/REPO_CLEANUP_AUDIT.md                # Audit setup lama dan daftar bersih-bersih repo
 docs/ROADMAP.md                           # Roadmap baru tanpa convoy/car/top-down sebagai target

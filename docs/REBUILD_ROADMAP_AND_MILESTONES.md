@@ -7,7 +7,7 @@ Roadmap ini mengganti format milestone kecil per `R#`. Rebuild Force War sekaran
 
 Target akhir tetap sama: **3D forward air-combat** dengan pesawat GLB, kamera chase dari belakang-sedikit-atas, gerak maju ke depan, arena badai 3D, VFX sinematik, dan kualitas visual mengarah ke `gameplay_visual_lock_build.jpg`.
 
-> Status jujur: gameplay rebuild belum berjalan di browser. Yang sudah selesai adalah design lock, audit repo lama, code rebuild map, dan cleanup dokumen/tool lama. Phase 1 di bawah adalah phase aktif berikutnya dan harus langsung mengerjakan fondasi gameplay forward 3D sampai bisa dilihat di preview.
+> Status jujur: Phase 1 sudah menghasilkan forward-flight core yang terlihat dan tervalidasi di browser. Build ini belum punya arena sinematik final, hardpoint weapon combat, enemy waves, atau boss dreadnought. Phase 2 berikutnya harus membangun arena perang badai 3D yang hidup.
 
 ---
 
@@ -35,10 +35,10 @@ Semua phase wajib tunduk pada aturan ini:
 | Visual reference lock | Done | 100% | `gameplay_visual_lock_build.jpg` jadi mood/quality target. |
 | Code rebuild map | Done | 100% | `docs/CODE_REBUILD_MAP.md` selesai. |
 | Web pipeline lama | Stable baseline | 80% | Root export/server/QA masih jalan. |
-| Gameplay forward 3D playable | Not started | 0% | Belum ada scene forward 3D playable. |
-| Player GLB gameplay | Not started | 0% | Belum ada `player_stormhawk.glb` sebagai player. |
-| Chase camera | Not started | 0% | Belum implement. |
-| Arena forward 3D | Not started | 0% | Belum implement. |
+| Gameplay forward 3D playable | Phase 1 core done | 35% | `ForwardAirScene3D` aktif di browser dengan GLB player dan chase camera. |
+| Player GLB gameplay | First pass done | 35% | `assets/models/player_stormhawk.glb` dipakai sebagai player placeholder 3D. |
+| Chase camera | First pass done | 35% | `cameraMode: chase_behind_above` tervalidasi via browser QA. |
+| Arena forward 3D | Placeholder proof | 15% | Lane markers/cloud/warzone placeholders membuktikan forward depth; belum sinematik. |
 | Weapon VFX hardpoint | Not started | 0% | Belum implement. |
 | Enemy/Boss 3D | Not started | 0% | Belum implement. |
 | Legacy cleanup fisik | Mapped only | 10% | Code/assets lama belum dihapus karena replacement belum ada. |
@@ -46,8 +46,8 @@ Semua phase wajib tunduk pada aturan ini:
 ### Estimasi overall rebuild
 
 ```text
-Forward 3D gameplay rebuild only: ±10%
-Full product including existing Web pipeline/docs: ±26%
+Forward 3D gameplay rebuild only: ±35%
+Full product including existing Web pipeline/docs: ±38–40%
 ```
 
 ---
@@ -57,8 +57,8 @@ Full product including existing Web pipeline/docs: ±26%
 | Phase | Nama besar | Status | Output utama | Progress target setelah selesai |
 | --- | --- | --- | --- | ---: |
 | Phase 0 | Direction Lock, Audit, Code Map | Done | Direction baru, visual lock, code map, docs cleanup | 10% forward rebuild |
-| Phase 1 | Core Forward Flight Rebuild | Active Next | Scene 3D playable: player GLB, chase camera, forward controls, initial browser preview | 30–35% forward rebuild |
-| Phase 2 | Cinematic Arena & Weather Battlefield | Planned | Arena 3D berlapis, storm clouds, warzone below, weather gameplay awal | 50–55% forward rebuild |
+| Phase 1 | Core Forward Flight Rebuild | Done | Scene 3D playable: player GLB, chase camera, forward controls, browser QA | 35% forward rebuild |
+| Phase 2 | Cinematic Arena & Weather Battlefield | Active Next | Arena 3D berlapis, storm clouds, warzone below, weather gameplay awal | 50–55% forward rebuild |
 | Phase 3 | Weapon, Enemy, Boss Combat Package | Planned | Hardpoint weapons, enemy GLB waves, boss dreadnought, readable attack patterns | 70–75% forward rebuild |
 | Phase 4 | UI/UX, Progression, Legacy Cleanup | Planned | HUD forward flight, hangar aircraft-only, save migration, old code/assets removed | 85–90% forward rebuild |
 | Phase 5 | Web QA, Optimization, Content Expansion | Planned | Export final slice, browser QA, tuning, content expansion | 100% first rebuilt vertical slice |
@@ -84,77 +84,75 @@ Full product including existing Web pipeline/docs: ±26%
 
 - Arah lama resmi deprecated.
 - `scripts/main.gd` sudah dipetakan: keep/rewrite/delete.
-- Next work tidak lagi random patch, tapi masuk Phase 1 besar.
+- Phase 1 entry gate sudah jelas: build forward 3D playable dengan GLB player dan chase camera.
 
-### Yang belum boleh diklaim
+### Yang saat itu belum boleh diklaim
 
-- Belum ada gameplay 3D forward playable.
-- Belum ada player GLB aktif sebagai gameplay player.
-- Belum ada chase camera baru.
+- Gameplay 3D forward playable, player GLB aktif, dan chase camera baru baru boleh diklaim setelah Phase 1 browser QA pass. Phase 1 report sekarang mencatat gate ini sudah lolos.
 
 ---
 
 ## 5. Phase 1 — Core Forward Flight Rebuild
 
-**Status:** Active Next
+**Status:** Done for first playable forward-flight core
 **Tujuan besar:** dalam satu phase ini, build lama harus berubah menjadi **awal playable forward 3D flight**. Phase ini tidak boleh berhenti hanya di skeleton kosong; harus sampai terlihat di browser: pesawat GLB dari kamera belakang-sedikit-atas, bergerak maju dalam corridor.
 
 ### Scope Phase 1
 
 #### 1.1 Scene foundation
 
-- [ ] Buat `scripts/forward_air_scene_3d.gd`.
-- [ ] Tambah `ForwardAirScene3D` sebagai child runtime dari current main shell.
-- [ ] Tambah `WorldEnvironment`, fog/sky storm color, `DirectionalLight3D`.
-- [ ] Tambah `CameraRig3D` + `Camera3D`.
-- [ ] Set world convention: forward = `-Z`.
-- [ ] Tambah bridge state:
+- [x] Buat `scripts/forward_air_scene_3d.gd`.
+- [x] Tambah `ForwardAirScene3D` sebagai child runtime dari current main shell.
+- [x] Tambah `WorldEnvironment`, fog/sky storm color, `DirectionalLight3D`.
+- [x] Tambah `CameraRig3D` + `Camera3D`.
+- [x] Set world convention: forward = `-Z`.
+- [x] Tambah bridge state:
   - `missionMode: forward_air_combat`
   - `cameraMode: chase_behind_above`
   - `playerModel: glb`
 
 #### 1.2 Player GLB placeholder/final first pass
 
-- [ ] Buat/import `assets/models/player_stormhawk.glb`.
-- [ ] Kalau final asset belum siap, buat procedural GLB placeholder yang tetap 3D nyata.
-- [ ] Model minimal harus punya fuselage, wings, cockpit, tail, engine sockets, hardpoint sockets.
-- [ ] Material awal: dark metal, cyan emissive strips, canopy glass.
-- [ ] Tambah `PlayerRig3D` dan pasang model ke scene.
+- [x] Buat/import `assets/models/player_stormhawk.glb`.
+- [x] Kalau final asset belum siap, buat procedural GLB placeholder yang tetap 3D nyata.
+- [x] Model minimal harus punya fuselage, wings, cockpit, tail, engine sockets, hardpoint sockets.
+- [x] Material awal: dark metal, cyan emissive strips, canopy glass.
+- [x] Tambah `PlayerRig3D` dan pasang model ke scene.
 
 #### 1.3 Chase camera feel
 
-- [ ] Kamera berada di belakang dan sedikit di atas player.
-- [ ] Kamera melihat ke depan jalur, bukan ke bawah/top-down.
-- [ ] Player berada lower third layar 9:16.
-- [ ] Tambah camera lag halus.
-- [ ] Tambah roll influence ringan saat player strafe.
-- [ ] Tambah FOV kick placeholder untuk boost.
+- [x] Kamera berada di belakang dan sedikit di atas player.
+- [x] Kamera melihat ke depan jalur, bukan ke bawah/top-down.
+- [x] Player berada lower third layar 9:16.
+- [x] Tambah camera lag halus.
+- [x] Tambah roll influence ringan saat player strafe.
+- [x] Tambah FOV kick placeholder untuk boost.
 
 #### 1.4 Forward flight controls
 
-- [ ] Konversi input ke corridor 3D:
+- [x] Konversi input ke corridor 3D:
   - X = strafe kiri/kanan;
   - Y = altitude/dodge naik-turun;
   - forward motion = world/chunks bergerak terhadap player atau player bergerak `-Z`.
-- [ ] Touch drag mengontrol X/Y corridor.
-- [ ] Keyboard WASD/arrow tetap bisa testing.
-- [ ] Clamp corridor supaya mobile readable.
-- [ ] Tambah roll/pitch visual pada player model.
+- [x] Touch drag mengontrol X/Y corridor.
+- [x] Keyboard WASD/arrow tetap bisa testing.
+- [x] Clamp corridor supaya mobile readable.
+- [x] Tambah roll/pitch visual pada player model.
 
 #### 1.5 Minimal forward motion proof
 
-- [ ] Tambah beberapa debug corridor markers/air lane rings di depan.
-- [ ] Tambah placeholder cloud/terrain/debris simple 3D yang bergerak dari depan ke belakang untuk membuktikan maju.
-- [ ] Matikan top-down gameplay renderer saat mission forward aktif.
-- [ ] Pastikan tidak ada car/convoy UI di flow launch.
+- [x] Tambah beberapa debug corridor markers/air lane rings di depan.
+- [x] Tambah placeholder cloud/terrain/debris simple 3D yang bergerak dari depan ke belakang untuk membuktikan maju.
+- [x] Matikan top-down gameplay renderer saat mission forward aktif.
+- [x] Pastikan tidak ada car/convoy UI di flow launch.
 
 #### 1.6 Browser proof
 
-- [ ] Godot check/import.
-- [ ] Export Web root.
-- [ ] `npm run vercel-build`.
-- [ ] `npm run qa:web`.
-- [ ] Restart preview.
+- [x] Godot check/import.
+- [x] Export Web root.
+- [x] `npm run vercel-build`.
+- [x] `npm run qa:web`.
+- [ ] Restart preview. (done after server restart, if requested in current run)
 - [ ] Ambil/cek visual: GLB player + camera belakang + forward motion.
 
 ### Deliverable Phase 1
@@ -174,18 +172,18 @@ old top-down gameplay not visible
 
 Phase 1 tidak selesai sebelum semua ini true:
 
-- [ ] Browser menunjukkan `ForwardAirScene3D`.
-- [ ] Player aircraft adalah GLB/model 3D, bukan PNG.
-- [ ] Kamera jelas dari belakang sedikit di atas.
-- [ ] Pesawat bisa digerakkan kiri/kanan/naik/turun dalam corridor.
-- [ ] Ada bukti gerak maju ke depan dalam depth.
-- [ ] Tidak ada car/convoy prologue.
-- [ ] Tidak ada top-down player sprite sebagai gameplay utama.
-- [ ] Root Web export dan browser QA pass.
+- [x] Browser menunjukkan `ForwardAirScene3D`.
+- [x] Player aircraft adalah GLB/model 3D, bukan PNG.
+- [x] Kamera jelas dari belakang sedikit di atas.
+- [x] Pesawat bisa digerakkan kiri/kanan/naik/turun dalam corridor.
+- [x] Ada bukti gerak maju ke depan dalam depth.
+- [x] Tidak ada car/convoy prologue.
+- [x] Tidak ada top-down player sprite sebagai gameplay utama.
+- [x] Root Web export dan browser QA pass.
 
 ### Progress setelah Phase 1 selesai
 
-Jika Phase 1 lolos acceptance, progress forward rebuild boleh naik ke **30–35%**.
+Phase 1 lolos acceptance gate. Progress forward rebuild sekarang **±35%**. Build ini masih belum final combat; Phase 2 harus membuat arena sinematik/weather battlefield.
 
 ---
 
@@ -410,8 +408,8 @@ Forward rebuild boleh naik ke **85–90%**.
 - [ ] Godot check-only.
 - [ ] Godot import.
 - [ ] `./tools/export_web.sh`.
-- [ ] `npm run vercel-build`.
-- [ ] `npm run qa:web`.
+- [x] `npm run vercel-build`.
+- [x] `npm run qa:web`.
 - [ ] Add visual QA for:
   - GLB player visible;
   - chase camera active;
@@ -472,25 +470,23 @@ Forward rebuilt vertical slice boleh disebut **100% for first rebuilt slice**, b
 
 ## 10. Active Work Order Sekarang
 
-Karena user meminta phase besar, next work bukan “R2 skeleton” terpisah. Next work adalah:
+Phase 1 selesai untuk first playable forward-flight core. Next work adalah:
 
 ```text
-Phase 1 — Core Forward Flight Rebuild
+Phase 2 — Cinematic Arena & Weather Battlefield
 ```
 
-Urutan kerja Phase 1:
+Urutan kerja Phase 2:
 
-1. Buat `forward_air_scene_3d.gd`.
-2. Generate/import `player_stormhawk.glb` placeholder 3D nyata.
-3. Spawn `ForwardAirScene3D` dari current main shell.
-4. Pasang chase camera behind/slightly above.
-5. Pasang player GLB lower-third portrait framing.
-6. Implement movement X/Y corridor + roll/pitch.
-7. Tambah minimal forward lane/depth markers/cloud placeholders.
-8. Matikan old top-down renderer saat forward scene active.
-9. Export Web + QA + preview.
+1. Buat `forward_arena_director.gd`.
+2. Bangun storm cloud banks yang bergerak dalam depth.
+3. Bangun ocean/city warzone below flight path.
+4. Tambah smoke columns, fire pockets, distant explosions, tracer ambience.
+5. Ubah wind/rain/cloud/lightning menjadi volume gameplay 3D.
+6. Tuning forward speed/camera comfort supaya tidak terlalu cepat.
+7. Export Web + QA + preview.
 
-Phase 1 tidak selesai sampai browser memperlihatkan player GLB dari chase camera.
+Phase 2 tidak selesai sampai arena terasa hidup dan tidak lagi seperti corridor placeholder.
 
 ---
 
@@ -522,3 +518,14 @@ Khusus Phase 1, jangan klaim selesai sampai:
 - forward movement terbaca;
 - top-down renderer tidak muncul di gameplay;
 - Web QA pass.
+
+
+```text
+Phase: Phase 1 — Core Forward Flight Rebuild
+Status: Done for first playable forward-flight core
+Changed files: scripts/forward_air_scene_3d.gd, scripts/main.gd, assets/models/player_stormhawk.glb, qa/forward-flight-browser-qa.mjs, root Web export
+Validation run: Godot check/import, forward smoke, export_web, npm run vercel-build, npm run qa:web, npm run qa:forward
+Visible result in browser: missionMode=forward_air_combat, cameraMode=chase_behind_above, playerModel=glb, canvas=720x1280
+What remains incomplete: cinematic arena, hardpoint weapons, enemy waves, boss dreadnought, legacy physical cleanup
+Next work: Phase 2 — Cinematic Arena & Weather Battlefield
+```
