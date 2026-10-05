@@ -76,6 +76,7 @@ Full product including existing Web pipeline/docs: ±26%
 - [x] Direction baru ditulis: `docs/THIRD_PERSON_AIR_COMBAT_REDESIGN.md`.
 - [x] Repo cleanup audit dibuat: `docs/REPO_CLEANUP_AUDIT.md`.
 - [x] Code rebuild map dibuat: `docs/CODE_REBUILD_MAP.md`.
+- [x] Phase 0 completion report dibuat: `docs/PHASE_0_DIRECTION_LOCK_REPORT.md`.
 - [x] README, roadmap, asset catalog, FX research, UI/UX docs, dan Web flow docs diarahkan ulang.
 - [x] Tool lama yang mendorong SVG/convoy/car/top-down workflow dihapus.
 
