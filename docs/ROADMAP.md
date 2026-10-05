@@ -1,151 +1,188 @@
 # Force War — Forward 3D Air Combat Roadmap
 
-Tanggal redesign lock: 2026-10-05
+Tanggal update: 2026-10-05
+Status: roadmap high-level setelah koreksi visual Phase 2 dan instruksi Blender pipeline.
 
-Roadmap rebuild sekarang memakai phase besar, bukan milestone kecil per R. Detail phase dan progress gates dicatat di `docs/REBUILD_ROADMAP_AND_MILESTONES.md`. Pemetaan code prep Phase 1 ada di `docs/CODE_REBUILD_MAP.md`. Dokumen ini tetap menjadi roadmap ringkas/high-level.
+Roadmap ini memakai **phase besar** dengan output browser-verifiable. Detail checklist teknis ada di `docs/REBUILD_ROADMAP_AND_MILESTONES.md`. Pipeline asset/animation baru ada di `docs/BLENDER_ANIMATION_PIPELINE.md`.
 
-## Visi Baru
+---
 
-Force War bukan lagi vertical/top-down Sky Force clone dan bukan lagi convoy/car escort. Force War sekarang diarahkan menjadi **3D forward air-combat**: player mengendalikan pesawat GLB dari kamera chase di belakang-sedikit-atas, bergerak maju ke medan perang badai, melawan drone/fighter/boss dreadnought dalam arena 3D sinematik.
+## Visi Produk
+
+Force War diarahkan menjadi **3D forward air-combat mobile game**:
+
+- kamera chase di belakang dan sedikit di atas pesawat;
+- player aircraft, enemy fighter, missile, dan boss harus GLB/3D;
+- gameplay bergerak maju ke medan perang 3D, bukan vertical/top-down shooter;
+- visual harus sinematik, readable, dan original;
+- environment/weather memengaruhi gameplay, bukan sekadar background.
+
+---
+
+## Koreksi Visual Aktif
+
+Arahan terbaru yang harus dipatuhi sebelum lanjut combat package:
+
+1. **Blender wajib masuk pipeline produksi** untuk asset, sockets, dan animation clips.
+2. Uploaded hero jet GLB dipakai sebagai enemy placeholder: `assets/models/enemy_hero_jet.glb`.
+3. Player aircraft harus lebih kecil di layar mobile agar ruang gerak terlihat lebih luas.
+4. Cloud geometry berulang/tebal dihapus dari arena aktif; hanya thin haze/fog yang boleh tampil.
+5. Shot/fire animation menjadi prioritas utama:
+   - player cyan shots bergerak maju;
+   - enemy red/orange shots bergerak ke arah player secara readable;
+   - enemy bullets tidak boleh terus-menerus mengejar player.
+
+---
 
 ## Status Realistis Saat Ini
 
-**Build saat ini adalah baseline teknis lama, bukan target gameplay final.**
+| Area | Status | Catatan |
+| --- | --- | --- |
+| Godot/Web pipeline | 80% | Root export, Vercel flow, server, QA browser berjalan. |
+| Forward chase camera | 70% | Arah kamera diterima user, masih perlu polish gameplay feel. |
+| Player GLB gameplay | 45% | Player GLB aktif dan diperkecil; model final/Blender sockets belum selesai. |
+| Enemy GLB integration | 35% | Uploaded hero jet GLB aktif sebagai placeholder musuh. |
+| Shot animation readability | 40% | Cyan player pulses dan red/orange lanes aktif; butuh hardpoint/socket dan hit logic lengkap. |
+| Cinematic arena | 40% | Boss anchor, warzone, shots, haze aktif; cloud geometry sudah dimatikan sesuai koreksi. |
+| Blender production pipeline | 20% | Tooling dan docs ada; Blender binary belum tersedia di sandbox, jadi output Blender belum digenerate. |
+| Legacy cleanup | 35% | Gameplay runtime sudah forward-air, tetapi legacy monolith/assets lama masih perlu dipangkas bertahap. |
+| Overall menuju full target | ±45% | Baseline playable sudah ada, tetapi belum full combat package/final art. |
 
-Root Web export, server, Vercel flow, loading/branding, dan beberapa sistem weather/combat lama sudah ada. Namun arah gameplay visual harus dibedah ulang:
+---
 
-| Area | Status realistis setelah redesign lock |
-| --- | --- |
-| Godot/Web pipeline | 80% — root export/server/QA sudah ada dan dipertahankan |
-| Gameplay direction | 20% — target baru sudah dikunci, implementation belum dimulai |
-| Camera/game feel | 5% — harus rewrite ke chase camera 3D |
-| GLB aircraft gameplay | 10% — baru ada `support_jet.glb` placeholder; player GLB belum final |
-| Forward 3D arena | 15% — GLB tile/cloud lama bisa direuse ide, tapi arah scroll/camera harus dirombak |
-| Weapon/VFX quality | 15% — efek lama belum memenuhi target cinematic forward air war |
-| UI/mobile shell | 45% — loading/title/HUD baseline ada, tapi harus disesuaikan ke forward flight |
-| Legacy cleanup | 20% — docs dibersihkan; code/assets legacy masih menunggu rewrite |
-| Overall menuju target baru | ±24% |
+## Big Phase Roadmap
 
-## Pilar Desain Baru
+### Phase 0 — Direction Lock, Audit, Code Map
 
-1. **3D aircraft first**
-   Player plane, major enemies, missiles, and boss must be GLB/3D. PNG/sprite hanya boleh untuk logo, loading, UI icon, dan reference.
+Status: **Done / pushed**
 
-2. **Forward movement**
-   Game terasa maju ke depan dalam world 3D. Tidak ada lagi scroll ke atas sebagai bahasa gameplay utama.
+Output:
 
-3. **Chase camera**
-   Camera berada di belakang pesawat, sedikit di atas, mengikuti roll/strafe player dengan lag halus.
+- arah forward 3D air-combat dikunci;
+- camera benchmark bukan lagi top-down Sky Force, tetapi chase/rail-forward air combat;
+- repo/code cleanup map dibuat;
+- phase kecil `R#` diganti menjadi phase besar.
 
-4. **Cinematic storm battlefield**
-   Arena harus punya cloud depth, ocean/city warzone, smoke columns, debris, distant air traffic, explosions, dan boss set-piece di depan.
+---
 
-5. **Weather as tactical puzzle**
-   Wind, cloud, rain, lightning, storm cell, dan visibility mempengaruhi aim, dodge, loadout, dan route/corridor choice.
+### Phase 1 — Core Forward Flight Rebuild
 
-6. **Readable VFX**
-   Player fire biru/cyan, enemy fire merah/oranye, weather biru-putih/abu, explosion kuning/oranye. Efek boleh intens, tetapi dodge zone harus tetap terbaca.
+Status: **Done / pushed**
 
-7. **No legacy setup in final**
-   Tidak ada car/convoy prologue, tidak ada top-down fallback, tidak ada static aircraft photo di gameplay.
+Output:
 
-## Milestone Produksi
+- `ForwardAirScene3D` aktif;
+- player GLB aircraft berjalan di corridor X/Y;
+- chase camera behind/slightly-above;
+- direct launch ke aircraft gameplay tanpa convoy/car prologue;
+- browser QA 720×1280.
 
-### M0 — Redesign Lock & Repo Cleanup
+---
 
-- [x] Visual target reference committed: `gameplay_visual_lock_build.jpg`.
-- [x] Dokumen direction lama diganti ke forward 3D air-combat.
-- [x] Repo cleanup audit dibuat: `docs/REPO_CLEANUP_AUDIT.md`.
-- [x] Third-person camera/gameplay redesign dibuat: `docs/THIRD_PERSON_AIR_COMBAT_REDESIGN.md`.
-- [x] Legacy helper/server/generator lama dihapus dari `tools/` sehingga tidak ada generator convoy/car/top-down yang dipakai ulang.
-- [ ] Hapus legacy code/path setelah ForwardAirScene3D playable.
+### Phase 2 — Cinematic Arena & Weather Battlefield
 
-### M1 — ForwardAirScene3D Foundation
+Status: **Baseline done, correction pass active**
 
-- [ ] Buat scene/root system baru untuk forward 3D air combat.
-- [ ] Buat camera rig chase: behind/slightly above, look-ahead target, FOV config, camera lag.
-- [ ] Tentukan world direction: forward = `-Z`.
-- [ ] Player corridor movement: strafe X, altitude Y, boost/brake ringan, roll animation.
-- [ ] Port input mobile/keyboard ke movement 3D.
-- [ ] Matikan top-down `_draw()` sebagai visual utama gameplay.
+Sudah ada:
 
-### M2 — Player Aircraft GLB
+- dreadnought/boss anchor;
+- warzone depth;
+- red/orange enemy lanes;
+- cyan player fire lanes;
+- shield/explosion/smoke visual elements;
+- weather state bridge.
 
-- [ ] Generate/import `assets/models/player_stormhawk.glb`.
-- [ ] Tambah hardpoints: nose gun, left/right wing cannon, missile sockets, engine sockets.
-- [ ] Material: metal dark, cyan emissive strips, cockpit canopy.
-- [ ] Roll/tilt animation berdasarkan input.
-- [ ] Engine exhaust 3D: flame core, glow, vapor trail.
-- [ ] Collision/hitbox proxy yang readable untuk mobile.
+Koreksi terbaru:
 
-### M3 — Forward Arena Director
+- cloud banks/solid cloud geometry dimatikan;
+- hanya thin fog/haze yang dipertahankan;
+- player scale diperkecil;
+- uploaded enemy hero jet GLB mulai dipakai;
+- shot animation diperjelas dengan moving pulses.
 
-- [ ] Spawn storm cloud chunks ahead and move them past camera/player.
-- [ ] Add ocean/city warzone layer below with fires/smoke columns.
-- [ ] Add distant battle traffic: ally jets, enemy silhouettes, tracer lines.
-- [ ] Add weather volumes: rain sheets, cloud concealment, lightning flashes.
-- [ ] Add debris/near-camera streaks for speed feel.
-- [ ] Ensure no static photo arena is used as gameplay world.
+Acceptance Phase 2 setelah koreksi:
 
-### M4 — 3D Weapon VFX
+- gameplay tetap 9:16 dan browser-verifiable;
+- player tidak memenuhi layar bawah;
+- tidak ada cloud bank berulang yang menutup arena;
+- boss/projectile lanes terbaca;
+- visual bridge menyatakan `cloudGeometry=false`, `enemyHeroJetModel=true`, dan `shotAnimation=player_cyan_pulses_enemy_red_lanes`.
 
-- [ ] Main cannon cyan stream from aircraft hardpoints.
-- [ ] Wing cannon thick bolts with longer trail.
-- [ ] Micro missile model/trail from wing sockets.
-- [ ] Overcharge lightning laser with impact flare.
-- [ ] Enemy red/orange bullets as 3D/projected trails.
-- [ ] Hit spark, debris, smoke, and damage flash on enemy models.
-- [ ] Camera shake/FOV kick tied to weapon intensity.
+---
 
-### M5 — Enemy/Boss GLB Combat
+### Phase 3 — Weapon, Enemy, Boss Combat Package
 
-- [ ] Generate/import enemy fighter/drone/gunship GLB placeholders.
-- [ ] Spawn enemies in forward corridor, not 2D top screen.
-- [ ] Add readable attack patterns in 3D lanes.
-- [ ] Generate/import boss dreadnought GLB placeholder.
-- [ ] Add boss weakpoints, turret hardpoints, central cannon charge.
-- [ ] Add phase transitions and final multi-stage explosion.
+Status: **Active next production phase**
 
-### M6 — UI/UX Refit for Forward Flight
+Scope besar:
 
-- [ ] HUD reticle/crosshair centered ahead.
-- [ ] Lock-on marker and target brackets.
-- [ ] Boss bar top-center.
-- [ ] HP/shield top-left; score/combo top-right.
-- [ ] Ability buttons thumb-safe lower left/right.
-- [ ] Radar/weather mini-map bottom-right.
-- [ ] Mobile safe-area and touch target pass.
+1. **Blender asset/animation lane**
+   - run Blender pipeline ketika binary tersedia;
+   - normalize enemy/player/boss GLB;
+   - add hardpoint sockets: muzzle, missile, engine, hit core;
+   - export Godot-ready GLB with animation clips.
 
-### M7 — Legacy Removal & Repo Slimming
+2. **Weapon systems**
+   - nose cannon, wing cannon, missile salvo, laser/burst overcharge;
+   - cyan player projectiles must animate from actual aircraft hardpoints;
+   - wind/weather affects bullet drift but does not make effects unreadable.
 
-- [ ] Remove convoy/car prologue code from `scripts/main.gd` or replace with new script layout.
-- [ ] Remove old convoy/car assets after no runtime references remain.
-- [ ] Remove top-down PNG gameplay dependency for player/enemy/boss.
-- [ ] Replace save key/migration away from `storm_convoy` naming.
-- [ ] Rebuild root Web export.
-- [ ] Run Godot check/import/export + browser QA.
-- [ ] Grep docs/code for forbidden legacy strings.
+3. **Enemy systems**
+   - enemy hero jet placeholder waves;
+   - readable attack lanes;
+   - no permanent homing/chasing enemy bullet behavior;
+   - hit sparks, smoke, debris, damage feedback.
 
-### M8 — Content Expansion
+4. **Boss package**
+   - dreadnought attack phases;
+   - boss weak points;
+   - boss lasers and missile barrages;
+   - later replace procedural boss anchor with Blender-authored GLB.
 
-- [ ] 3+ forward air arenas: Storm Ocean, Burning Delta, Thunder Ridge.
-- [ ] 4+ player aircraft GLB variants.
-- [ ] 6+ enemy GLB types.
-- [ ] 3+ boss set-pieces.
-- [ ] Weather-specific mission modifiers and loadout decisions.
-- [ ] Audio, haptics-like screen pulse, cinematic transitions.
+Acceptance:
 
-## Acceptance Criteria v0.5 Forward Slice
+- player shots visibly spawn/move from aircraft;
+- enemy shots move in red/orange readable lanes;
+- enemy hero jet GLB appears as combat placeholder;
+- boss is fightable, not only visual;
+- QA and browser preview pass.
 
-Before calling the next playable build acceptable:
+---
 
-- Browser starts in 9:16 and shows Godot canvas.
-- Player aircraft is a GLB model visible from behind/slightly above.
-- Camera follows behind with forward look-ahead.
-- Game motion is forward into 3D depth.
-- At least one 3D enemy wave appears ahead.
-- Player weapon VFX emits from 3D hardpoints and reads stronger than thin bullets.
-- Arena includes moving cloud/warzone layers, not static background photo.
-- No car/convoy prologue appears in the flow.
-- No top-down gameplay camera is used as the main gameplay mode.
-- Root Web export still outputs `index.html`, `index.js`, `index.wasm`, `index.pck`.
+### Phase 4 — Weather Loadout Strategy & Mission Structure
+
+Status: **Planned**
+
+Scope:
+
+- pre-stage weather forecast screen;
+- loadout selection based on wind/rain/lightning/fog;
+- weather-driven route/corridor choices;
+- stage scoring and replay loop;
+- mobile tuning.
+
+Acceptance:
+
+- forecast affects loadout decision;
+- weather changes weapon/movement behavior;
+- each mission has a clear tactical puzzle.
+
+---
+
+### Phase 5 — Full Visual Production & Optimization
+
+Status: **Planned**
+
+Scope:
+
+- replace placeholders with Blender-authored final aircraft/enemies/boss;
+- LOD and texture budget for Web/mobile;
+- animation polish, hit reactions, camera shake, audio hooks;
+- cleanup legacy convoy/top-down code paths.
+
+Acceptance:
+
+- no static aircraft photo/sprite in gameplay;
+- no car/convoy game flow at launch;
+- stable root Web export and Vercel deployment;
+- full visual package stays readable at 720×1280.

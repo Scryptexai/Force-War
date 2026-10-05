@@ -7,6 +7,7 @@ class_name ForwardArenaDirector
 const CLOUD_BANK_PATH = "res://assets/models/air_cloud_cluster.glb"
 const ARENA_CHUNK_PATH = "res://assets/models/air_arena_tile.glb"
 const SUPPORT_JET_PATH = "res://assets/models/support_jet.glb"
+const ENEMY_HERO_JET_PATH = "res://assets/models/enemy_hero_jet.glb"
 const DEPTH_LAYER_COUNT = 5
 
 var active = false
@@ -42,6 +43,8 @@ var boss_core: MeshInstance3D
 var boss_beams: Array = []
 var cinematic_bullets: Array = []
 var player_beams: Array = []
+var player_shot_pulses: Array = []
+var enemy_attack_jets: Array = []
 var missile_trails: Array = []
 var shield_bubbles: Array = []
 var explosion_bursts: Array = []
@@ -51,6 +54,7 @@ var lightning_nodes: Array = []
 var cloud_scene: PackedScene
 var arena_scene: PackedScene
 var support_scene: PackedScene
+var enemy_hero_jet_scene: PackedScene
 
 var storm_cloud_mat: StandardMaterial3D
 var deep_cloud_mat: StandardMaterial3D
@@ -154,6 +158,11 @@ func get_weather_effect() -> Dictionary:
 		"bossAnchor": boss_anchor != null,
 		"bossName": "Dreadnought Leviathan",
 		"visualLockComposition": "dreadnought_forward_battle",
+		"blenderPipeline": "required_for_final_assets",
+		"enemyHeroJetModel": enemy_hero_jet_scene != null,
+		"shotAnimation": "player_cyan_pulses_enemy_red_lanes",
+		"playerScaleMode": "reduced_mobile_readable",
+		"cloudGeometry": false,
 		"hazardPushX": hazard_push.x,
 		"hazardPushY": hazard_push.y,
 		"distantTraffic": air_traffic.size(),
@@ -177,6 +186,9 @@ func _load_scene_assets() -> void:
 	var support_resource = load(SUPPORT_JET_PATH)
 	if support_resource is PackedScene:
 		support_scene = support_resource
+	var enemy_resource = load(ENEMY_HERO_JET_PATH)
+	if enemy_resource is PackedScene:
+		enemy_hero_jet_scene = enemy_resource
 
 
 func _create_materials() -> void:
@@ -202,7 +214,8 @@ func _create_materials() -> void:
 
 
 func _create_far_sky_layer() -> void:
-	for i in range(4):
+	# User direction: no continuous cloud banks; only thin atmospheric fog remains.
+	for i in range(0):
 		var bank = _cloud_bank_node("FarStormWall_%02d" % i, 3, true)
 		bank.position = Vector3(rng.randf_range(-26.0, 26.0), rng.randf_range(9.0, 16.0), -72.0 - i * 34.0)
 		bank.scale = Vector3(rng.randf_range(1.6, 3.0), rng.randf_range(0.8, 1.4), rng.randf_range(1.4, 2.6))
@@ -212,7 +225,8 @@ func _create_far_sky_layer() -> void:
 
 
 func _create_mid_cloud_layer() -> void:
-	for i in range(8):
+	# No recurring cloud volumes; target reference has thin haze, not solid clouds.
+	for i in range(0):
 		var bank = _cloud_bank_node("GameplayCloudVolume_%02d" % i, 2, false)
 		bank.position = Vector3(rng.randf_range(-13.5, 13.5), rng.randf_range(3.0, 8.2), -36.0 - rng.randf_range(0.0, 130.0))
 		bank.scale = Vector3(rng.randf_range(0.9, 1.8), rng.randf_range(0.45, 0.9), rng.randf_range(0.8, 1.5))
@@ -271,7 +285,13 @@ func _create_distant_battle_layer() -> void:
 		traffic.position = Vector3(rng.randf_range(-18.0, 18.0), rng.randf_range(3.0, 10.0), -45.0 - rng.randf_range(0.0, 130.0))
 		traffic.set_meta("speed_mul", rng.randf_range(0.30, 0.56))
 		traffic.set_meta("side_speed", rng.randf_range(-1.6, 1.6))
-		if support_scene:
+		if enemy_hero_jet_scene:
+			var jet = enemy_hero_jet_scene.instantiate()
+			jet.name = "EnemyHeroJetDistantGLB"
+			jet.scale = Vector3(0.016, 0.016, 0.016)
+			jet.rotation_degrees = Vector3(0.0, 180.0 + rng.randf_range(-22.0, 22.0), 0.0)
+			traffic.add_child(jet)
+		elif support_scene:
 			var jet = support_scene.instantiate()
 			jet.name = "DistantJetSilhouetteGLB"
 			jet.scale = Vector3(0.55, 0.55, 0.55)
@@ -343,6 +363,33 @@ func _create_visual_lock_composition_layer() -> void:
 		add_child(player_beam)
 		player_beams.append(player_beam)
 
+	for i in range(18):
+		var lane_x = -0.58 if i % 2 == 0 else 0.58
+		var pulse = _box_mesh("PlayerCyanShotPulse_%02d" % i, Vector3(lane_x, 1.75, -9.0 - float(i) * 4.8), Vector3(0.18, 0.18, 1.85), player_beam_mat)
+		pulse.set_meta("lane_x", lane_x)
+		pulse.set_meta("phase", float(i) * 0.13)
+		add_child(pulse)
+		player_shot_pulses.append(pulse)
+
+	for i in range(8):
+		var enemy = Node3D.new()
+		enemy.name = "EnemyHeroJetAttack_%02d" % i
+		var side = -1.0 if i % 2 == 0 else 1.0
+		enemy.position = Vector3(side * rng.randf_range(4.8, 8.8), rng.randf_range(2.8, 7.2), -34.0 - float(i) * 12.5)
+		enemy.set_meta("side", side)
+		enemy.set_meta("speed_mul", rng.randf_range(0.88, 1.20))
+		enemy.set_meta("base_y", enemy.position.y)
+		if enemy_hero_jet_scene:
+			var model = enemy_hero_jet_scene.instantiate()
+			model.name = "EnemyHeroJetGLB"
+			model.scale = Vector3(0.022, 0.022, 0.022)
+			model.rotation_degrees = Vector3(0.0, 180.0 + side * 18.0, 0.0)
+			enemy.add_child(model)
+		else:
+			enemy.add_child(_box_mesh("EnemyHeroJetFallback", Vector3.ZERO, Vector3(1.4, 0.16, 1.1), boss_armor_mat))
+		add_child(enemy)
+		enemy_attack_jets.append(enemy)
+
 	for i in range(16):
 		var trail = _box_mesh("MissileSmokeTrail_%02d" % i, Vector3(rng.randf_range(-11.0, 11.0), rng.randf_range(-0.7, 3.5), -14.0 - rng.randf_range(0.0, 94.0)), Vector3(0.24, 0.24, rng.randf_range(3.0, 8.5)), missile_smoke_mat)
 		trail.rotation_degrees = Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(-26.0, 26.0), rng.randf_range(-18.0, 18.0))
@@ -367,7 +414,8 @@ func _create_visual_lock_composition_layer() -> void:
 
 
 func _create_storm_hazard_cells() -> void:
-	for i in range(4):
+	# Storm-cell gameplay will return later with designed meshes; hidden for current visual lock.
+	for i in range(0):
 		var cell = _cloud_bank_node("StormCellHazard_%02d" % i, 5, false)
 		cell.position = Vector3(rng.randf_range(-5.0, 5.0), rng.randf_range(0.4, 3.8), -35.0 - i * 42.0)
 		cell.scale = Vector3(2.1, 1.4, 2.1)
@@ -376,7 +424,7 @@ func _create_storm_hazard_cells() -> void:
 		cell.add_child(_box_mesh("StormHazardCore", Vector3.ZERO, Vector3(4.2, 3.0, 4.2), hazard_mat))
 		add_child(cell)
 		storm_cells.append(cell)
-	for i in range(5):
+	for i in range(2):
 		var bolt = _box_mesh("LightningFork_%02d" % i, Vector3.ZERO, Vector3(0.05, rng.randf_range(5.0, 10.0), 0.05), lightning_mat)
 		bolt.position = Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(4.0, 8.0), -22.0 - rng.randf_range(0.0, 100.0))
 		bolt.rotation_degrees = Vector3(rng.randf_range(-12.0, 12.0), 0.0, rng.randf_range(-28.0, 28.0))
@@ -402,6 +450,11 @@ func _reset_layers() -> void:
 		tracer.position = Vector3(rng.randf_range(-18.0, 18.0), rng.randf_range(1.0, 10.5), -24.0 - rng.randf_range(0.0, 145.0))
 	if boss_anchor:
 		boss_anchor.position = Vector3(0.0, 12.5, -96.0)
+	for i in range(enemy_attack_jets.size()):
+		var side = -1.0 if i % 2 == 0 else 1.0
+		enemy_attack_jets[i].position = Vector3(side * rng.randf_range(4.8, 8.8), rng.randf_range(2.8, 7.2), -34.0 - float(i) * 12.5)
+	for i in range(player_shot_pulses.size()):
+		player_shot_pulses[i].position.z = -9.0 - float(i) * 4.8
 	for bullet in cinematic_bullets:
 		bullet.position.z = -18.0 - rng.randf_range(0.0, 112.0)
 		bullet.position.y = rng.randf_range(1.1, 4.5)
@@ -425,18 +478,10 @@ func _update_weather_logic(delta: float, player_corridor: Vector2) -> void:
 	wind_drift = wind * (0.70 + gust * 0.24)
 	turbulence = Vector2(wind_drift * 0.42 + sin(forward_time * 2.4) * cloud * 0.11, sin(forward_time * 1.65 + 0.8) * (rain + cloud) * 0.08)
 
-	cloud_cover = clamp(cloud * 0.22, 0.0, 0.38)
+	# Thin haze only. No recurring visible cloud volumes so the boss/projectile lanes stay readable.
+	cloud_cover = clamp(cloud * 0.08, 0.0, 0.16)
 	cloud_occlusion = false
-	for bank in mid_cloud_banks:
-		if bank.position.z > -38.0 and bank.position.z < 4.0:
-			var radius = float(bank.get_meta("radius", 3.8)) * max(bank.scale.x, bank.scale.z)
-			var horizontal = abs(player_corridor.x - bank.position.x)
-			var vertical = abs((1.55 + player_corridor.y) - bank.position.y)
-			var proximity = clamp(1.0 - (horizontal + vertical * 0.8) / max(1.0, radius), 0.0, 1.0)
-			if proximity > 0.22:
-				cloud_occlusion = true
-				cloud_cover = max(cloud_cover, 0.26 + proximity * 0.30)
-	rain_visibility = clamp(base_visibility - rain * 0.08 - cloud_cover * 0.06 - storm_hazard * 0.05 + lightning_flash * 0.10, 0.62, 1.0)
+	rain_visibility = clamp(base_visibility - rain * 0.06 - cloud_cover * 0.035 - storm_hazard * 0.04 + lightning_flash * 0.10, 0.68, 1.0)
 
 	lightning_timer -= delta
 	if lightning > 0.05 and lightning_timer <= 0.0:
@@ -531,6 +576,21 @@ func _update_visual_lock_composition(delta: float, travel_speed: float) -> void:
 	for beam in player_beams:
 		beam.position.x = float(beam.get_meta("beam_x", 0.0)) + sin(forward_time * 12.0) * 0.025
 		beam.scale.z = 1.0 + (0.22 if overcharge_timer > 0.0 else 0.0) + sin(forward_time * 14.0) * 0.02
+	for pulse in player_shot_pulses:
+		pulse.position.z -= (72.0 + (18.0 if overcharge_timer > 0.0 else 0.0)) * delta
+		pulse.position.x = float(pulse.get_meta("lane_x", 0.0)) + sin(forward_time * 6.0 + float(pulse.get_meta("phase", 0.0))) * 0.04
+		pulse.scale.z = 1.0 + sin(forward_time * 18.0 + pulse.position.z) * 0.10
+		if pulse.position.z < -112.0:
+			pulse.position.z = -8.5
+	for enemy in enemy_attack_jets:
+		var side = float(enemy.get_meta("side", 1.0))
+		enemy.position.z += travel_speed * float(enemy.get_meta("speed_mul", 1.0)) * 0.62 * delta
+		enemy.position.x += -side * delta * 0.45 + wind_drift * delta * 0.18
+		enemy.position.y = float(enemy.get_meta("base_y", 4.0)) + sin(forward_time * 1.4 + enemy.position.z * 0.05) * 0.30
+		enemy.rotation_degrees.z = -side * 8.0 + sin(forward_time * 1.8 + enemy.position.z) * 5.0
+		if enemy.position.z > -4.0 or abs(enemy.position.x) > 11.5:
+			enemy.position = Vector3(side * rng.randf_range(4.8, 8.8), rng.randf_range(2.8, 7.2), -126.0 - rng.randf_range(0.0, 32.0))
+			enemy.set_meta("base_y", enemy.position.y)
 	for trail in missile_trails:
 		trail.position.z += travel_speed * float(trail.get_meta("speed_mul", 0.9)) * delta
 		trail.position.x += wind_drift * delta * 0.72

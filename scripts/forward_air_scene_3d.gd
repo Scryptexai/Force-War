@@ -30,8 +30,8 @@ var debris_markers: Array = []
 
 var corridor_pos = Vector2.ZERO
 var corridor_target = Vector2.ZERO
-var corridor_width = 5.4
-var corridor_height = 2.6
+var corridor_width = 7.2
+var corridor_height = 3.35
 var forward_time = 0.0
 var mission_progress = 0.0
 var forward_speed = 36.0
@@ -81,8 +81,8 @@ func start_mission(stage_data: Dictionary, loadout_data: Dictionary, aircraft_da
 		player_rig.rotation = Vector3.ZERO
 	if camera:
 		camera.current = true
-		camera.position = Vector3(0.0, 4.8, 9.0)
-		camera.look_at(Vector3(0.0, 2.2, -18.0), Vector3.UP)
+		camera.position = Vector3(0.0, 4.9, 12.2)
+		camera.look_at(Vector3(0.0, 2.15, -24.0), Vector3.UP)
 	_reset_depth_nodes()
 
 
@@ -162,7 +162,7 @@ func _create_environment() -> void:
 func _create_camera_rig() -> void:
 	camera = Camera3D.new()
 	camera.name = "ChaseCamera_BehindAbove"
-	camera.fov = 58.0
+	camera.fov = 64.0
 	camera.near = 0.04
 	camera.far = 520.0
 	camera.current = false
@@ -190,7 +190,7 @@ func _load_player_model() -> void:
 	if packed is PackedScene:
 		player_model = packed.instantiate()
 		player_model.name = "PlayerStormhawkGLB"
-		player_model.scale = Vector3(1.0, 1.0, 1.0)
+		player_model.scale = Vector3(0.56, 0.56, 0.56)
 		player_rig.add_child(player_model)
 	else:
 		player_model = Node3D.new()
@@ -202,16 +202,16 @@ func _load_player_model() -> void:
 func _create_fallback_aircraft(parent: Node3D) -> void:
 	var metal = _make_material(Color(0.18, 0.22, 0.30, 1.0), Color(0.05, 0.16, 0.28, 1.0), 0.45)
 	var cyan = _make_material(Color(0.15, 0.75, 1.0, 1.0), Color(0.2, 0.9, 1.0, 1.0), 0.2)
-	parent.add_child(_box_mesh("FallbackFuselage", Vector3(0.0, 0.0, 0.05), Vector3(0.62, 0.34, 2.8), metal))
-	parent.add_child(_box_mesh("FallbackLeftWing", Vector3(-1.05, -0.04, 0.25), Vector3(1.75, 0.08, 0.62), metal))
-	parent.add_child(_box_mesh("FallbackRightWing", Vector3(1.05, -0.04, 0.25), Vector3(1.75, 0.08, 0.62), metal))
-	parent.add_child(_box_mesh("FallbackCanopy", Vector3(0.0, 0.24, -0.55), Vector3(0.38, 0.18, 0.58), cyan))
+	parent.add_child(_box_mesh("FallbackFuselage", Vector3(0.0, 0.0, 0.05), Vector3(0.36, 0.20, 1.58), metal))
+	parent.add_child(_box_mesh("FallbackLeftWing", Vector3(-1.05, -0.04, 0.25), Vector3(0.98, 0.05, 0.36), metal))
+	parent.add_child(_box_mesh("FallbackRightWing", Vector3(1.05, -0.04, 0.25), Vector3(0.98, 0.05, 0.36), metal))
+	parent.add_child(_box_mesh("FallbackCanopy", Vector3(0.0, 0.24, -0.55), Vector3(0.22, 0.11, 0.34), cyan))
 
 
 func _create_afterburners() -> void:
 	var flame_mat = _make_material(Color(0.25, 0.82, 1.0, 0.78), Color(0.2, 0.9, 1.0, 1.0), 0.0, 0.78)
-	afterburner_left = _box_mesh("LeftAfterburnerFlame", Vector3(-0.28, -0.03, 1.78), Vector3(0.18, 0.18, 0.92), flame_mat)
-	afterburner_right = _box_mesh("RightAfterburnerFlame", Vector3(0.28, -0.03, 1.78), Vector3(0.18, 0.18, 0.92), flame_mat)
+	afterburner_left = _box_mesh("LeftAfterburnerFlame", Vector3(-0.16, -0.02, 1.05), Vector3(0.11, 0.11, 0.56), flame_mat)
+	afterburner_right = _box_mesh("RightAfterburnerFlame", Vector3(0.16, -0.02, 1.05), Vector3(0.11, 0.11, 0.56), flame_mat)
 	player_rig.add_child(afterburner_left)
 	player_rig.add_child(afterburner_right)
 
@@ -355,12 +355,12 @@ func _update_camera(delta: float, input_state: Dictionary, effect: Dictionary) -
 	var lightning = float(effect.get("lightningFlash", 0.0))
 	var shake = hazard * 0.10 + lightning * 0.07
 	var shake_offset = Vector3(sin(forward_time * 19.0) * shake, cos(forward_time * 17.0) * shake * 0.7, 0.0)
-	var target_camera = player_pos + Vector3(corridor_pos.x * 0.08, 3.25, 8.7 - boost_amount * 0.9) + shake_offset
+	var target_camera = player_pos + Vector3(corridor_pos.x * 0.06, 3.45, 12.0 - boost_amount * 1.1) + shake_offset
 	camera.position = camera.position.lerp(target_camera, min(1.0, delta * 5.0))
-	var look_target = player_pos + Vector3(corridor_pos.x * 0.04, 0.85, -19.0)
+	var look_target = player_pos + Vector3(corridor_pos.x * 0.035, 0.82, -27.0)
 	camera.look_at(look_target, Vector3.UP)
 	var visibility = float(effect.get("rainVisibility", 1.0))
-	var target_fov = (63.0 if bool(input_state.get("boost", false)) else 58.0) + (1.0 - visibility) * 3.0
+	var target_fov = (68.0 if bool(input_state.get("boost", false)) else 64.0) + (1.0 - visibility) * 2.0
 	camera.fov = lerp(camera.fov, target_fov, min(1.0, delta * 3.5))
 
 

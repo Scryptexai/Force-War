@@ -42,6 +42,7 @@ docs/REBUILD_ROADMAP_AND_MILESTONES.md    # Big phase rebuild roadmap + progress
 docs/PHASE_0_DIRECTION_LOCK_REPORT.md     # Phase 0 completion report and Phase 1 entry gate
 docs/PHASE_1_CORE_FORWARD_FLIGHT_REPORT.md     # Phase 1 GLB/chase-camera forward flight completion report
 docs/PHASE_2_CINEMATIC_ARENA_WEATHER_REPORT.md     # Phase 2 layered storm battlefield and weather gameplay report
+docs/BLENDER_ANIMATION_PIPELINE.md       # Required Blender GLB/socket/animation workflow for proper visual production
 docs/CODE_REBUILD_MAP.md                  # Phase 1 prep map: keep/rewrite/delete + cut points
 docs/REPO_CLEANUP_AUDIT.md                # Audit setup lama dan daftar bersih-bersih repo
 docs/ROADMAP.md                           # Roadmap baru tanpa convoy/car/top-down sebagai target

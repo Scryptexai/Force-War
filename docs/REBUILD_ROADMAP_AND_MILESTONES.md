@@ -35,6 +35,7 @@ Semua phase wajib tunduk pada aturan ini:
 | Visual reference lock | Done | 100% | `gameplay_visual_lock_build.jpg` jadi mood/quality target. |
 | Code rebuild map | Done | 100% | `docs/CODE_REBUILD_MAP.md` selesai. |
 | Web pipeline lama | Stable baseline | 80% | Root export/server/QA masih jalan. |
+| Blender asset/animation pipeline | Added, Blender binary unavailable in sandbox | 20% | `tools/blender_prepare_air_combat_assets.py` and `tools/run_blender_air_pipeline.sh` define GLB/socket/animation preparation. |
 | Gameplay forward 3D playable | Phase 1 core done | 35% | `ForwardAirScene3D` aktif di browser dengan GLB player dan chase camera. |
 | Player GLB gameplay | First pass done | 35% | `assets/models/player_stormhawk.glb` dipakai sebagai player placeholder 3D. |
 | Chase camera | First pass done | 35% | `cameraMode: chase_behind_above` tervalidasi via browser QA. |
@@ -59,7 +60,7 @@ Full product including existing Web pipeline/docs: ±50–52%
 | Phase 0 | Direction Lock, Audit, Code Map | Done | Direction baru, visual lock, code map, docs cleanup | 10% forward rebuild |
 | Phase 1 | Core Forward Flight Rebuild | Done | Scene 3D playable: player GLB, chase camera, forward controls, browser QA | 35% forward rebuild |
 | Phase 2 | Cinematic Arena & Weather Battlefield | Done | Arena 3D berlapis, storm clouds, warzone below, weather gameplay awal, browser QA | 52–55% forward rebuild |
-| Phase 3 | Weapon, Enemy, Boss Combat Package | Active Next | Hardpoint weapons, enemy GLB waves, boss dreadnought, readable attack patterns | 70–75% forward rebuild |
+| Phase 3 | Weapon, Enemy, Boss Combat Package | Active Next | Blender-prepared enemies/boss sockets, hardpoint weapons, readable shot animation, boss dreadnought | 70–75% forward rebuild |
 | Phase 4 | UI/UX, Progression, Legacy Cleanup | Planned | HUD forward flight, hangar aircraft-only, save migration, old code/assets removed | 85–90% forward rebuild |
 | Phase 5 | Web QA, Optimization, Content Expansion | Planned | Export final slice, browser QA, tuning, content expansion | 100% first rebuilt vertical slice |
 
@@ -257,6 +258,16 @@ Phase 2 lolos acceptance gate. Forward rebuild sekarang **±52–55%**. Build ma
 **Tujuan besar:** membuat combat yang terasa seperti visual target: tembakan player kuat, enemy/boss 3D, projectile readable, dan boss dreadnought sebagai anchor besar di depan.
 
 ### Scope Phase 3
+
+#### 3.0 Blender asset and animation pipeline
+
+- [ ] Run Blender pipeline when Blender binary is available.
+- [x] Add `tools/blender_prepare_air_combat_assets.py`.
+- [x] Add `tools/run_blender_air_pipeline.sh`.
+- [x] Move uploaded enemy hero jet GLB into `assets/models/enemy_hero_jet.glb`.
+- [ ] Export Blender-prepared `assets/models/enemy_hero_jet_blender_ready.glb`.
+- [ ] Create/replace boss with Blender-authored `assets/models/boss_dreadnought_leviathan.glb`.
+- [ ] Define muzzle/missile/engine sockets in Blender and consume them in Godot.
 
 #### 3.1 Weapon VFX director
 
@@ -478,13 +489,15 @@ Phase 3 — Weapon, Enemy, Boss Combat Package
 
 Urutan kerja Phase 3:
 
-1. Buat `weapon_vfx_director.gd` untuk hardpoint fire dari GLB aircraft.
-2. Buat `enemy_director_3d.gd` untuk enemy fighter/drone/gunship di depth depan.
-3. Tambah projectile readable; enemy bullets tidak boleh terus-menerus chasing player.
-4. Tambah hit sparks, smoke trails, and debris impacts.
-5. Tambah first boss/dreadnought shell sebagai anchor besar di depan.
-6. Integrasikan wind/cloud/lightning ke bullet/VFX behavior.
-7. Export Web + browser QA.
+1. Jalankan/maintain Blender pipeline untuk enemy/player/boss GLB, sockets, dan animation clips.
+2. Buat `weapon_vfx_director.gd` untuk hardpoint fire dari GLB aircraft.
+3. Buat `enemy_director_3d.gd` untuk enemy fighter/drone/gunship di depth depan memakai `enemy_hero_jet.glb`/Blender output.
+4. Tambah projectile readable; enemy bullets tidak boleh terus-menerus chasing player.
+5. Tambah hit sparks, smoke trails, and debris impacts.
+6. Tambah first boss/dreadnought shell sebagai anchor besar di depan, lalu replace dengan Blender GLB.
+7. Clouds tidak boleh menjadi geometry berulang; gunakan haze/fog tipis sesuai reference.
+8. Player aircraft harus lebih kecil di layar agar corridor movement terbaca.
+9. Export Web + browser QA.
 
 Phase 3 tidak selesai sampai combat 3D benar-benar terlihat dari chase camera.
 
@@ -539,4 +552,10 @@ Validation run: Godot check/import, Phase2 smoke, export_web, npm run vercel-bui
 Visible result in browser: arenaPhase=storm_battlefield, depthLayerCount=5, weatherGameplay=true, wind/rain/cloud/hazard bridge values active
 What remains incomplete: hardpoint weapons, enemy waves, boss dreadnought, final balancing, legacy physical cleanup
 Next work: Phase 3 — Weapon, Enemy, Boss Combat Package
+```
+
+
+```text
+User correction after Phase 2 visual review:
+Camera is acceptable, but arena composition must be corrected. Use Blender as the asset/animation pipeline for proper epic animation. Uploaded hero jet GLB is now the enemy placeholder source. Player aircraft must be smaller on mobile. Remove recurring cloud geometry; keep only thin haze/fog. Shot animation must visibly move in readable cyan/red lanes like the reference image. Roadmap updated to include Blender tooling.
 ```

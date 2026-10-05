@@ -147,3 +147,7 @@ npm run qa:forward
 ```
 
 This serves the root Web export, skips loading, launches a mission, and verifies `missionMode: forward_air_combat`, `cameraMode: chase_behind_above`, `playerModel: glb`, `arenaPhase: storm_battlefield`, `weatherGameplay: true`, at least four depth layers, and a 720x1280 canvas.
+
+## 10. Blender Asset Pipeline Note
+
+Blender asset preparation is separate from Web export. Use `tools/run_blender_air_pipeline.sh` before Godot import when Blender is available. The Web export must still commit only root Godot Web files and imported GLB assets; do not export Blender work files into the Web root.
