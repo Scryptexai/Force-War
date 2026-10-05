@@ -1,137 +1,151 @@
-# Asset Catalog — Force War: Sky Force War
+# Force War — Asset Catalog for Forward 3D Redesign
 
-Asset game sekarang dibagi tiga lapis:
+Tanggal redesign lock: 2026-10-05
 
-1. `assets/rendered/` — asset PNG yang dipakai langsung oleh top-down aircraft gameplay. Ini adalah visual pass AI-painted yang sudah diintegrasikan ke Godot.
-2. `assets/models/` — GLB low-poly yang dipakai langsung oleh opening 3D ground chase dengan kamera perspektif.
-3. `assets/**/*.svg` — source vector lama yang tetap disimpan sebagai fallback/editable reference, terutama untuk icon kecil dan dokumentasi arah bentuk.
+Asset policy baru: **gameplay utama harus memakai GLB/3D**, terutama player aircraft, enemy aircraft, boss, missiles, dan arena chunks. PNG lama tidak boleh lagi menjadi representasi gameplay player plane atau arena utama.
 
-> Status visual: sudah melewati placeholder SVG/procedural untuk banyak area. Masih belum final AAA/polished, tetapi unit top-down utama, mayoritas musuh, konvoi, support pod, boss, background stage, serta prologue ground kendaraan 3D sekarang memakai PNG/GLB asset yang nyata di Godot.
+## 1. Visual Reference
 
-## Gameplay PNG — dipakai oleh Godot
-
-### Player Aircraft
-
-| File | Fungsi | Status |
+| File | Role | Policy |
 | --- | --- | --- |
-| `assets/rendered/player_stormhawk.png` | Pesawat utama Stormhawk. | AI-painted pass pertama. |
+| `gameplay_visual_lock_build.jpg` | Visual target/mood lock: cinematic storm air battle, boss, missiles, lasers, explosions, 9:16 UI | Reference only. Do not use as static gameplay background. |
 
-### Enemy Aircraft / Units
+## 2. Target GLB Gameplay Assets
 
-| File | Archetype | Status |
+### 2.1 Player Aircraft — Required
+
+Belum final dan harus dibuat pada implementation pass:
+
+| Target file | Role | Requirement |
 | --- | --- | --- |
-| `assets/rendered/enemy_interceptor.png` | Interceptor cepat. | AI-painted pass pertama. |
-| `assets/rendered/enemy_bomber.png` | Dive bomber anti-konvoi. | AI-painted pass pertama. |
-| `assets/rendered/enemy_gunship.png` | Heavy gunship. | AI-painted unique pass. |
-| `assets/rendered/enemy_storm_drone.png` | Drone cuaca/awan. | AI-painted unique pass. |
-| `assets/rendered/enemy_tank.png` | Ground tank. | AI-painted pass pertama. |
-| `assets/rendered/enemy_sam.png` | SAM launcher. | AI-painted unique pass. |
-| `assets/rendered/enemy_artillery.png` | Mobile artillery. | AI-painted unique pass. |
-| `assets/rendered/boss_aegis_weather_engine.png` | Blockade/boss carrier. | AI-painted boss pass pertama. |
+| `assets/models/player_stormhawk.glb` | Main balanced fighter | Full 3D fuselage, cockpit, wings, cyan emissive strips, engine sockets, weapon hardpoints |
+| `assets/models/player_thunder_warden.glb` | Heavy/storm aircraft | Larger frame, armor plating, lightning rod profile, heavier wing cannons |
+| `assets/models/player_razorwing.glb` | Fast/agile aircraft | Slim swept wings, high speed afterburner, lighter body |
+| `assets/models/player_aegis_medic.glb` | Support/defense aircraft | Utility pods, shield projector, support hardpoints |
 
-### Convoy
+Minimum shared requirements:
 
-| File | Role | Status |
-| --- | --- | --- |
-| `assets/rendered/convoy_command_truck.png` | Command Truck. | AI-painted pass pertama. |
-| `assets/rendered/convoy_fuel_tanker.png` | Fuel Tanker. | AI-painted unique pass. |
-| `assets/rendered/convoy_apc.png` | APC Guardian. | AI-painted unique pass. |
-| `assets/rendered/convoy_supply_truck.png` | Supply Truck. | AI-painted unique pass. |
+- Model is GLB, not PNG/billboard.
+- Has named or consistent child transforms for hardpoints.
+- Has engine exhaust locations.
+- Has material/emissive identity matching Force War palette.
+- Has collision proxy or separate hit volume.
 
-### Support Pods
+### 2.2 Enemy Aircraft / Drones — Required
 
-| File | Aksi | Status |
-| --- | --- | --- |
-| `assets/rendered/support_repair_pod.png` | Heal kendaraan konvoi terdekat. | AI-painted unique pass. |
-| `assets/rendered/support_smoke_pod.png` | Smoke screen. | AI-painted unique pass. |
-| `assets/rendered/support_supply_pod.png` | Rearm convoy turret. | Derived from repair pod; needs unique pass. |
-| `assets/rendered/support_radar_pod.png` | Reveal musuh di awan/fog. | Derived from repair pod; needs unique pass. |
-| `assets/rendered/support_rod_pod.png` | Lightning rod. | Derived from smoke pod; needs unique pass. |
-
-### Painted Stage Backgrounds
-
-| File | Stage Usage |
+| Target file | Role |
 | --- | --- |
-| `assets/rendered/background_monsoon_pass.png` | Monsoon Pass / wet valley route. |
-| `assets/rendered/background_black_delta.png` | Black Delta / Ash Harbor style fog-industrial route. |
-| `assets/rendered/background_thunder_ridge.png` | Thunder Ridge / Eye of Aegis storm mountain route. |
+| `assets/models/enemy_interceptor.glb` | Fast forward-lane fighter |
+| `assets/models/enemy_storm_drone.glb` | Cloud/radar/weather drone |
+| `assets/models/enemy_gunship.glb` | Heavy turret carrier |
+| `assets/models/enemy_bomber.glb` | Missile/bomb platform |
+| `assets/models/enemy_rotor_vtol.glb` | Helicopter/VTOL style side attacker |
 
+### 2.3 Boss / Set Piece — Required
 
-## Gameplay GLB — dipakai oleh Opening Ground Chase 3D
+| Target file | Role |
+| --- | --- |
+| `assets/models/boss_dreadnought_leviathan.glb` | Screen-depth air fortress/dreadnought with central cannon |
+| `assets/models/boss_turret_cannon.glb` | Reusable turret hardpoint |
+| `assets/models/boss_missile_pod.glb` | Missile barrage hardpoint |
+| `assets/models/boss_weather_core.glb` | Lightning/weather weakpoint core |
 
-| File | Fungsi | Status |
+Boss must be a 3D object ahead of player, not a top overlay image.
+
+### 2.4 Forward Arena Chunks — Required
+
+| Target file | Role |
+| --- | --- |
+| `assets/models/arena_storm_cloud_bank.glb` | Large moving cloud volume/chunk |
+| `assets/models/arena_ocean_warzone_chunk.glb` | Ocean/ship/fire layer below flight path |
+| `assets/models/arena_burning_city_chunk.glb` | Delta/city warzone below flight path |
+| `assets/models/arena_debris_field.glb` | Near/mid debris and battlefield clutter |
+| `assets/models/arena_smoke_column.glb` | Reusable smoke/fire column anchor |
+
+## 3. Current GLB Inventory
+
+| File | Current status | New policy |
 | --- | --- | --- |
-| `assets/models/player_car.glb` | Mobil player untuk shootout/chase sebelum masuk aircraft. | Low-poly GLB generated, integrated. |
-| `assets/models/enemy_car.glb` | Mobil musuh yang dikejar dan menembak balik. | Low-poly GLB generated, integrated. |
-| `assets/models/convoy_car.glb` | Kendaraan convoy/lead visual di road phase. | Low-poly GLB generated, integrated. |
-| `assets/models/support_jet.glb` | Jet support yang datang menyerang dan memicu switch ke aircraft. | Low-poly GLB generated, integrated. |
+| `assets/models/support_jet.glb` | Existing low-poly jet | Can be used as temporary wingman/reference, not final player model |
+| `assets/models/air_arena_tile.glb` | Existing low-poly terrain/water/runway tile | Can be studied/reworked into forward arena chunks; current vertical/tile setup is not final |
+| `assets/models/air_cloud_cluster.glb` | Existing low-poly cloud cluster | Can be reused as temporary cloud chunk if placed in forward 3D depth |
+| `assets/models/player_car.glb` | Legacy ground chase car | Deprecated; remove after code rewrite |
+| `assets/models/enemy_car.glb` | Legacy ground chase car | Deprecated; remove after code rewrite |
+| `assets/models/convoy_car.glb` | Legacy convoy car | Deprecated; remove after code rewrite |
 
-Catatan: asset GLB ini sengaja ringan untuk Web export. Mereka sudah menggantikan kebutuhan static car/jet photos, tetapi masih perlu pass model detail, material/weathering, animasi roda, VFX muzzle/jet trail final, dan collision mesh final.
+## 4. PNG / Rendered Asset Policy
 
+PNG can remain for:
 
-## Procedural VFX — dipakai langsung oleh Godot
+- logo/wordmark;
+- loading/splash concept art;
+- app icon/favicon;
+- UI icons if no GLB/particles required;
+- documentation/reference.
 
-Tidak semua efek tembakan memakai file image baru. Pass terbaru menambahkan VFX prosedural di `scripts/main.gd`:
+PNG must not be used for:
 
-- Ground chase 3D: muzzle flash, bullet glow/trail, impact sparks, jet fire lance, explosion flash, dan camera shake ringan.
-- Aircraft top-down: muzzle flash, tracer glow sesuai arah peluru, hit flash/shock ring, rocket smoke, overcharge laser, shield bubble, Storm Burst, dan salvage shard magnet pickup.
-- Research/design reference dicatat di `docs/FX_RESEARCH.md`.
+- player aircraft gameplay model;
+- main enemy aircraft gameplay model;
+- boss model;
+- gameplay arena background as a static photo;
+- fake 2D overlay that replaces 3D world.
 
-Status: pass awal sudah integrated. Masih perlu sound, sprite sheet ledakan final, smoke volumetric, dan tuning intensitas supaya tidak terlalu ramai di Web/mobile.
+### Current PNG Inventory Policy
 
+| Files | Policy |
+| --- | --- |
+| `assets/rendered/logo_force_war_wordmark.png` | Keep for branding/loading |
+| `assets/rendered/web_boot_splash_force_war.png` | Keep for Web splash if branding still matches |
+| `assets/rendered/app_icon_force_war.png`, `index*.png` | Keep for app/browser icons |
+| `assets/rendered/loading_*.png` | Keep only as loading concept art if no convoy/car mismatch is visible; otherwise regenerate |
+| `assets/rendered/player_stormhawk.png` | Deprecated for gameplay; replace with GLB |
+| `assets/rendered/enemy_*.png` | Deprecated for gameplay; replace with GLB |
+| `assets/rendered/boss_aegis_weather_engine.png` | Deprecated for gameplay; replace with boss GLB |
+| `assets/rendered/background_*.png` | Deprecated for gameplay arena; may remain as menu/loading reference only |
+| `assets/rendered/convoy_*.png` | Deprecated; remove after code rewrite |
+| `assets/rendered/support_*.png` | UI icon/reference only; gameplay pods should become 3D/particles if visible in mission |
 
+## 5. SVG Policy
 
-## Loading Screen dan Branding
+SVG files are legacy editable references/icons. They are not final gameplay assets.
 
-Pass terbaru menambahkan asset untuk mobile loading/brand splash:
+| Folder | Policy |
+| --- | --- |
+| `assets/air/*.svg` | Deprecated for gameplay; can be reference only |
+| `assets/ground/*.svg` | Deprecated for gameplay |
+| `assets/convoy/*.svg` | Deprecated and scheduled removal |
+| `assets/support/*.svg` | Possible UI icon source only |
+| `assets/weather/*.svg` | Keep if used as small UI weather icons |
 
-- `assets/rendered/loading_monsoon_convoy.png` — legacy key art konvoi; tidak dipakai sebagai slideshow direct Sky Force War terbaru.
-- `assets/rendered/loading_thunder_hangar.png` — legacy key art hangar; tidak dipakai sebagai slideshow direct Sky Force War terbaru.
-- `assets/rendered/loading_black_delta.png` — legacy key art delta; tidak dipakai sebagai slideshow direct Sky Force War terbaru.
-- `assets/rendered/logo_force_war_wordmark.png` — logo/wordmark Force War: Sky Force War.
-- `assets/rendered/web_boot_splash_force_war.png` — boot splash Web/Godot runtime 720x1280 (9:16), bertema Sky Force War tanpa teks Storm Convoy.
-- `assets/rendered/app_icon_force_war.png` — app/favicon source untuk export Web.
-- `index.png`, `index.icon.png`, `index.apple-touch-icon.png` — hasil export root yang sekarang memakai branding Force War, bukan logo Godot default.
+## 6. VFX Asset Requirements
 
-Brand/logo dipakai oleh `GameState.LOADING` bersama stage background (`bg_thunder`, `bg_delta`, `bg_monsoon`) sebagai slideshow aircraft-only sebelum masuk title screen. Root `index.png` juga 720x1280 agar splash Web sesuai rasio 9:16.
+Gameplay VFX can be procedural/particle-based, but must be authored for 3D chase camera.
 
-## Current Aircraft Arena Visual Rules
+Required VFX modules:
 
-- Aircraft phase sekarang memakai `SkyForceWar3DArena`: Camera3D + GLB terrain tile + GLB cloud cluster yang benar-benar bergerak di world 3D.
-- Painted stage backgrounds hanya dipakai di loading/menu; gameplay aircraft tidak lagi menggambar foto statis sebagai arena.
-- Mobil/konvoi tidak digambar di arena aircraft; ground-link convoy signal juga dihapus supaya game langsung terasa aircraft-only.
+- player afterburner flame and vapor trail;
+- cyan main cannon stream;
+- wing cannon bolt trail;
+- micro missile rocket + smoke trail;
+- overcharge lightning laser;
+- blue hex/electric shield bubble around GLB;
+- red/orange enemy bullets;
+- boss cannon charge beam;
+- 3D explosion burst with smoke/debris;
+- rain sheets, lightning flash, cloud concealment.
 
-## UI/UX dan Progression Screens
+## 7. Cleanup Rule
 
-Pass terbaru menambahkan UI procedural untuk `HANGAR & GARAGE`:
+Legacy asset deletion is safe only after code no longer references the file. Before deleting, run:
 
-- Tab Aircraft dan Ground Car.
-- Preview unit procedural/canvas.
-- Stat bars dan upgrade bars.
-- CTA besar untuk mobile/touch.
-- Save data untuk selected vehicle, ownership, dan upgrade level.
+```bash
+grep -RIn "asset_file_name" scripts scenes project.godot export_presets.cfg
+```
 
-Catatan: ini UI functional/vertical-slice. Masih perlu final icon set, animation/tween, safe-area scaling, dan style guide visual supaya semua screen konsisten.
+Target final state:
 
-## SVG Fallback / Reference Assets
-
-SVG tetap ada untuk fallback, documentation, dan future vector UI pass:
-
-- `assets/air/*.svg`
-- `assets/ground/*.svg`
-- `assets/convoy/*.svg`
-- `assets/support/*.svg`
-- `assets/weather/*.svg`
-
-## Next Art Pass
-
-Prioritas asset berikutnya:
-
-1. Detail pass untuk GLB car/jet: wheel animation, wet material, dan collision mesh.
-2. Upgrade VFX tembakan/Storm Burst/salvage dari procedural boxes/canvas ke sprite sheet/particle material final.
-3. Boss/blockade unique per biome, bukan satu shared boss sprite.
-4. Support supply/radar/rod generated unique, bukan derived tint.
-5. UI/hangar/briefing background final dan icon stat vehicle.
-6. Explosion/smoke/lightning VFX sprite sheets.
-7. Manual edge cleanup untuk semua sprite supaya tidak ada green/white fringe.
-8. Sprite atlas agar Web build lebih efisien.
+- gameplay assets in `assets/models/` and particle/VFX systems;
+- `assets/rendered/` mostly branding/UI/loading;
+- no convoy/car asset in active export;
+- no static aircraft photo in gameplay.

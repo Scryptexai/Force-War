@@ -1,126 +1,98 @@
-# Force War: Sky Force War
+# Force War: Forward Air Combat Redesign
 
-Force War sekarang diarahkan sebagai **Sky Force War**: vertical air-war shooter original untuk **Godot 4.6.2 stable** dan Web export. Build terbaru langsung masuk ke aircraft combat 9:16 tanpa prologue mobil dan tanpa layer konvoi/mobil di awal gameplay.
+Force War sekarang **dikunci ulang arahnya** menjadi game **3D forward air-combat** untuk Godot 4.6.2 stable dan Web export. Arah lama berupa vertical/top-down aircraft canvas, prologue mobil/konvoi, dan gameplay berbasis PNG/static sprite **tidak lagi menjadi target desain**.
 
-## Konsep Utama
+> Status jujur: commit saat ini masih membawa build lama sebagai baseline teknis/Web export. Dokumen ini adalah redesign lock sebelum implementasi berikutnya. Gameplay final yang diinginkan harus mengganti build lama dengan pesawat GLB 3D, kamera chase dari belakang-sedikit-atas, dan arena perang yang bergerak maju ke depan.
 
-Kamu adalah pilot support-combat yang langsung deploy ke zona perang vertikal. Stage selesai saat air corridor/blockade diamankan dan boss dihancurkan. Stage gagal jika pesawat pemain jatuh.
+## Visual Lock
 
-### Yang membedakan dari shooter pasaran
+Referensi visual internal yang dikunci:
 
-- **Direct aircraft combat:** tidak ada car/convoy prologue; pemain langsung masuk arena Sky Force War.
-- **Flight path bercabang:** di tengah stage kamu memilih jalur aman/lambat, jalur cepat/berisiko, atau jalur badai dengan reward tinggi.
-- **Cuaca sebagai puzzle:** angin membelokkan peluru, awan menyembunyikan musuh, hujan menurunkan visibility, flood/terrain hazard memperlambat flow arena, petir bisa overcharge senjata atau menghancurkan unit.
-- **Loadout berdasarkan forecast:** sebelum stage pilih paket support yang cocok dengan prakiraan cuaca.
-- **Support tools aircraft:** repair pod memperbaiki jet, smoke screen melindungi jet, supply memberi overcharge/Storm Burst, radar flare, lightning rod.
+```text
+gameplay_visual_lock_build.jpg
+```
 
-## Status Produksi Saat Ini
+Gambar ini dipakai sebagai **mood/quality target**, bukan sebagai asset gameplay statis. Targetnya adalah rasa perang udara sinematik: player jet besar di foreground, boss/dreadnought jauh di depan, laser, rudal, smoke trail, ledakan, awan badai, dan UI mobile 9:16.
 
-Sudah dibuat:
+## Arah Gameplay Baru
 
-- Roadmap full version: `docs/ROADMAP.md`
-- Asset catalog: `docs/ASSET_CATALOG.md`
-- SVG asset generator: `tools/generate_assets.py`
-- Asset original untuk player, musuh udara/darat, support pod, background arena, dan weather icon di `assets/`
-- Gameplay Sky Force War di `scripts/main.gd`:
-  - 6 operation campaign skeleton
-  - direct Sky Force War mode tanpa car/convoy prologue
-  - flight-path branching
-  - weather systems
-  - air + ground enemies
-  - support drops
-  - boss/blockade
-  - Web `JavaScriptBridge` state/events
-  - local save/localStorage
-  - mobile loading page dengan slideshow background dan logo wordmark
-  - custom Web boot splash/icon supaya browser tidak menampilkan logo Godot default
-  - 9:16 mobile portrait canvas (`720x1280`) untuk Web/mobile QA
-  - aircraft arena memakai scene 3D GLB terrain/cloud (`air_arena_tile.glb`, `air_cloud_cluster.glb`), bukan foto statis/parallax HTML
-  - enemy bullets memakai pattern/lane shot non-homing dengan fire-rate/damage diturunkan agar tidak terus mengejar pemain
-  - convoy/ground-link visual di aircraft phase dihapus total agar tidak ada mobil/konvoi di arena
-- Godot Web preset: `export_presets.cfg`
-- Build script Godot 4.6.2: `tools/export_web.sh`
-- Root Node web server untuk Vercel/local: `server.js` + `npm start`
+- **Pesawat player harus GLB 3D**, bukan foto/PNG statis.
+- **Enemy aircraft, drone, turret, missile, dan boss utama juga diarahkan ke GLB/3D**, bukan sprite top-down.
+- **Kamera chase 3D:** kamera di belakang pesawat, sedikit di atas, melihat ke arah depan lintasan.
+- **Game bergerak maju ke depan**, bukan scroll ke atas pada canvas 2D.
+- **Player mengontrol posisi dalam flight corridor**: strafe kiri/kanan, naik/turun sedikit, dodge roll/boost, dan lock-on/aim ke target di depan.
+- **Arena adalah world 3D berlapis:** storm clouds, ocean/city warzone di bawah, debris, smoke columns, ally/enemy traffic, boss carrier di depan.
+- **Cuaca tetap menjadi sistem gameplay:** wind drift, cloud concealment, rain visibility, lightning overcharge, storm hazards.
+- **UI tetap mobile portrait 9:16**, tetapi gameplay di bawahnya adalah 3D chase/rail-forward shooter.
 
-## Kontrol
+## Yang Tidak Boleh Masuk Lagi ke Build Baru
 
-| Aksi | Tombol |
-| --- | --- |
-| Gerak | WASD / Arrow |
-| Touch/mobile | Drag layar |
-| Pause | P |
-| Pilih loadout di briefing | ← / → |
-| Pilih stage di briefing | ↑ / ↓ |
-| Launch / confirm route | Enter / Space |
-| Route choice | ← / → lalu Enter |
-| Repair pod | 1 |
-| Smoke screen | 2 |
-| Supply drop | 3 |
-| Radar flare | 4 |
-| Lightning rod | 5 |
-| Abort/back | Esc |
-| Skip loading setelah logo tampil | Tap / click / key |
+- Tidak ada car/convoy prologue.
+- Tidak ada gameplay top-down sebagai mode utama.
+- Tidak ada pesawat player sebagai foto/PNG statis.
+- Tidak ada arena berupa static photo/parallax 2D.
+- Tidak ada dokumentasi yang mengklaim setup convoy/car/top-down sebagai direction aktif.
+- File legacy boleh sementara ada hanya jika masih dibutuhkan untuk menjaga baseline lama sampai rewrite selesai, tetapi harus ditandai deprecated dan dijadwalkan hapus.
+
+## Dokumen Desain Baru
+
+```text
+docs/THIRD_PERSON_AIR_COMBAT_REDESIGN.md  # Target kamera, gameplay, arena, VFX, benchmark
+docs/REPO_CLEANUP_AUDIT.md                # Audit setup lama dan daftar bersih-bersih repo
+docs/ROADMAP.md                           # Roadmap baru tanpa convoy/car/top-down sebagai target
+docs/ASSET_CATALOG.md                     # Katalog asset target GLB + legacy quarantine
+docs/FX_RESEARCH.md                       # Riset VFX forward air-combat
+docs/UI_UX_FLOW_AUDIT.md                  # Flow mobile baru
+docs/UI_UX_RESEARCH.md                    # Prinsip UX baru untuk forward air-combat
+docs/WEB_BUILD_FLOW.md                    # Web export/root server flow yang tetap dipertahankan
+```
 
 ## Struktur Penting
 
 ```text
-project.godot                         # Konfigurasi Godot 4.6.2
-scenes/Main.tscn                      # Main scene
-scripts/main.gd                       # Gameplay Sky Force War, flight path, weather, combat, JS bridge
-assets/                               # SVG/PNG/GLB game assets original
-assets/*/*.svg.import                 # Godot import metadata
-tools/generate_assets.py              # Deterministic SVG asset generator
-tools/export_web.sh                   # Export Web dengan Godot 4.6.2
-server.js                            # Root server Node untuk Vercel/local WebAssembly headers
-package.json                         # npm start/qa scripts agar Vercel otomatis deteksi project Node
-vercel.json                          # Header COOP/COEP/MIME untuk deploy Vercel
-tools/serve_web.py                    # Legacy helper; tidak dipakai sebagai server utama
-docs/ROADMAP.md                       # Roadmap full version
-docs/ASSET_CATALOG.md                 # Daftar asset dan fungsi gameplay
-docs/WEB_BUILD_FLOW.md                # Alur teknis Web build
+project.godot                         # Konfigurasi Godot 4.6.2, viewport 720x1280
+scenes/Main.tscn                      # Main scene baseline saat ini; akan dirombak ke 3D chase air scene
+scripts/main.gd                       # Baseline gameplay lama; wajib dibedah pada pass implementasi berikutnya
+assets/models/                        # Target utama asset gameplay baru: GLB pesawat, enemy, boss, arena chunks
+assets/rendered/                      # Hanya untuk logo/loading/UI reference; tidak boleh menjadi player aircraft gameplay final
+gameplay_visual_lock_build.jpg        # Visual target reference, bukan gameplay texture
+tools/export_web.sh                   # Export Web Godot 4.6.2 ke root repo
+server.js                             # Root Node server untuk local/Vercel WebAssembly headers
+package.json                          # npm start / qa:web / vercel-build
+vercel.json                           # Header COOP/COEP/MIME untuk deploy Vercel
 index.html / index.js / index.wasm / index.pck  # Output Web di root repo
 ```
 
 ## Godot 4.6.2 Stable
 
-Target resmi:
+Target engine tetap:
 
 ```text
 Godot_v4.6.2-stable_linux.x86_64.zip
 ```
 
-Link resmi:
+Official binary:
 
 ```text
 https://github.com/godotengine/godot-builds/releases/download/4.6.2-stable/Godot_v4.6.2-stable_linux.x86_64.zip
 ```
 
-Export templates resmi:
+Official export templates:
 
 ```text
 https://github.com/godotengine/godot-builds/releases/download/4.6.2-stable/Godot_v4.6.2-stable_export_templates.tpz
 ```
 
-Project ini memakai Web no-thread template:
+Project memakai Web no-thread template:
 
 ```text
 ~/.local/share/godot/export_templates/4.6.2.stable/web_nothreads_release.zip
 ~/.local/share/godot/export_templates/4.6.2.stable/web_nothreads_debug.zip
 ```
 
-Jika `web_nothreads_release.zip` dan `web_nothreads_debug.zip` ada di root repo, `tools/export_web.sh` otomatis menyalinnya ke folder template Godot 4.6.2.
-
-> Catatan sandbox: file `godot_v4.6.2-stable-linux_release.x86_64` yang ada dari main branch saat ini terdeteksi invalid/truncated di sandbox (`Bus error`). Ganti dengan zip/binary resmi Godot 4.6.2 agar export CLI bisa berjalan penuh.
-
-## Generate Assets
-
-```bash
-./tools/generate_assets.py
-```
-
-Script ini regenerate semua SVG asset di `assets/` secara deterministik.
-
 ## Build Web
+
+Output Web tetap harus berada di root repo:
 
 ```bash
 ./tools/export_web.sh
@@ -137,8 +109,6 @@ index.pck
 
 ## Serve Web Build dari Root Repo
 
-Untuk local preview dan deployment flow Vercel, server utama sekarang berada di root repo/home directory, bukan di `tools/`:
-
 ```bash
 npm install
 npm start
@@ -150,70 +120,13 @@ Port custom:
 PORT=8000 npm start
 ```
 
-`server.js` bind ke `0.0.0.0` dan mengirim header penting:
+`server.js` bind ke `0.0.0.0` dan mengirim header penting untuk Godot Web/WebAssembly.
 
-- `.wasm` → `application/wasm`
-- `.js` → `text/javascript`
-- `.pck` → `application/octet-stream`
-- `Cross-Origin-Opener-Policy: same-origin`
-- `Cross-Origin-Embedder-Policy: require-corp`
-- `X-Content-Type-Options: nosniff`
-
-## Alur Teknis Web
-
-1. **Build:** Godot 4.6.2 mengekspor proyek ke `index.html`, `index.js`, `index.wasm`, `index.pck`.
-2. **Serve:** `npm start` menjalankan `server.js` dari root repo/home directory dan mengirim file dengan MIME `application/wasm` plus security headers.
-3. **Load:** Browser memuat `index.html`; `index.js` menginisialisasi engine; `index.wasm` dieksekusi.
-4. **Render:** Godot Web runtime menggambar ke `<canvas>` melalui WebGL 2.0/Compatibility renderer.
-5. **Interaksi:** `JavaScriptBridge` menulis state/event game ke `window.ForceWarBridge` dan menyimpan progress ke `localStorage`.
-
-Contoh browser console:
-
-```js
-window.addEventListener('force-war-event', (event) => console.log(event.detail));
-console.log(window.ForceWarBridge.state);
-```
-
-## Validasi Cepat
-
-Dengan binary Godot valid:
+## QA Web
 
 ```bash
-godot --headless --path . --check-only --script scripts/main.gd
-godot --headless --path . --import
-godot --headless --path . --quit-after 10
-```
-
-## Deploy Vercel
-
-Project ini sudah punya konfigurasi root untuk Vercel:
-
-```text
-package.json   # npm scripts: start, vercel-build, qa:web
-server.js      # root static server untuk Godot Web export
-vercel.json    # headers COOP/COEP/CORP dan MIME untuk index.wasm/index.pck/index.js
-.vercelignore  # mengecilkan upload deploy; index.pck sudah berisi resource game
-```
-
-Vercel akan menjalankan `npm run vercel-build` untuk memverifikasi file export root (`index.html`, `index.js`, `index.wasm`, `index.pck`). Local run tetap langsung dari root:
-
-```bash
-npm start
-```
-
-## QA Web Debug Template
-
-QA browser memakai template debug yang sudah ada di repo root:
-
-```text
-web_nothreads_debug.zip
-web_nothreads_release.zip
-```
-
-Jalankan:
-
-```bash
+npm run vercel-build
 npm run qa:web
 ```
 
-Script ini melakukan debug export dengan Godot 4.6.2, menjalankan `server.js` dari root repo dengan `STATIC_ROOT` ke hasil debug export, lalu membuka Chromium via Playwright Core + `@sparticuz/chromium`.
+Catatan: QA Web memvalidasi pipeline browser/canvas/runtime. Setelah rewrite gameplay 3D chase dimulai, QA visual tambahan harus ditambah untuk memastikan kamera, GLB pesawat, dan arena forward benar-benar muncul di browser.

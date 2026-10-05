@@ -1,204 +1,149 @@
-# Force War: Sky Force War — Roadmap Full Version
+# Force War — Forward 3D Air Combat Roadmap
 
-## Visi
+Tanggal redesign lock: 2026-10-05
 
-Force War sekarang diarahkan sebagai Sky Force War: vertical air-war shooter yang langsung masuk ke pesawat tanpa prologue mobil/konvoi. Cuaca ekstrem dan cabang flight path tetap mengubah cara bermain setiap stage: environment menjadi puzzle taktis, bukan sekadar background.
+## Visi Baru
+
+Force War bukan lagi vertical/top-down Sky Force clone dan bukan lagi convoy/car escort. Force War sekarang diarahkan menjadi **3D forward air-combat**: player mengendalikan pesawat GLB dari kamera chase di belakang-sedikit-atas, bergerak maju ke medan perang badai, melawan drone/fighter/boss dreadnought dalam arena 3D sinematik.
 
 ## Status Realistis Saat Ini
 
-**Build saat ini adalah vertical slice / foundation build, bukan full version final.**  
-Core mechanic sudah ada, tetapi visual polish, balancing, variasi stage, audio, dan production content masih jauh dari selesai.
+**Build saat ini adalah baseline teknis lama, bukan target gameplay final.**
 
-Estimasi kasar status produksi:
+Root Web export, server, Vercel flow, loading/branding, dan beberapa sistem weather/combat lama sudah ada. Namun arah gameplay visual harus dibedah ulang:
 
-| Area | Status |
+| Area | Status realistis setelah redesign lock |
 | --- | --- |
-| Build/Web pipeline | 80% |
-| Core air-war mechanics | 58% — direct aircraft combat aktif; enemy fire menjadi pattern/lane non-homing |
-| Weather gameplay | 35% |
-| Flight-path branching | 30% |
-| Enemy variety logic | 35% |
-| Visual production quality | 48% setelah GLB 3D arena tile/cloud mengganti foto/parallax gameplay |
-| Campaign/content polish | 20% — hangar/garage + loading/brand splash flow mulai terbentuk |
-| Audio/VFX/juice | 16% — research Sky Force-style VFX + Storm Burst/salvage/laser/shield pass |
-| Overall menuju full version | ±41% |
+| Godot/Web pipeline | 80% — root export/server/QA sudah ada dan dipertahankan |
+| Gameplay direction | 20% — target baru sudah dikunci, implementation belum dimulai |
+| Camera/game feel | 5% — harus rewrite ke chase camera 3D |
+| GLB aircraft gameplay | 10% — baru ada `support_jet.glb` placeholder; player GLB belum final |
+| Forward 3D arena | 15% — GLB tile/cloud lama bisa direuse ide, tapi arah scroll/camera harus dirombak |
+| Weapon/VFX quality | 15% — efek lama belum memenuhi target cinematic forward air war |
+| UI/mobile shell | 45% — loading/title/HUD baseline ada, tapi harus disesuaikan ke forward flight |
+| Legacy cleanup | 20% — docs dibersihkan; code/assets legacy masih menunggu rewrite |
+| Overall menuju target baru | ±24% |
 
-## Update Gameplay/Visual Pass Terbaru
+## Pilar Desain Baru
 
-- Web/mobile viewport diset ke 720x1280 (9:16) dan QA browser mengecek rasio tersebut.
-- Enemy bullets sekarang memakai fixed lane/pattern non-homing; fire-rate, damage, bullet cap, dan player invulnerability dituning agar tidak mati hanya karena ditembak terus.
-- Aircraft arena tidak lagi menggambar mobil, konvoi, atau ground-link convoy signal.
-- Stage launch langsung masuk aircraft/Sky Force War; ground chase/car prologue dinonaktifkan.
-- Background aircraft phase sekarang `SkyForceWar3DArena`: Camera3D + GLB terrain/cloud moving world, bukan static photo + overlay.
+1. **3D aircraft first**
+   Player plane, major enemies, missiles, and boss must be GLB/3D. PNG/sprite hanya boleh untuk logo, loading, UI icon, dan reference.
 
-## Pilar Desain
+2. **Forward movement**
+   Game terasa maju ke depan dalam world 3D. Tidak ada lagi scroll ke atas sebagai bahasa gameplay utama.
 
-1. **Escort sebagai objektif utama**  
-   Konvoi punya beberapa kendaraan, HP per kendaraan, formasi, dan kebutuhan supply. Stage gagal jika konvoi hancur walaupun pemain masih hidup.
+3. **Chase camera**
+   Camera berada di belakang pesawat, sedikit di atas, mengikuti roll/strafe player dengan lag halus.
 
-2. **Rute bercabang**  
-   Di tengah stage muncul keputusan jalur: aman tapi lambat, pendek tapi penuh SAM/artillery, atau jalur badai dengan reward besar. Pilihan mengubah wave, cuaca, dan posisi jalan.
+4. **Cinematic storm battlefield**
+   Arena harus punya cloud depth, ocean/city warzone, smoke columns, debris, distant air traffic, explosions, dan boss set-piece di depan.
 
-3. **Cuaca sebagai sistem gameplay**  
-   - Angin menggeser peluru dan smoke.
-   - Hujan/monsoon menurunkan visibilitas.
-   - Awan menyembunyikan musuh sampai dekat/radar aktif.
-   - Petir bisa overcharge senjata atau menghantam unit di zona konduktor.
-   - Flooded road memperlambat konvoi dan membuatnya rentan artillery.
+5. **Weather as tactical puzzle**
+   Wind, cloud, rain, lightning, storm cell, dan visibility mempengaruhi aim, dodge, loadout, dan route/corridor choice.
 
-4. **Support pilot, bukan cuma fighter**  
-   Pemain bisa drop repair, supply, radar flare, smoke screen, dan lightning rod. Loadout dipilih dari forecast sebelum mission.
+6. **Readable VFX**
+   Player fire biru/cyan, enemy fire merah/oranye, weather biru-putih/abu, explosion kuning/oranye. Efek boleh intens, tetapi dodge zone harus tetap terbaca.
 
-5. **Original dan beda dari shooter pasaran**  
-   Visual, nama unit, objective, dan sistem rute/cuaca dibuat original untuk Force War, tidak menyalin aset atau struktur level game komersial.
-
-6. **Ground-to-air flow**
-   Stage dimulai dari chase/shootout mobil 3D dengan kamera perspektif rendah/angled. Pemain mengejar dan menembak mobil musuh sampai jet support datang; baru setelah transisi itu mode top-down aircraft/Sky Force dimulai.
+7. **No legacy setup in final**
+   Tidak ada car/convoy prologue, tidak ada top-down fallback, tidak ada static aircraft photo di gameplay.
 
 ## Milestone Produksi
 
-### M0 — Engine dan Build Pipeline
+### M0 — Redesign Lock & Repo Cleanup
 
-- [x] Target engine: Godot 4.6.2 stable.
-- [x] Web export template `web_nothreads_release.zip` dan `web_nothreads_debug.zip` disiapkan.
-- [x] Export script diarahkan ke `4.6.2.stable`.
-- [x] Output Web dibuat di root repo: `index.html`, `index.js`, `index.wasm`, `index.pck`.
-- [x] Python web server dengan MIME `application/wasm` dan security headers.
-- [ ] Kurangi ukuran repo/build artifact untuk production deploy.
+- [x] Visual target reference committed: `gameplay_visual_lock_build.jpg`.
+- [x] Dokumen direction lama diganti ke forward 3D air-combat.
+- [x] Repo cleanup audit dibuat: `docs/REPO_CLEANUP_AUDIT.md`.
+- [x] Third-person camera/gameplay redesign dibuat: `docs/THIRD_PERSON_AIR_COMBAT_REDESIGN.md`.
+- [x] Legacy helper/server/generator lama dihapus dari `tools/` sehingga tidak ada generator convoy/car/top-down yang dipakai ulang.
+- [ ] Hapus legacy code/path setelah ForwardAirScene3D playable.
 
+### M1 — ForwardAirScene3D Foundation
 
-### M0.5 — Mobile UI/UX dan Progression Shell
+- [ ] Buat scene/root system baru untuk forward 3D air combat.
+- [ ] Buat camera rig chase: behind/slightly above, look-ahead target, FOV config, camera lag.
+- [ ] Tentukan world direction: forward = `-Z`.
+- [ ] Player corridor movement: strafe X, altitude Y, boost/brake ringan, roll animation.
+- [ ] Port input mobile/keyboard ke movement 3D.
+- [ ] Matikan top-down `_draw()` sebagai visual utama gameplay.
 
-- [x] Research mobile game UI/UX dan dokumentasi ATM di `docs/UI_UX_RESEARCH.md`.
-- [x] Audit flow mobile dan loading/brand splash di `docs/UI_UX_FLOW_AUDIT.md`.
-- [x] Title/briefing diberi CTA besar untuk Start Mission dan Hangar/Garage.
-- [x] Hangar/Garage satu layar dengan tab Aircraft dan Ground Car.
-- [x] Salvage/star currency terlihat di upgrade screen.
-- [x] Touch/click buttons untuk menu utama, briefing launch, hangar back/action, tabs, dan vehicle navigation.
-- [x] Loading page mobile dengan slideshow background, loading bar, tips, dan wordmark.
-- [ ] Safe-area/notch responsive pass untuk device mobile nyata.
-- [ ] Button press animation, sound feedback, dan accessibility font scale.
+### M2 — Player Aircraft GLB
 
-### M1 — Combat Escort Core
+- [ ] Generate/import `assets/models/player_stormhawk.glb`.
+- [ ] Tambah hardpoints: nose gun, left/right wing cannon, missile sockets, engine sockets.
+- [ ] Material: metal dark, cyan emissive strips, cockpit canopy.
+- [ ] Roll/tilt animation berdasarkan input.
+- [ ] Engine exhaust 3D: flame core, glow, vapor trail.
+- [ ] Collision/hitbox proxy yang readable untuk mobile.
 
-- [x] Prototype konvoi multi-kendaraan dengan HP per unit.
-- [x] Prototype stage clear berdasarkan progress konvoi, bukan kill count.
-- [x] Prototype musuh udara menyerang pemain/konvoi.
-- [x] Prototype musuh darat menyerang konvoi dari sisi jalan.
-- [x] Prototype support actions: repair, smoke, supply, radar, lightning rod.
-- [ ] Rework formasi konvoi supaya terasa natural dan tidak hanya mengikuti titik linear.
-- [ ] Tambah AI prioritas target musuh yang lebih jelas.
-- [ ] Tambah convoy behavior: panic, stop, accelerate, damaged movement, turret animation.
+### M3 — Forward Arena Director
 
-### M1.5 — 3D Ground Chase Prologue
+- [ ] Spawn storm cloud chunks ahead and move them past camera/player.
+- [ ] Add ocean/city warzone layer below with fires/smoke columns.
+- [ ] Add distant battle traffic: ally jets, enemy silhouettes, tracer lines.
+- [ ] Add weather volumes: rain sheets, cloud concealment, lightning flashes.
+- [ ] Add debris/near-camera streaks for speed feel.
+- [ ] Ensure no static photo arena is used as gameplay world.
 
-- [x] Generate low-poly GLB `player_car`, `enemy_car`, `convoy_car`, dan `support_jet`.
-- [x] Integrasi opening ground chase dengan `Node3D`, `Camera3D` perspektif angled, road mesh, lane markers, roadside props.
-- [x] Mobil player dapat steer kiri/kanan dan auto-shoot enemy cars.
-- [x] Enemy car GLB spawn di depan, menembak balik, dan bisa merusak mobil player.
-- [x] Jet support GLB masuk/menyerang dan membuka prompt switch ke aircraft.
-- [x] Pass awal efek tembakan ground: muzzle flash 3D, bullet trail, impact sparks, jet fire lance, dan camera shake ringan.
-- [x] Tambah efek referensi vertical shooter: screen-clear Storm Burst, salvage pickup magnet, shield bubble, dan overcharge laser.
-- [x] Transisi langsung dari ground chase ke mode top-down aircraft escort.
-- [ ] Tambah physics/collision 3D yang lebih solid; saat ini collision masih logical AABB ringan.
-- [ ] Tambah camera shake, road curvature, enemy chase AI, dan VFX jet attack yang lebih kuat.
-- [ ] Integrasikan convoy choices/route branch ke prologue ground secara visual.
+### M4 — 3D Weapon VFX
 
+- [ ] Main cannon cyan stream from aircraft hardpoints.
+- [ ] Wing cannon thick bolts with longer trail.
+- [ ] Micro missile model/trail from wing sockets.
+- [ ] Overcharge lightning laser with impact flare.
+- [ ] Enemy red/orange bullets as 3D/projected trails.
+- [ ] Hit spark, debris, smoke, and damage flash on enemy models.
+- [ ] Camera shake/FOV kick tied to weapon intensity.
 
-### M1.6 — Vehicle Types dan Upgrade System
+### M5 — Enemy/Boss GLB Combat
 
-- [x] Aircraft roster awal: Stormhawk Mk.I, Thunder Warden, Razorwing LX, Aegis Medic.
-- [x] Ground car roster awal: Warden Rover, Lynx Pursuit, Ironback APC, Specter Rail.
-- [x] Unlock cost, owned state, selected aircraft/car, dan upgrade state disimpan ke save/localStorage.
-- [x] Aircraft upgrade: Main Cannon, Armor, Storm Systems level 0–5.
-- [x] Car upgrade: Car Cannon, Armor, Handling level 0–5.
-- [x] Aircraft stat mempengaruhi HP, speed, gun, missile, dan Storm Burst utility.
-- [x] Car stat mempengaruhi HP, handling, fire-rate, dan cannon damage di ground chase.
-- [ ] Model/visual unik untuk tiap aircraft dan car type; saat ini beberapa masih shared preview/model.
-- [ ] Economy balancing untuk unlock/upgrade cost berdasarkan stage reward nyata.
+- [ ] Generate/import enemy fighter/drone/gunship GLB placeholders.
+- [ ] Spawn enemies in forward corridor, not 2D top screen.
+- [ ] Add readable attack patterns in 3D lanes.
+- [ ] Generate/import boss dreadnought GLB placeholder.
+- [ ] Add boss weakpoints, turret hardpoints, central cannon charge.
+- [ ] Add phase transitions and final multi-stage explosion.
 
-### M2 — Branching Route System
+### M6 — UI/UX Refit for Forward Flight
 
-- [x] Prototype branch prompt in-stage.
-- [x] Prototype pilihan route memodifikasi threat, wind, reward, speed, dan posisi jalan.
-- [x] Prototype UI menunjukkan pilihan jalur.
-- [ ] Buat minimap rute yang terlihat jelas sebelum dan saat stage.
-- [ ] Buat perbedaan visual nyata per branch, bukan hanya modifier angka.
-- [ ] Tambah route event khusus: ambush, bridge collapse, flooded shortcut, evacuation camp.
+- [ ] HUD reticle/crosshair centered ahead.
+- [ ] Lock-on marker and target brackets.
+- [ ] Boss bar top-center.
+- [ ] HP/shield top-left; score/combo top-right.
+- [ ] Ability buttons thumb-safe lower left/right.
+- [ ] Radar/weather mini-map bottom-right.
+- [ ] Mobile safe-area and touch target pass.
 
-### M3 — Extreme Weather Puzzle
+### M7 — Legacy Removal & Repo Slimming
 
-- [x] Prototype forecast sebelum mission.
-- [x] Prototype loadout dipilih berdasarkan forecast.
-- [x] Prototype angin menggeser peluru.
-- [x] Prototype rain/fog visibility overlay.
-- [x] Prototype cloud cover menyembunyikan unit.
-- [x] Prototype lightning strike dan overcharge weapon.
-- [x] Prototype flood zones memperlambat konvoi.
-- [ ] Buat weather telegraph yang mudah dibaca pemain.
-- [ ] Tambah weather combo: smoke + wind drift, lightning rod chain damage, radar + hidden drones.
-- [ ] Tambah VFX cuaca yang lebih kuat dan tidak sekadar overlay.
+- [ ] Remove convoy/car prologue code from `scripts/main.gd` or replace with new script layout.
+- [ ] Remove old convoy/car assets after no runtime references remain.
+- [ ] Remove top-down PNG gameplay dependency for player/enemy/boss.
+- [ ] Replace save key/migration away from `storm_convoy` naming.
+- [ ] Rebuild root Web export.
+- [ ] Run Godot check/import/export + browser QA.
+- [ ] Grep docs/code for forbidden legacy strings.
 
-### M4 — Enemy Roster dan Boss
+### M8 — Content Expansion
 
-- [x] Prototype interceptor.
-- [x] Prototype dive bomber.
-- [x] Prototype gunship.
-- [x] Prototype storm drone.
-- [x] Prototype tank.
-- [x] Prototype SAM launcher.
-- [x] Prototype artillery telegraph.
-- [x] Prototype mine layer / road hazard.
-- [x] Prototype final blockade boss per stage.
-- [ ] Buat sprite unik final untuk semua enemy, bukan tint/derived variant.
-- [ ] Tambah elite variants per biome.
-- [ ] Boss pattern masih perlu dibuat unik per stage.
+- [ ] 3+ forward air arenas: Storm Ocean, Burning Delta, Thunder Ridge.
+- [ ] 4+ player aircraft GLB variants.
+- [ ] 6+ enemy GLB types.
+- [ ] 3+ boss set-pieces.
+- [ ] Weather-specific mission modifiers and loadout decisions.
+- [ ] Audio, haptics-like screen pulse, cinematic transitions.
 
-### M5 — Visual Asset Pass
+## Acceptance Criteria v0.5 Forward Slice
 
-- [x] SVG placeholder/source pass untuk player, enemy, convoy, support, weather icon.
-- [x] AI-painted PNG pass pertama untuk player, interceptor, bomber, tank, command truck.
-- [x] AI-painted PNG pass kedua untuk gunship, drone, SAM, artillery, fuel tanker, APC, supply truck, repair pod, smoke pod, dan boss carrier.
-- [x] AI-painted stage background pass pertama: Monsoon Pass, Black Delta, Thunder Ridge.
-- [x] Integrasi PNG gameplay sprites, support pods, boss, dan background ke Godot.
-- [ ] Generate PNG unik untuk supply/radar/rod pods, biome-specific bosses, UI panels.
-- [ ] Manual cleanup alpha/edge artifact pada sprite.
-- [ ] Sprite sheet / atlas agar Web build lebih efisien.
-- [ ] Particle polish per weather.
+Before calling the next playable build acceptable:
 
-### M6 — Campaign Content
-
-- [x] 6 operation skeleton: Monsoon Pass, Forked Canyon, Black Delta, Thunder Ridge, Ash Harbor, Eye of Aegis.
-- [x] Forecast unik tiap operation.
-- [x] Route branch unik tiap operation.
-- [ ] Tuning durasi, spawn table, reward economy.
-- [ ] Narrative radio chatter.
-- [ ] Mission objective variants: evacuate civilians, protect fuel, suppress SAM corridor, thunder rod escort.
-
-### M7 — Audio, Feel, dan Web Polish
-
-- [x] JavaScriptBridge state/events.
-- [x] localStorage save.
-- [ ] Sound FX procedural / open-license.
-- [x] Pass awal VFX tembakan prosedural: muzzle flash, tracer glow, hit flash, rocket smoke, dan 3D ground sparks.
-- [x] Research efek Sky Force-style dan catat jenis efek utama di `docs/FX_RESEARCH.md`.
-- [x] Storm Burst `B`: radial screen-clear pulse, clear bullets, damage area, screen flash/shake.
-- [x] Salvage shards/magnet pickup dari musuh hancur.
-- [x] Overcharge laser beam dan shield bubble saat invulnerable.
-- [ ] Screen shake/hit-stop final, damage feedback, convoy radio warning.
-- [ ] Responsive mobile HUD final.
-- [ ] Touch radial support actions.
-- [ ] Add host page overlay for bridge debug/events.
-
-## Acceptance Criteria v1.0
-
-- Konvoi bisa menang/kalah terpisah dari HP pemain.
-- Minimal 6 stage campaign playable dan visually distinct.
-- Setiap stage punya weather forecast, branching route, boss/blockade unik.
-- Minimal 8 enemy archetype dengan sprite PNG unik dan behavior berbeda.
-- Minimal 5 support/loadout tools dengan VFX/sprite unik.
-- Minimal 3 biome background final dan 3 derivative stage variants.
-- Opening stage menampilkan 3D ground car chase memakai GLB/Godot mesh dan kamera perspektif non-top-down.
-- Transisi ground-to-air terjadi setelah jet support masuk; top-down hanya untuk aircraft phase.
-- Web export menghasilkan `index.html`, `index.js`, `index.wasm`, `index.pck` di root repo.
-- Browser menjalankan game dengan server dari root repo dan header `.wasm` benar.
+- Browser starts in 9:16 and shows Godot canvas.
+- Player aircraft is a GLB model visible from behind/slightly above.
+- Camera follows behind with forward look-ahead.
+- Game motion is forward into 3D depth.
+- At least one 3D enemy wave appears ahead.
+- Player weapon VFX emits from 3D hardpoints and reads stronger than thin bullets.
+- Arena includes moving cloud/warzone layers, not static background photo.
+- No car/convoy prologue appears in the flow.
+- No top-down gameplay camera is used as the main gameplay mode.
+- Root Web export still outputs `index.html`, `index.js`, `index.wasm`, `index.pck`.

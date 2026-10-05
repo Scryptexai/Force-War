@@ -1,92 +1,121 @@
-# Force War — Mobile UI/UX + ATM Design Research
+# Force War — UI/UX Research for Forward 3D Air Combat
 
-Tanggal: 2026-10-04
+Tanggal redesign lock: 2026-10-05
 
-## Prinsip Mobile Game UI/UX yang Diambil
+## 1. Prinsip Baru
 
-1. **Thumb-first layout**
-   - Aksi utama ditempatkan di area bawah dan tengah-bawah agar mudah dijangkau jempol.
-   - Tombol penting dibuat besar, bukan icon kecil.
+### 1.1 Thumb-first, but center-readable
 
-2. **Touch target besar**
-   - Minimum target mengacu praktik mobile umum: sekitar 44 pt iOS / 48 dp Android.
-   - Di Force War, tombol menu utama dibuat ±54 px tinggi dengan margin cukup.
+Game tetap 9:16 mobile. Jempol harus bisa mengontrol movement dan ability, tetapi area tengah layar harus bersih untuk reticle, incoming fire, dan target depth.
 
-3. **Progressive disclosure**
-   - Jangan tampilkan semua kompleksitas sejak title.
-   - Title hanya punya dua CTA: Start Mission dan Hangar/Garage.
-   - Upgrade detail dipindah ke satu layar Hangar/Garage.
+### 1.2 Reticle-first readability
 
-4. **One-screen upgrade flow**
-   - Inspired by garage/hangar UI UX: hindari terlalu banyak nested menu.
-   - Pilih unit, lihat status, lihat stat, pilih upgrade, lalu upgrade dari layar yang sama.
+Karena game tidak lagi top-down, player perlu:
 
-5. **Immediate feedback**
-   - Semua aksi upgrade/buy memberi warning/feedback text.
-   - Status locked/owned/cost terlihat jelas tanpa harus masuk submenu.
+- center reticle;
+- lock-on bracket;
+- missile warning;
+- target distance/depth cues;
+- boss weakpoint indicators.
 
-6. **Short-session mobile loop**
-   - Briefing → Hangar check → Launch harus cepat.
-   - Pemain bisa tetap langsung launch tanpa wajib mengatur upgrade.
+### 1.3 Aircraft-only progression
 
-7. **Clear hierarchy**
-   - Currency/salvage di atas.
-   - Tabs Aircraft/Ground Car di atas.
-   - Unit preview di tengah.
-   - Upgrade actions di bawah.
+Tidak ada garage car. Semua progression diarahkan ke aircraft:
 
-## ATM — Amati, Tiru, Modifikasi
+- aircraft unlocks;
+- weapon hardpoint upgrades;
+- engine/handling;
+- storm/weather systems;
+- defensive shield/armor.
 
-Metode ATM dipakai sebagai proses desain, bukan menyalin aset/IP:
+### 1.4 Weather forecast matters
+
+Forecast bukan text dekorasi. UX harus menunjukkan:
+
+- wind direction/intensity;
+- cloud concealment risk;
+- rain visibility;
+- lightning overcharge chance;
+- recommended loadout.
+
+## 2. ATM — Amati, Tiru, Modifikasi
+
+ATM tetap dipakai sebagai metode desain, bukan menyalin aset/IP.
 
 ### Amati
-- Sky Force: hangar/progression kuat, upgrade pesawat, star economy, power-up clarity.
-- Mobile games: bottom actions, besar, jelas, cepat, feedback instan.
-- Vehicle games/garage UI: pilih kendaraan, lihat stat, upgrade komponen dari satu panel.
+
+- Modern mobile shooters: UI ringkas, upgrade loop jelas, feedback cepat.
+- Sky Force-style polish: strong progression, readable effects, massive bosses, beautiful environments.
+- Forward rail/chase shooters: center reticle, behind-camera movement, target brackets, boss set pieces.
 
 ### Tiru
-- Pola yang ditiru: bukan aset, melainkan **alur UX**:
-  - currency selalu terlihat,
-  - kendaraan punya card/stat,
-  - upgrade punya level bar dan cost,
-  - locked/owned jelas,
-  - tombol action besar.
+
+Yang ditiru hanya pola desain:
+
+- boss bar jelas;
+- HP/shield readable;
+- ability buttons thumb-safe;
+- score/combo satisfying;
+- lock-on/reticle in center;
+- upgrade categories simple.
 
 ### Modifikasi
-- Force War memakai identitas sendiri:
-  - dua kategori unit: aircraft dan ground car,
-  - upgrade mempengaruhi fase berbeda: car untuk chase 3D, aircraft untuk top-down escort,
-  - economy disebut salvage stars,
-  - Storm Burst / weather systems tetap sesuai tema escort cuaca ekstrem.
 
-## Implementasi Pass Ini
+Force War identity:
 
-- Tambah screen `HANGAR & GARAGE`.
-- Tambah tab `AIRCRAFT` dan `AIRCRAFT ONLY`.
-- Tambah 4 aircraft type:
-  - Stormhawk Mk.I
-  - Thunder Warden
-  - Razorwing LX
-  - Aegis Medic
-- Tambah 4 car type:
-  - Warden Rover
-  - Lynx Pursuit
-  - Ironback APC
-  - Specter Rail
-- Tambah ownership/unlock cost.
-- Tambah upgrade level 0–5:
-  - Aircraft: Main Cannon, Armor, Storm Systems.
-  - Car: Car Cannon, Armor, Handling.
-- Upgrade dan selected vehicle disimpan ke save data / localStorage.
-- Aircraft stat mempengaruhi HP, speed, gun, missile, utility/Storm Burst.
-- Car stat mempengaruhi HP mobil, handling ground chase, fire-rate, dan damage cannon.
+- storm/weather forecast decides loadout;
+- aircraft GLB visible in gameplay and hangar;
+- weather overcharge/shield systems;
+- forward storm corridor choices;
+- cinematic dreadnought assaults.
 
-## Next UI/UX Tasks
+## 3. Recommended HUD Components
 
-- Tambahkan animation tween untuk menu transition/button press.
-- Tambahkan touch radial support tools saat gameplay.
-- Tambahkan safe-area scaling untuk notch/gesture bar mobile.
-- Tambahkan stat comparison sebelum/sesudah upgrade.
-- Tambahkan icon final untuk aircraft/car stats.
-- Tambahkan tutorial level zero: steer car, shoot, switch aircraft, protect convoy.
-- Tambahkan audio/haptic-like feedback via screen pulse/sound.
+| Component | Purpose | Placement |
+| --- | --- | --- |
+| HP/Shield | survivability | top-left |
+| Boss HP | objective clarity | top-center |
+| Score/Combo | reward feedback | top-right |
+| Reticle | aiming center | center |
+| Lock-on ring | missile/target acquisition | around enemy/reticle |
+| Weather alert | storm hazard | near top/side, not center clutter |
+| Ability buttons | missile/shield/storm burst/laser | lower left/right |
+| Radar/weather map | spatial threat | bottom-right |
+
+## 4. Mobile Control Recommendation
+
+Default:
+
+- drag anywhere in lower/mid screen to steer aircraft within corridor;
+- auto-fire main cannon;
+- tap missile button for lock-on/missile salvo;
+- tap shield button for emergency defense;
+- tap storm burst/overcharge button when charged;
+- optional double-tap/gesture for barrel roll or boost.
+
+Keyboard/dev:
+
+- WASD/Arrow = strafe/altitude;
+- Shift = boost;
+- Space/Enter = confirm/launch;
+- 1/2/3/4 = abilities;
+- P/Esc = pause/back.
+
+## 5. UX Anti-Patterns to Avoid
+
+- Too many buttons around the aircraft body.
+- UI covering center reticle.
+- Red enemy bullets blending into orange explosions without outline/glow distinction.
+- Player cyan shots so bright they hide enemy warnings.
+- Loading/menu art showing cars/convoy while game is aircraft-only.
+- Upgrade menus that still mention car stats.
+
+## 6. Next Research Output Needed
+
+Before final implementation polish:
+
+- create HUD wireframe image for 720x1280;
+- create hangar wireframe with GLB aircraft preview;
+- create weather forecast card layout;
+- create ability icon set for missile/shield/storm/laser;
+- define safe-area margins for mobile browser/notch.
