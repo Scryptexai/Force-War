@@ -44,7 +44,7 @@ Arahan terbaru yang harus dipatuhi sebelum lanjut combat package:
 | Enemy GLB integration | 35% | Uploaded hero jet GLB aktif sebagai placeholder musuh. |
 | Shot animation readability | 40% | Cyan player pulses dan red/orange lanes aktif; butuh hardpoint/socket dan hit logic lengkap. |
 | Cinematic arena | 40% | Boss anchor, warzone, shots, haze aktif; cloud geometry sudah dimatikan sesuai koreksi. |
-| Blender production pipeline | 20% | Tooling dan docs ada; Blender binary belum tersedia di sandbox, jadi output Blender belum digenerate. |
+| Blender production pipeline | 35% | Blender `bpy 4.5.14 LTS` runtime installed in sandbox and used to generate `enemy_hero_jet_blender_ready.glb`; final boss/player assets still pending. |
 | Legacy cleanup | 35% | Gameplay runtime sudah forward-air, tetapi legacy monolith/assets lama masih perlu dipangkas bertahap. |
 | Overall menuju full target | ±45% | Baseline playable sudah ada, tetapi belum full combat package/final art. |
 
@@ -97,8 +97,8 @@ Koreksi terbaru:
 - cloud banks/solid cloud geometry dimatikan;
 - hanya thin fog/haze yang dipertahankan;
 - player scale diperkecil;
-- uploaded enemy hero jet GLB mulai dipakai;
-- shot animation diperjelas dengan moving pulses.
+- uploaded enemy hero jet GLB sudah diproses Blender menjadi `enemy_hero_jet_blender_ready.glb` dan dipakai runtime;
+- shot animation diperjelas dengan moving pulses, dan enemy placeholder punya Blender-authored attack-pass/muzzle/engine animation clip.
 
 Acceptance Phase 2 setelah koreksi:
 
@@ -106,7 +106,7 @@ Acceptance Phase 2 setelah koreksi:
 - player tidak memenuhi layar bawah;
 - tidak ada cloud bank berulang yang menutup arena;
 - boss/projectile lanes terbaca;
-- visual bridge menyatakan `cloudGeometry=false`, `enemyHeroJetModel=true`, dan `shotAnimation=player_cyan_pulses_enemy_red_lanes`.
+- visual bridge menyatakan `cloudGeometry=false`, `enemyHeroJetModel=true`, `enemyHeroJetSource=blender_ready_glb`, `enemyHeroJetAnimation=EnemyJet_AttackPass_Loop`, dan `shotAnimation=player_cyan_pulses_enemy_red_lanes`.
 
 ---
 
@@ -117,7 +117,7 @@ Status: **Active next production phase**
 Scope besar:
 
 1. **Blender asset/animation lane**
-   - run Blender pipeline ketika binary tersedia;
+   - Blender pipeline sudah dijalankan via official `bpy 4.5.14 LTS` runtime untuk enemy placeholder; gunakan executable Blender penuh ketika environment menyediakan binary;
    - normalize enemy/player/boss GLB;
    - add hardpoint sockets: muzzle, missile, engine, hit core;
    - export Godot-ready GLB with animation clips.

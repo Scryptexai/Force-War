@@ -7,6 +7,7 @@ class_name ForwardArenaDirector
 const CLOUD_BANK_PATH = "res://assets/models/air_cloud_cluster.glb"
 const ARENA_CHUNK_PATH = "res://assets/models/air_arena_tile.glb"
 const SUPPORT_JET_PATH = "res://assets/models/support_jet.glb"
+const ENEMY_HERO_JET_READY_PATH = "res://assets/models/enemy_hero_jet_blender_ready.glb"
 const ENEMY_HERO_JET_PATH = "res://assets/models/enemy_hero_jet.glb"
 const DEPTH_LAYER_COUNT = 5
 
@@ -55,6 +56,7 @@ var cloud_scene: PackedScene
 var arena_scene: PackedScene
 var support_scene: PackedScene
 var enemy_hero_jet_scene: PackedScene
+var enemy_hero_jet_blender_ready = false
 
 var storm_cloud_mat: StandardMaterial3D
 var deep_cloud_mat: StandardMaterial3D
@@ -158,8 +160,10 @@ func get_weather_effect() -> Dictionary:
 		"bossAnchor": boss_anchor != null,
 		"bossName": "Dreadnought Leviathan",
 		"visualLockComposition": "dreadnought_forward_battle",
-		"blenderPipeline": "required_for_final_assets",
+		"blenderPipeline": "bpy_4_5_14_generated_glb",
 		"enemyHeroJetModel": enemy_hero_jet_scene != null,
+		"enemyHeroJetSource": "blender_ready_glb" if enemy_hero_jet_blender_ready else "uploaded_source_glb",
+		"enemyHeroJetAnimation": "EnemyJet_AttackPass_Loop" if enemy_hero_jet_blender_ready else "runtime_motion_only",
 		"shotAnimation": "player_cyan_pulses_enemy_red_lanes",
 		"playerScaleMode": "reduced_mobile_readable",
 		"cloudGeometry": false,
@@ -186,9 +190,15 @@ func _load_scene_assets() -> void:
 	var support_resource = load(SUPPORT_JET_PATH)
 	if support_resource is PackedScene:
 		support_scene = support_resource
-	var enemy_resource = load(ENEMY_HERO_JET_PATH)
+	var enemy_resource = load(ENEMY_HERO_JET_READY_PATH)
 	if enemy_resource is PackedScene:
 		enemy_hero_jet_scene = enemy_resource
+		enemy_hero_jet_blender_ready = true
+	else:
+		enemy_resource = load(ENEMY_HERO_JET_PATH)
+		if enemy_resource is PackedScene:
+			enemy_hero_jet_scene = enemy_resource
+			enemy_hero_jet_blender_ready = false
 
 
 func _create_materials() -> void:
@@ -291,12 +301,14 @@ func _create_distant_battle_layer() -> void:
 			jet.scale = Vector3(0.016, 0.016, 0.016)
 			jet.rotation_degrees = Vector3(0.0, 180.0 + rng.randf_range(-22.0, 22.0), 0.0)
 			traffic.add_child(jet)
+			_play_first_animation(jet)
 		elif support_scene:
 			var jet = support_scene.instantiate()
 			jet.name = "DistantJetSilhouetteGLB"
 			jet.scale = Vector3(0.55, 0.55, 0.55)
 			jet.rotation_degrees = Vector3(0.0, 180.0 + rng.randf_range(-22.0, 22.0), 0.0)
 			traffic.add_child(jet)
+			_play_first_animation(jet)
 		else:
 			traffic.add_child(_box_mesh("DistantJetFallback", Vector3.ZERO, Vector3(0.8, 0.08, 0.55), city_mat))
 		add_child(traffic)
@@ -385,6 +397,7 @@ func _create_visual_lock_composition_layer() -> void:
 			model.scale = Vector3(0.022, 0.022, 0.022)
 			model.rotation_degrees = Vector3(0.0, 180.0 + side * 18.0, 0.0)
 			enemy.add_child(model)
+			_play_first_animation(model)
 		else:
 			enemy.add_child(_box_mesh("EnemyHeroJetFallback", Vector3.ZERO, Vector3(1.4, 0.16, 1.1), boss_armor_mat))
 		add_child(enemy)
@@ -411,6 +424,16 @@ func _create_visual_lock_composition_layer() -> void:
 		add_child(shield)
 		shield_bubbles.append(shield)
 
+
+func _play_first_animation(root: Node) -> void:
+	for child in root.get_children():
+		if child is AnimationPlayer:
+			var animations = child.get_animation_list()
+			if animations.size() > 0:
+				var selected = StringName("EnemyJet_AttackPass_Loop") if child.has_animation(StringName("EnemyJet_AttackPass_Loop")) else animations[0]
+				child.play(selected)
+				child.speed_scale = 1.0
+		_play_first_animation(child)
 
 
 func _create_storm_hazard_cells() -> void:

@@ -35,7 +35,7 @@ Semua phase wajib tunduk pada aturan ini:
 | Visual reference lock | Done | 100% | `gameplay_visual_lock_build.jpg` jadi mood/quality target. |
 | Code rebuild map | Done | 100% | `docs/CODE_REBUILD_MAP.md` selesai. |
 | Web pipeline lama | Stable baseline | 80% | Root export/server/QA masih jalan. |
-| Blender asset/animation pipeline | Added, Blender binary unavailable in sandbox | 20% | `tools/blender_prepare_air_combat_assets.py` and `tools/run_blender_air_pipeline.sh` define GLB/socket/animation preparation. |
+| Blender asset/animation pipeline | Active via Blender bpy runtime | 35% | `enemy_hero_jet_blender_ready.glb` generated with Blender `bpy 4.5.14 LTS`; Godot runtime now prefers that animated GLB. |
 | Gameplay forward 3D playable | Phase 1 core done | 35% | `ForwardAirScene3D` aktif di browser dengan GLB player dan chase camera. |
 | Player GLB gameplay | First pass done | 35% | `assets/models/player_stormhawk.glb` dipakai sebagai player placeholder 3D. |
 | Chase camera | First pass done | 35% | `cameraMode: chase_behind_above` tervalidasi via browser QA. |
@@ -261,11 +261,11 @@ Phase 2 lolos acceptance gate. Forward rebuild sekarang **±52–55%**. Build ma
 
 #### 3.0 Blender asset and animation pipeline
 
-- [ ] Run Blender pipeline when Blender binary is available.
+- [x] Run Blender pipeline through official Blender `bpy 4.5.14 LTS` runtime in sandbox.
 - [x] Add `tools/blender_prepare_air_combat_assets.py`.
 - [x] Add `tools/run_blender_air_pipeline.sh`.
 - [x] Move uploaded enemy hero jet GLB into `assets/models/enemy_hero_jet.glb`.
-- [ ] Export Blender-prepared `assets/models/enemy_hero_jet_blender_ready.glb`.
+- [x] Export Blender-prepared `assets/models/enemy_hero_jet_blender_ready.glb`.
 - [ ] Create/replace boss with Blender-authored `assets/models/boss_dreadnought_leviathan.glb`.
 - [ ] Define muzzle/missile/engine sockets in Blender and consume them in Godot.
 
@@ -557,5 +557,5 @@ Next work: Phase 3 — Weapon, Enemy, Boss Combat Package
 
 ```text
 User correction after Phase 2 visual review:
-Camera is acceptable, but arena composition must be corrected. Use Blender as the asset/animation pipeline for proper epic animation. Uploaded hero jet GLB is now the enemy placeholder source. Player aircraft must be smaller on mobile. Remove recurring cloud geometry; keep only thin haze/fog. Shot animation must visibly move in readable cyan/red lanes like the reference image. Roadmap updated to include Blender tooling.
+Camera is acceptable, but arena composition must be corrected. Use Blender as the asset/animation pipeline for proper epic animation. Uploaded hero jet GLB was processed into a Blender-generated animated enemy placeholder GLB. Player aircraft must be smaller on mobile. Remove recurring cloud geometry; keep only thin haze/fog. Shot animation must visibly move in readable cyan/red lanes like the reference image. Roadmap updated to include Blender tooling.
 ```

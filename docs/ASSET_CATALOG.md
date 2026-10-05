@@ -67,7 +67,8 @@ Boss must be a 3D object ahead of player, not a top overlay image.
 | File | Current status | New policy |
 | --- | --- | --- |
 | `assets/models/player_stormhawk.glb` | Phase 1 player aircraft GLB placeholder, integrated in `ForwardAirScene3D` | Active first-pass gameplay player model; replace/detail later, but keep GLB requirement |
-| `assets/models/enemy_hero_jet.glb` | User-uploaded hero/fighter GLB moved into model catalog | Active enemy placeholder source until Blender-prepared `enemy_hero_jet_blender_ready.glb` exists |
+| `assets/models/enemy_hero_jet.glb` | User-uploaded hero/fighter GLB moved into model catalog | Source for Blender-prepared enemy placeholder |
+| `assets/models/enemy_hero_jet_blender_ready.glb` | Blender-generated animated enemy placeholder with sockets plus attack-pass, muzzle-flash, and engine-pulse clips | Active enemy model in forward-air runtime |
 | `assets/models/support_jet.glb` | Existing low-poly jet | Can be used as temporary wingman/reference, not final player model |
 | `assets/models/air_arena_tile.glb` | Existing low-poly terrain/water/runway tile | Can be studied/reworked into forward arena chunks; current vertical/tile setup is not final |
 | `assets/models/air_cloud_cluster.glb` | Existing low-poly cloud cluster | Can be reused as temporary cloud chunk if placed in forward 3D depth |
