@@ -19,7 +19,9 @@ This was not mainly a gameplay loop bug. The browser had to download and initial
 
 - Replaced Web/Godot boot splash with forward-air arena branding.
 - Rebuilt the logo wordmark to say `FORWARD AIR COMBAT`, removing the old `SKY FORCE WAR` subtitle.
-- Added three lightweight forward-arena loading slideshow images:
+- Added a cinematic forward-air battlefield matte asset for the loading/boot flow and as an in-game environment art layer:
+  - `assets/rendered/forward_air_battlefield_matte.jpg`
+- Added three lightweight forward-arena loading slideshow images derived from that art direction:
   - `assets/rendered/loading_forward_arena_01.jpg`
   - `assets/rendered/loading_forward_arena_02.jpg`
   - `assets/rendered/loading_forward_arena_03.jpg`

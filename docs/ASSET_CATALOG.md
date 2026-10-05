@@ -103,7 +103,8 @@ PNG must not be used for:
 | `assets/rendered/logo_force_war_wordmark.png` | Active clean Force War / Forward Air Combat wordmark; no Sky Force subtitle |
 | `assets/rendered/web_boot_splash_force_war.png` | Active Web/Godot boot splash based on forward-air arena visual; no road/car/convoy art |
 | `assets/rendered/app_icon_force_war.png`, `index*.png` | Keep for app/browser icons |
-| `assets/rendered/loading_forward_arena_*.jpg` | Active loading slideshow, captured from forward-air arena visuals; replaces old road/convoy loading art |
+| `assets/rendered/forward_air_battlefield_matte.jpg` | Active cinematic matte/environment art layer behind GLB/VFX gameplay; added after screenshot QA showed code-generated scene lacked art direction |
+| `assets/rendered/loading_forward_arena_*.jpg` | Active loading slideshow, derived from forward-air battlefield art; replaces old road/convoy loading art |
 | `assets/rendered/player_stormhawk.png` | Deprecated for gameplay; replace with GLB |
 | `assets/rendered/enemy_*.png` | Deprecated for gameplay; replace with GLB |
 | `assets/rendered/boss_aegis_weather_engine.png` | Deprecated for gameplay; replace with boss GLB |

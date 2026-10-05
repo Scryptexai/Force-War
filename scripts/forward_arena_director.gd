@@ -15,6 +15,7 @@ const EXPLOSION_TEXTURE_PATH = "res://assets/vfx/explosion_fireball.png"
 const SMOKE_TEXTURE_PATH = "res://assets/vfx/smoke_plume.png"
 const SHIELD_TEXTURE_PATH = "res://assets/vfx/shield_bubble.png"
 const ARENA_DECK_TEXTURE_PATH = "res://assets/vfx/arena_deck_panel.png"
+const CINEMATIC_MATTE_TEXTURE_PATH = "res://assets/rendered/forward_air_battlefield_matte.jpg"
 const ENEMY_HERO_JET_READY_PATH = "res://assets/models/enemy_hero_jet_blender_ready.glb"
 const ENEMY_HERO_JET_PATH = "res://assets/models/enemy_hero_jet.glb"
 const DEPTH_LAYER_COUNT = 5
@@ -59,6 +60,7 @@ var shield_bubbles: Array = []
 var explosion_bursts: Array = []
 var storm_cells: Array = []
 var lightning_nodes: Array = []
+var cinematic_matte_plane: MeshInstance3D
 
 var cloud_scene: PackedScene
 var arena_scene: PackedScene
@@ -73,6 +75,7 @@ var explosion_texture: Texture2D
 var smoke_texture: Texture2D
 var shield_texture: Texture2D
 var arena_deck_texture: Texture2D
+var cinematic_matte_texture: Texture2D
 
 var storm_cloud_mat: StandardMaterial3D
 var deep_cloud_mat: StandardMaterial3D
@@ -94,6 +97,7 @@ var missile_smoke_mat: StandardMaterial3D
 var shield_mat: StandardMaterial3D
 var explosion_mat: StandardMaterial3D
 var arena_deck_mat: StandardMaterial3D
+var cinematic_matte_mat: StandardMaterial3D
 
 
 func setup() -> void:
@@ -104,6 +108,7 @@ func setup() -> void:
 	visible = false
 	_load_scene_assets()
 	_create_materials()
+	_create_cinematic_matte_layer()
 	_create_far_sky_layer()
 	_create_mid_cloud_layer()
 	_create_warzone_layer()
@@ -183,6 +188,7 @@ func get_weather_effect() -> Dictionary:
 		"enemyHeroJetAnimation": "EnemyJet_AttackPass_Loop" if enemy_hero_jet_blender_ready else "runtime_motion_only",
 		"bossArenaAsset": "boss_dreadnought_leviathan_glb" if boss_dreadnought_scene != null else "runtime_fallback",
 		"arenaAssetDeckCluster": arena_deck_cluster_scene != null,
+		"cinematicMatteAsset": cinematic_matte_texture != null,
 		"projectileAssetSprites": hero_shot_texture != null and enemy_shot_texture != null,
 		"cleanArenaOverlay": true,
 		"shotAnimation": "asset_sprite_hero_enemy_lanes",
@@ -223,6 +229,7 @@ func _load_scene_assets() -> void:
 	smoke_texture = load(SMOKE_TEXTURE_PATH)
 	shield_texture = load(SHIELD_TEXTURE_PATH)
 	arena_deck_texture = load(ARENA_DECK_TEXTURE_PATH)
+	cinematic_matte_texture = load(CINEMATIC_MATTE_TEXTURE_PATH)
 	var enemy_resource = load(ENEMY_HERO_JET_READY_PATH)
 	if enemy_resource is PackedScene:
 		enemy_hero_jet_scene = enemy_resource
@@ -255,6 +262,21 @@ func _create_materials() -> void:
 	shield_mat = _make_material(Color(0.18, 0.75, 1.0, 0.20), Color(0.12, 0.68, 1.0, 1.0), 0.0, 0.20)
 	explosion_mat = _make_material(Color(1.0, 0.52, 0.08, 0.90), Color(1.0, 0.22, 0.02, 1.0), 0.0, 0.90)
 	arena_deck_mat = _make_textured_material(arena_deck_texture, Color(0.25, 0.55, 0.72, 0.95), Color(0.02, 0.11, 0.18, 1.0), 0.95, false, false)
+	cinematic_matte_mat = _make_textured_material(cinematic_matte_texture, Color(1.0, 1.0, 1.0, 0.92), Color(0.04, 0.10, 0.15, 1.0), 0.38, true, true)
+
+
+func _create_cinematic_matte_layer() -> void:
+	if cinematic_matte_texture == null:
+		return
+	var mesh = PlaneMesh.new()
+	mesh.size = Vector2(120.0, 214.0)
+	cinematic_matte_plane = MeshInstance3D.new()
+	cinematic_matte_plane.name = "CinematicBattlefieldMatteAsset"
+	cinematic_matte_plane.mesh = mesh
+	cinematic_matte_plane.position = Vector3(0.0, 17.5, -164.0)
+	cinematic_matte_plane.rotation_degrees = Vector3(90.0, 0.0, 0.0)
+	cinematic_matte_plane.material_override = cinematic_matte_mat
+	add_child(cinematic_matte_plane)
 
 
 func _create_far_sky_layer() -> void:
@@ -422,16 +444,16 @@ func _create_visual_lock_composition_layer() -> void:
 		add_child(bullet)
 		cinematic_bullets.append(bullet)
 
-	for i in range(2):
-		var beam_x = -0.42 if i == 0 else 0.42
-		var player_beam = _vfx_quad("PlayerCyanFireLane_%02d" % i, Vector3(beam_x, 1.75, -38.0), Vector2(0.32, 12.0), hero_shot_texture, Color(0.55, 0.95, 1.0, 0.70), 1.8)
+	for i in range(3):
+		var beam_x = -0.78 + float(i) * 0.78
+		var player_beam = _vfx_quad("PlayerCyanFireLane_%02d" % i, Vector3(beam_x, 1.95, -34.0), Vector2(0.82, 18.0), hero_shot_texture, Color(0.58, 0.98, 1.0, 0.92), 3.2)
 		player_beam.set_meta("beam_x", beam_x)
 		add_child(player_beam)
 		player_beams.append(player_beam)
 
-	for i in range(18):
-		var lane_x = -0.58 if i % 2 == 0 else 0.58
-		var pulse = _vfx_quad("PlayerCyanShotPulse_%02d" % i, Vector3(lane_x, 1.75, -9.0 - float(i) * 4.8), Vector2(0.42, 1.85), hero_shot_texture, Color(0.72, 1.0, 1.0, 0.96), 2.1)
+	for i in range(30):
+		var lane_x = -0.78 + float(i % 3) * 0.78
+		var pulse = _vfx_quad("PlayerCyanShotPulse_%02d" % i, Vector3(lane_x, 1.95, -5.5 - float(i) * 3.35), Vector2(0.92, 3.25), hero_shot_texture, Color(0.74, 1.0, 1.0, 1.0), 3.6)
 		pulse.set_meta("lane_x", lane_x)
 		pulse.set_meta("phase", float(i) * 0.13)
 		add_child(pulse)
@@ -531,7 +553,7 @@ func _reset_layers() -> void:
 		var side = -1.0 if i % 2 == 0 else 1.0
 		enemy_attack_jets[i].position = Vector3(side * rng.randf_range(4.8, 8.8), rng.randf_range(2.8, 7.2), -34.0 - float(i) * 12.5)
 	for i in range(player_shot_pulses.size()):
-		player_shot_pulses[i].position.z = -9.0 - float(i) * 4.8
+		player_shot_pulses[i].position.z = -5.5 - float(i) * 3.35
 	for bullet in cinematic_bullets:
 		bullet.position.z = -18.0 - rng.randf_range(0.0, 112.0)
 		bullet.position.y = rng.randf_range(1.1, 4.5)
@@ -658,7 +680,7 @@ func _update_visual_lock_composition(delta: float, travel_speed: float) -> void:
 		pulse.position.x = float(pulse.get_meta("lane_x", 0.0)) + sin(forward_time * 6.0 + float(pulse.get_meta("phase", 0.0))) * 0.04
 		pulse.scale.z = 1.0 + sin(forward_time * 18.0 + pulse.position.z) * 0.10
 		if pulse.position.z < -112.0:
-			pulse.position.z = -8.5
+			pulse.position.z = -5.5
 	for enemy in enemy_attack_jets:
 		var side = float(enemy.get_meta("side", 1.0))
 		enemy.position.z += travel_speed * float(enemy.get_meta("speed_mul", 1.0)) * 0.62 * delta
