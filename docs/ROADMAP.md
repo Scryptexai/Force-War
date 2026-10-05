@@ -2,7 +2,7 @@
 
 Tanggal redesign lock: 2026-10-05
 
-Detail rebuild step-by-step dan progress gates sekarang dicatat di `docs/REBUILD_ROADMAP_AND_MILESTONES.md`. Pemetaan code R1 ada di `docs/CODE_REBUILD_MAP.md`. Dokumen ini tetap menjadi roadmap ringkas/high-level.
+Roadmap rebuild sekarang memakai phase besar, bukan milestone kecil per R. Detail phase dan progress gates dicatat di `docs/REBUILD_ROADMAP_AND_MILESTONES.md`. Pemetaan code prep Phase 1 ada di `docs/CODE_REBUILD_MAP.md`. Dokumen ini tetap menjadi roadmap ringkas/high-level.
 
 ## Visi Baru
 

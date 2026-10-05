@@ -1,44 +1,47 @@
-# Force War — Rebuild Roadmap & Progress Milestones
+# Force War — Big Phase Rebuild Roadmap & Progress
 
 Tanggal: 2026-10-05
 Branch kerja: `arena/01a100ae-force-war`
 
-Dokumen ini adalah **roadmap rebuild** untuk mengubah Force War dari baseline lama menjadi **3D forward air-combat**: pesawat GLB 3D, kamera chase dari belakang-sedikit-atas, gerak maju ke depan, arena badai 3D, dan VFX sinematik sesuai `gameplay_visual_lock_build.jpg`.
+Roadmap ini mengganti format milestone kecil per `R#`. Rebuild Force War sekarang dibagi menjadi **phase besar** yang langsung menghasilkan satu paket playable/visible, bukan potongan kecil seperti skeleton saja. Setiap phase harus cukup besar untuk dikerjakan sebagai satu target produksi yang utuh, dengan hasil yang bisa dilihat di browser.
 
-> Status jujur: rebuild gameplay belum dimulai. Yang sudah selesai adalah design lock, audit repo lama, dan pembersihan dokumen/tool lama. Build Web lama masih ada sebagai baseline teknis sampai scene 3D baru siap menggantikan.
+Target akhir tetap sama: **3D forward air-combat** dengan pesawat GLB, kamera chase dari belakang-sedikit-atas, gerak maju ke depan, arena badai 3D, VFX sinematik, dan kualitas visual mengarah ke `gameplay_visual_lock_build.jpg`.
+
+> Status jujur: gameplay rebuild belum berjalan di browser. Yang sudah selesai adalah design lock, audit repo lama, code rebuild map, dan cleanup dokumen/tool lama. Phase 1 di bawah adalah phase aktif berikutnya dan harus langsung mengerjakan fondasi gameplay forward 3D sampai bisa dilihat di preview.
 
 ---
 
-## 1. Target Rebuild yang Tidak Boleh Berubah
+## 1. Non-Negotiable Target
 
-Non-negotiable untuk semua milestone:
+Semua phase wajib tunduk pada aturan ini:
 
-1. **Player aircraft = GLB 3D**, bukan PNG/foto/static sprite.
-2. **Camera = chase camera**, di belakang pesawat dan sedikit di atas.
-3. **Movement = maju ke depan dalam depth 3D**, bukan scroll ke atas.
-4. **Arena = 3D layered storm battlefield**, bukan static photo/parallax 2D.
-5. **VFX keluar dari hardpoint model**, bukan garis canvas yang terasa lepas dari pesawat.
+1. **Player aircraft wajib GLB 3D**, bukan PNG/foto/static sprite.
+2. **Kamera wajib chase camera**, di belakang pesawat dan sedikit di atas.
+3. **Gerak game wajib maju ke depan dalam depth 3D**, bukan scroll ke atas.
+4. **Arena wajib 3D layered storm battlefield**, bukan static photo/parallax 2D.
+5. **Weapon VFX wajib keluar dari hardpoint model**, bukan garis canvas yang lepas dari pesawat.
 6. **Tidak ada car/convoy prologue** dalam player-facing flow.
 7. **Tidak ada top-down gameplay** sebagai mode utama.
 8. **Web export tetap root repo**: `index.html`, `index.js`, `index.wasm`, `index.pck`.
+9. **Progress tidak boleh diklaim tinggi hanya karena dokumen selesai**; harus terbukti di browser preview.
 
 ---
 
-## 2. Status Progress Saat Ini
+## 2. Progress Snapshot Sekarang
 
 | Area | Status | Progress realistis | Catatan |
 | --- | --- | ---: | --- |
-| Design lock forward 3D | Done | 100% | `THIRD_PERSON_AIR_COMBAT_REDESIGN.md` sudah dibuat. |
-| Visual reference lock | Done | 100% | `gameplay_visual_lock_build.jpg` menjadi mood/quality target. |
-| Repo audit setup lama | Done for docs | 80% | Code/assets legacy masih ada, tapi sudah dipetakan. |
-| Web pipeline | Stable baseline | 80% | `npm start`, Vercel headers, root export masih aktif. |
-| ForwardAirScene3D gameplay | Not started | 0% | R2 belum dimulai; R1 cut points sudah dipetakan. |
-| Player GLB final | Not started | 0% | Belum ada `player_stormhawk.glb`. |
-| Chase camera rig | Not started | 0% | Belum implement. |
-| Forward arena director | Not started | 0% | GLB tile/cloud lama belum dirombak. |
-| 3D weapon VFX | Not started | 0% | Efek lama masih 2D/procedural baseline. |
-| Boss dreadnought GLB | Not started | 0% | Baru target desain. |
-| Legacy code removal | Mapped | 10% | Keep/rewrite/delete map selesai; removal fisik ditunda sampai replacement 3D playable. |
+| Direction lock forward 3D | Done | 100% | `THIRD_PERSON_AIR_COMBAT_REDESIGN.md` selesai. |
+| Visual reference lock | Done | 100% | `gameplay_visual_lock_build.jpg` jadi mood/quality target. |
+| Code rebuild map | Done | 100% | `docs/CODE_REBUILD_MAP.md` selesai. |
+| Web pipeline lama | Stable baseline | 80% | Root export/server/QA masih jalan. |
+| Gameplay forward 3D playable | Not started | 0% | Belum ada scene forward 3D playable. |
+| Player GLB gameplay | Not started | 0% | Belum ada `player_stormhawk.glb` sebagai player. |
+| Chase camera | Not started | 0% | Belum implement. |
+| Arena forward 3D | Not started | 0% | Belum implement. |
+| Weapon VFX hardpoint | Not started | 0% | Belum implement. |
+| Enemy/Boss 3D | Not started | 0% | Belum implement. |
+| Legacy cleanup fisik | Mapped only | 10% | Code/assets lama belum dihapus karena replacement belum ada. |
 
 ### Estimasi overall rebuild
 
@@ -47,488 +50,474 @@ Forward 3D gameplay rebuild only: ±10%
 Full product including existing Web pipeline/docs: ±26%
 ```
 
-Angka ini sengaja konservatif. Jangan menaikkan progress hanya karena dokumen selesai; milestone gameplay harus dibuktikan lewat browser preview.
+---
+
+## 3. Big Phase Board
+
+| Phase | Nama besar | Status | Output utama | Progress target setelah selesai |
+| --- | --- | --- | --- | ---: |
+| Phase 0 | Direction Lock, Audit, Code Map | Done | Direction baru, visual lock, code map, docs cleanup | 10% forward rebuild |
+| Phase 1 | Core Forward Flight Rebuild | Active Next | Scene 3D playable: player GLB, chase camera, forward controls, initial browser preview | 30–35% forward rebuild |
+| Phase 2 | Cinematic Arena & Weather Battlefield | Planned | Arena 3D berlapis, storm clouds, warzone below, weather gameplay awal | 50–55% forward rebuild |
+| Phase 3 | Weapon, Enemy, Boss Combat Package | Planned | Hardpoint weapons, enemy GLB waves, boss dreadnought, readable attack patterns | 70–75% forward rebuild |
+| Phase 4 | UI/UX, Progression, Legacy Cleanup | Planned | HUD forward flight, hangar aircraft-only, save migration, old code/assets removed | 85–90% forward rebuild |
+| Phase 5 | Web QA, Optimization, Content Expansion | Planned | Export final slice, browser QA, tuning, content expansion | 100% first rebuilt vertical slice |
 
 ---
 
-## 3. Milestone Board
-
-| ID | Milestone | Status | Target output utama | Gate |
-| --- | --- | --- | --- | --- |
-| R0 | Direction Lock & Cleanup Docs | Done | Docs baru + audit setup lama | Gate 0 |
-| R1 | Rebuild Prep & Legacy Quarantine | Done | Code map, deletion plan, scene split plan | Gate 1 |
-| R2 | ForwardAirScene3D Skeleton | Next | Scene 3D baru bootable | Gate 2 |
-| R3 | Player GLB + Chase Camera | Planned | Pesawat GLB terlihat dari kamera belakang | Gate 3 |
-| R4 | 3D Flight Corridor Controls | Planned | Movement maju/strafe/altitude/roll | Gate 4 |
-| R5 | Forward Arena Director | Planned | Arena 3D bergerak maju berlapis | Gate 5 |
-| R6 | 3D Weapon VFX Director | Planned | Tembakan kuat dari hardpoint GLB | Gate 6 |
-| R7 | Enemy Waves + Boss Set Piece | Planned | Musuh GLB + boss dreadnought 3D | Gate 7 |
-| R8 | Weather Gameplay Integration | Planned | Wind/cloud/rain/lightning berfungsi di 3D | Gate 8 |
-| R9 | HUD/UI Refit | Planned | Reticle, lock-on, boss bar, ability buttons | Gate 9 |
-| R10 | Legacy Removal & Repo Slimming | Planned | Car/convoy/top-down code/assets dibersihkan | Gate 10 |
-| R11 | Web Export + Browser QA | Planned | Root export baru + QA visual 3D | Gate 11 |
-| R12 | Content Expansion Pass | Later | Multiple aircraft/enemy/boss/stage | Gate 12 |
-
----
-
-## 4. Detailed Rebuild Roadmap
-
-### R0 — Direction Lock & Cleanup Docs
+## 4. Phase 0 — Direction Lock, Audit, Code Map
 
 **Status:** Done
-**Commit reference:** `f00934f Lock forward 3D air combat redesign`
+**Purpose:** mengunci arah baru dan mencegah setup lama masuk lagi.
 
-Deliverables:
+### Scope yang sudah selesai
 
-- [x] Visual lock `gameplay_visual_lock_build.jpg` recognized as target reference.
-- [x] `docs/THIRD_PERSON_AIR_COMBAT_REDESIGN.md` created.
-- [x] `docs/REPO_CLEANUP_AUDIT.md` created.
-- [x] README rewritten to forward 3D direction.
-- [x] Roadmap, asset catalog, FX, UI/UX, Web flow docs rewritten.
-- [x] Old helper/generator tools removed from repo.
+- [x] Visual target `gameplay_visual_lock_build.jpg` dikunci sebagai reference.
+- [x] Direction baru ditulis: `docs/THIRD_PERSON_AIR_COMBAT_REDESIGN.md`.
+- [x] Repo cleanup audit dibuat: `docs/REPO_CLEANUP_AUDIT.md`.
+- [x] Code rebuild map dibuat: `docs/CODE_REBUILD_MAP.md`.
+- [x] README, roadmap, asset catalog, FX research, UI/UX docs, dan Web flow docs diarahkan ulang.
+- [x] Tool lama yang mendorong SVG/convoy/car/top-down workflow dihapus.
 
-Exit criteria:
+### Hasil Phase 0
 
-- Docs no longer present old top-down/convoy/car as active direction.
-- Old setup is marked legacy/quarantine.
+- Arah lama resmi deprecated.
+- `scripts/main.gd` sudah dipetakan: keep/rewrite/delete.
+- Next work tidak lagi random patch, tapi masuk Phase 1 besar.
 
----
+### Yang belum boleh diklaim
 
-### R1 — Rebuild Prep & Legacy Quarantine
-
-**Status:** Done
-**Goal:** siapkan pembedahan code tanpa merusak Web baseline sebelum replacement scene siap.
-
-Tasks:
-
-- [x] Map all `scripts/main.gd` sections into categories:
-  - keep: Web bridge, save shell, loading shell, shared UI utilities;
-  - rewrite: gameplay update loop, camera, player control, weapon system;
-  - delete later: car/convoy/ground chase/top-down rendering.
-- [x] Define new script/module layout:
-  - `ForwardAirScene3D` / `ForwardArenaDirector` / `WeaponVFXDirector` / `EnemyDirector3D`.
-- [x] Decide whether to keep one-file prototype first or split scripts immediately.
-- [x] Create strict forbidden-runtime list:
-  - `ground_car`, `convoy`, top-down player draw, static gameplay background.
-- [x] Create QA checklist for visual 3D verification.
-
-Deliverables:
-
-- [x] New `docs/CODE_REBUILD_MAP.md` added.
-- [x] No gameplay behavior changed.
-
-Exit criteria:
-
-- [x] Next coding pass has exact cut points and no accidental old-system carryover.
+- Belum ada gameplay 3D forward playable.
+- Belum ada player GLB aktif sebagai gameplay player.
+- Belum ada chase camera baru.
 
 ---
 
-### R2 — ForwardAirScene3D Skeleton
+## 5. Phase 1 — Core Forward Flight Rebuild
+
+**Status:** Active Next
+**Tujuan besar:** dalam satu phase ini, build lama harus berubah menjadi **awal playable forward 3D flight**. Phase ini tidak boleh berhenti hanya di skeleton kosong; harus sampai terlihat di browser: pesawat GLB dari kamera belakang-sedikit-atas, bergerak maju dalam corridor.
+
+### Scope Phase 1
+
+#### 1.1 Scene foundation
+
+- [ ] Buat `scripts/forward_air_scene_3d.gd`.
+- [ ] Tambah `ForwardAirScene3D` sebagai child runtime dari current main shell.
+- [ ] Tambah `WorldEnvironment`, fog/sky storm color, `DirectionalLight3D`.
+- [ ] Tambah `CameraRig3D` + `Camera3D`.
+- [ ] Set world convention: forward = `-Z`.
+- [ ] Tambah bridge state:
+  - `missionMode: forward_air_combat`
+  - `cameraMode: chase_behind_above`
+  - `playerModel: glb`
+
+#### 1.2 Player GLB placeholder/final first pass
+
+- [ ] Buat/import `assets/models/player_stormhawk.glb`.
+- [ ] Kalau final asset belum siap, buat procedural GLB placeholder yang tetap 3D nyata.
+- [ ] Model minimal harus punya fuselage, wings, cockpit, tail, engine sockets, hardpoint sockets.
+- [ ] Material awal: dark metal, cyan emissive strips, canopy glass.
+- [ ] Tambah `PlayerRig3D` dan pasang model ke scene.
+
+#### 1.3 Chase camera feel
+
+- [ ] Kamera berada di belakang dan sedikit di atas player.
+- [ ] Kamera melihat ke depan jalur, bukan ke bawah/top-down.
+- [ ] Player berada lower third layar 9:16.
+- [ ] Tambah camera lag halus.
+- [ ] Tambah roll influence ringan saat player strafe.
+- [ ] Tambah FOV kick placeholder untuk boost.
+
+#### 1.4 Forward flight controls
+
+- [ ] Konversi input ke corridor 3D:
+  - X = strafe kiri/kanan;
+  - Y = altitude/dodge naik-turun;
+  - forward motion = world/chunks bergerak terhadap player atau player bergerak `-Z`.
+- [ ] Touch drag mengontrol X/Y corridor.
+- [ ] Keyboard WASD/arrow tetap bisa testing.
+- [ ] Clamp corridor supaya mobile readable.
+- [ ] Tambah roll/pitch visual pada player model.
+
+#### 1.5 Minimal forward motion proof
+
+- [ ] Tambah beberapa debug corridor markers/air lane rings di depan.
+- [ ] Tambah placeholder cloud/terrain/debris simple 3D yang bergerak dari depan ke belakang untuk membuktikan maju.
+- [ ] Matikan top-down gameplay renderer saat mission forward aktif.
+- [ ] Pastikan tidak ada car/convoy UI di flow launch.
+
+#### 1.6 Browser proof
+
+- [ ] Godot check/import.
+- [ ] Export Web root.
+- [ ] `npm run vercel-build`.
+- [ ] `npm run qa:web`.
+- [ ] Restart preview.
+- [ ] Ambil/cek visual: GLB player + camera belakang + forward motion.
+
+### Deliverable Phase 1
+
+Satu build playable awal yang membuktikan:
+
+```text
+Loading/Title/Briefing -> Launch -> 3D forward flight scene
+player GLB visible
+camera behind/slightly above
+movement in 3D corridor
+forward depth readable
+old top-down gameplay not visible
+```
+
+### Acceptance Gate Phase 1
+
+Phase 1 tidak selesai sebelum semua ini true:
+
+- [ ] Browser menunjukkan `ForwardAirScene3D`.
+- [ ] Player aircraft adalah GLB/model 3D, bukan PNG.
+- [ ] Kamera jelas dari belakang sedikit di atas.
+- [ ] Pesawat bisa digerakkan kiri/kanan/naik/turun dalam corridor.
+- [ ] Ada bukti gerak maju ke depan dalam depth.
+- [ ] Tidak ada car/convoy prologue.
+- [ ] Tidak ada top-down player sprite sebagai gameplay utama.
+- [ ] Root Web export dan browser QA pass.
+
+### Progress setelah Phase 1 selesai
+
+Jika Phase 1 lolos acceptance, progress forward rebuild boleh naik ke **30–35%**.
+
+---
+
+## 6. Phase 2 — Cinematic Arena & Weather Battlefield
 
 **Status:** Planned
+**Tujuan besar:** mengubah forward scene Phase 1 dari corridor kosong menjadi **arena perang badai 3D hidup** sesuai visual lock.
 
-Goal: create a minimal 3D gameplay scene that can boot in browser.
+### Scope Phase 2
 
-Tasks:
+#### 2.1 Forward arena director
 
-- [ ] Create/add `ForwardAirScene3D` root under current main scene or replace gameplay child.
-- [ ] Add `WorldEnvironment`, `DirectionalLight3D`, storm sky clear color/fog.
-- [ ] Add `CameraRig3D` and placeholder `PlayerRig3D`.
-- [ ] Add forward direction convention: `-Z`.
-- [ ] Add debug markers showing corridor bounds in 3D.
-- [ ] Add bridge state `missionMode: forward_air_combat`.
+- [ ] Buat `scripts/forward_arena_director.gd`.
+- [ ] Buat system chunk spawn/despawn di depan kamera.
+- [ ] Rework `air_cloud_cluster.glb` atau buat cloud bank GLB baru.
+- [ ] Rework `air_arena_tile.glb` menjadi arena forward chunks, bukan tile top-down.
+- [ ] Tambah ocean/city warzone layer di bawah jalur terbang.
 
-Deliverables:
+#### 2.2 Layered battlefield depth
 
-- Browser can display a 3D scene, even before final aircraft GLB.
+- [ ] Far storm sky layer bergerak lambat.
+- [ ] Mid cloud banks bergerak medium.
+- [ ] Near debris/smoke streak bergerak cepat.
+- [ ] Warzone below bergerak perspektif.
+- [ ] Distant air traffic: ally/enemy silhouettes, tracer lines, tiny explosions.
 
-Exit criteria:
+#### 2.3 Weather as gameplay volume
 
-- 720x1280 canvas loads.
-- Godot scene contains active Camera3D for gameplay.
-- No top-down gameplay rendering is visible in this mode.
+- [ ] Wind field mempengaruhi smoke/trails dan sedikit steering/turbulence.
+- [ ] Cloud volume menyembunyikan musuh/target marker sampai dekat atau radar aktif.
+- [ ] Rain sheets menurunkan visibility.
+- [ ] Lightning flash menerangi arena dan men-trigger overcharge placeholder.
+- [ ] Storm cell hazard memaksa lane/altitude choice.
 
----
+#### 2.4 Cinematic quality pass
 
-### R3 — Player GLB + Chase Camera
+- [ ] Color grading storm/sunset blue-orange.
+- [ ] Light flashes and cloud edge lighting.
+- [ ] Smoke columns dari warzone bawah.
+- [ ] Fire pockets/explosions ambient.
+- [ ] Speed tuning supaya terasa maju tapi tidak terlalu cepat.
 
-**Status:** Planned
+### Deliverable Phase 2
 
-Goal: replace player sprite/photo logic with actual aircraft GLB and camera behind/slightly above.
+Build browser yang memperlihatkan:
 
-Tasks:
+```text
+3D forward flight through storm battlefield
+cloud depth + warzone below + smoke/fire + debris
+weather starts affecting movement/visibility/VFX
+arena no longer feels empty or flat
+```
 
-- [ ] Create/import `assets/models/player_stormhawk.glb` placeholder if final model not ready.
-- [ ] Add material identity: dark metal, cyan emissive, cockpit glass.
-- [ ] Add hardpoint sockets or known child transforms.
-- [ ] Add engine sockets.
-- [ ] Add chase camera position:
-  - camera behind player;
-  - slightly above;
-  - looking ahead along `-Z`.
-- [ ] Add camera lag and basic roll follow.
+### Acceptance Gate Phase 2
 
-Deliverables:
+- [ ] Minimal 4 depth layers terlihat jelas.
+- [ ] Arena bukan static photo dan bukan flat tile scroll.
+- [ ] Weather punya efek gameplay awal, bukan overlay dekoratif.
+- [ ] Kecepatan forward readable dan tidak terlalu cepat.
+- [ ] Browser QA pass.
 
-- Player GLB visible in lower third of portrait screen.
-- Camera perspective clearly reads behind/above.
+### Progress setelah Phase 2 selesai
 
-Exit criteria:
-
-- Screenshot proves player is 3D GLB, not PNG.
-- Camera is not top-down.
-- Plane nose points toward forward depth.
-
----
-
-### R4 — 3D Flight Corridor Controls
-
-**Status:** Planned
-
-Goal: player controls aircraft within forward corridor.
-
-Tasks:
-
-- [ ] Convert movement to local 3D corridor:
-  - X = left/right strafe;
-  - Y = altitude/vertical dodge;
-  - Z = forward illusion/path.
-- [ ] Add roll/tilt animation based on X input.
-- [ ] Add pitch response for Y input.
-- [ ] Add boost/brake/FOV kick prototype.
-- [ ] Map touch drag to X/Y corridor movement.
-- [ ] Add clamp/bounds and visual corridor feedback.
-
-Deliverables:
-
-- Player can dodge in a 3D forward corridor.
-
-Exit criteria:
-
-- Movement no longer feels like 2D top-down plane icon movement.
-- Touch/mobile control still playable.
+Forward rebuild boleh naik ke **50–55%**.
 
 ---
 
-### R5 — Forward Arena Director
+## 7. Phase 3 — Weapon, Enemy, Boss Combat Package
 
 **Status:** Planned
+**Tujuan besar:** membuat combat yang terasa seperti visual target: tembakan player kuat, enemy/boss 3D, projectile readable, dan boss dreadnought sebagai anchor besar di depan.
 
-Goal: build animated 3D arena that moves forward into storm warzone.
+### Scope Phase 3
 
-Tasks:
+#### 3.1 Weapon VFX director
 
-- [ ] Rework or replace `air_arena_tile.glb` into forward chunks.
-- [ ] Reuse or replace `air_cloud_cluster.glb` as cloud banks in depth.
-- [ ] Add ocean/city warzone layer below flight path.
-- [ ] Add smoke columns, fire pockets, distant explosions.
-- [ ] Add near/mid/far parallax movement in 3D.
-- [ ] Add debris/air traffic silhouettes for depth.
+- [ ] Buat `scripts/weapon_vfx_director.gd`.
+- [ ] Main cannon cyan/white dari nose/inner hardpoints.
+- [ ] Wing cannon bolt tebal dari wing hardpoints.
+- [ ] Micro missile model + smoke trail dari missile sockets.
+- [ ] Overcharge lightning laser dari nose/spine hardpoint.
+- [ ] Engine exhaust permanen dengan boost flare.
+- [ ] Hit sparks, debris, smoke on impact.
 
-Deliverables:
+#### 3.2 Enemy director 3D
 
-- Arena reads as forward flight through battlefield.
+- [ ] Buat `scripts/enemy_director_3d.gd`.
+- [ ] Enemy fighter/drone/gunship GLB placeholder.
+- [ ] Spawn enemy di depth depan, bukan dari top screen 2D.
+- [ ] Attack patterns red/orange readable:
+  - lane fire;
+  - fan fire;
+  - missile warning;
+  - slow beam telegraph.
+- [ ] No constant unfair homing.
 
-Exit criteria:
+#### 3.3 Boss dreadnought set piece
 
-- 4+ depth layers visible.
-- Nothing feels like static photo or flat vertical scroll.
-- Speed is cinematic and controllable, not too fast.
+- [ ] Buat/import `assets/models/boss_dreadnought_leviathan.glb` placeholder.
+- [ ] Boss berada upper-middle depth, bukan top overlay image.
+- [ ] Tambah central weather cannon.
+- [ ] Tambah turret hardpoints.
+- [ ] Tambah weakpoint lights.
+- [ ] Tambah shield/phase placeholder.
+- [ ] Tambah boss laser charge telegraph.
+
+#### 3.4 Combat feedback
+
+- [ ] Enemy hit flash/damage state.
+- [ ] Boss turret sparks/smoke.
+- [ ] Camera shake/FOV for heavy shots.
+- [ ] Score/combo hooks.
+- [ ] Death/explosion first pass.
+
+### Deliverable Phase 3
+
+Build browser yang memperlihatkan:
+
+```text
+player GLB fires strong cyan hardpoint weapons
+enemy GLB waves attack with red/orange patterns
+boss dreadnought appears in 3D ahead
+laser/missile/explosion VFX readable
+```
+
+### Acceptance Gate Phase 3
+
+- [ ] Player fire tidak lagi terlihat seperti 2 peluru lemah.
+- [ ] Shots lahir dari hardpoints model.
+- [ ] Enemy dan boss adalah 3D scene/model.
+- [ ] Boss attack punya telegraph/safe gaps.
+- [ ] Hit impact membuat combat terasa berat.
+- [ ] Browser QA pass.
+
+### Progress setelah Phase 3 selesai
+
+Forward rebuild boleh naik ke **70–75%**.
 
 ---
 
-### R6 — 3D Weapon VFX Director
+## 8. Phase 4 — UI/UX, Progression, Legacy Cleanup
 
 **Status:** Planned
+**Tujuan besar:** membuat build baru bersih dari setup lama, UI cocok forward flight, progression aircraft-only, dan repo tidak lagi membawa runtime car/convoy/top-down.
 
-Goal: make player shots visually strong and attached to aircraft hardpoints.
+### Scope Phase 4
 
-Tasks:
-
-- [ ] Main cannon: cyan/white stream from nose/inner hardpoints.
-- [ ] Wing cannon: thicker bolts from wings.
-- [ ] Micro missiles: physical projectile + smoke trail.
-- [ ] Overcharge laser: blue-white beam + arcs + impact flare.
-- [ ] Engine exhaust: always visible flame/vapor.
-- [ ] Hit sparks/debris/smoke on impact.
-- [ ] Camera coupling: shake/FOV for heavy weapons.
-
-Deliverables:
-
-- Weapon effects no longer look like only 2 weak bullets.
-
-Exit criteria:
-
-- A paused screenshot shows strong multi-source fire.
-- Shots originate from GLB hardpoints.
-- Player fire is clearly blue/cyan and enemy fire red/orange.
-
----
-
-### R7 — Enemy Waves + Boss Set Piece
-
-**Status:** Planned
-
-Goal: create real 3D enemy/boss combat in front of player.
-
-Tasks:
-
-- [ ] Add enemy drone/fighter GLB placeholders.
-- [ ] Spawn enemies ahead in 3D lanes.
-- [ ] Add readable red/orange projectile patterns.
-- [ ] Add target brackets/lock-on markers.
-- [ ] Add boss dreadnought GLB placeholder.
-- [ ] Add boss weakpoints and turret hardpoints.
-- [ ] Add central cannon charge/laser telegraph.
-
-Deliverables:
-
-- First boss assault scene resembles target visual direction.
-
-Exit criteria:
-
-- Boss is a 3D object in depth, not a static top image.
-- Enemy fire is readable and not constant unfair homing.
-
----
-
-### R8 — Weather Gameplay Integration
-
-**Status:** Planned
-
-Goal: port weather puzzle system into forward 3D gameplay.
-
-Tasks:
-
-- [ ] Wind bends smoke/trails/projectiles and adds turbulence.
-- [ ] Clouds hide enemies until close or radar active.
-- [ ] Rain reduces visibility with camera/world streaks.
-- [ ] Lightning overcharges weapons and strikes targets/rods.
-- [ ] Storm cells act as moving corridor hazards.
-- [ ] Briefing forecast affects recommended loadout.
-
-Deliverables:
-
-- Weather changes gameplay, not just background color.
-
-Exit criteria:
-
-- Player can identify and react to at least 3 weather hazards in 3D.
-
----
-
-### R9 — HUD/UI Refit
-
-**Status:** Planned
-
-Goal: adapt UI to chase-camera combat.
-
-Tasks:
+#### 4.1 HUD forward flight
 
 - [ ] Center reticle/crosshair.
-- [ ] Lock-on ring and target brackets.
+- [ ] Lock-on bracket/ring.
 - [ ] Boss bar top-center.
 - [ ] HP/shield top-left.
 - [ ] Score/combo top-right.
-- [ ] Ability buttons lower safe zones.
+- [ ] Ability buttons thumb-safe.
 - [ ] Radar/weather mini-map bottom-right.
-- [ ] Remove car/garage/convoy UI text.
+- [ ] Warning marker untuk missile/storm cell.
 
-Deliverables:
+#### 4.2 Aircraft-only hangar/progression
 
-- Mobile 9:16 HUD supports forward flight readability.
+- [ ] Remove car tab from UI.
+- [ ] Aircraft preview uses GLB turntable or strong placeholder.
+- [ ] Upgrade categories:
+  - main cannon;
+  - wing cannon;
+  - missiles;
+  - armor/shield;
+  - engine/handling;
+  - storm systems.
+- [ ] Save schema migrates to `force-war-forward-air-v1`.
+- [ ] Old `storm_convoy` save can be migrated or ignored safely.
 
-Exit criteria:
-
-- UI does not hide player aircraft or dodge zone.
-- No old car/convoy UI appears.
-
----
-
-### R10 — Legacy Removal & Repo Slimming
-
-**Status:** Planned after R2–R9 are playable
-
-Goal: remove old setup safely after replacement exists.
-
-Tasks:
+#### 4.3 Legacy code cleanup
 
 - [ ] Remove ground car phase code.
-- [ ] Remove convoy code and events.
-- [ ] Remove top-down aircraft draw as runtime mode.
-- [ ] Remove deprecated car/convoy assets after grep confirms no references.
-- [ ] Remove gameplay dependency on `assets/rendered/player_stormhawk.png`.
-- [ ] Replace old save key with migration strategy.
-- [ ] Clean docs again to remove old references outside audit/changelog.
+- [ ] Remove convoy logic and events.
+- [ ] Remove top-down gameplay renderer as runtime mode.
+- [ ] Remove old car/convoy active assets after grep confirms no references.
+- [ ] Remove runtime dependency on `assets/rendered/player_stormhawk.png` for player.
+- [ ] Update docs after physical cleanup.
 
-Deliverables:
+#### 4.4 Loading/branding cleanup
 
-- Repo no longer contains old active gameplay paths.
+- [ ] Loading slideshow must match aircraft-only storm war direction.
+- [ ] Remove/regenerate visible convoy/car loading art if mismatch.
+- [ ] Keep Force War splash/icon branding.
 
-Exit criteria:
+### Deliverable Phase 4
 
-- Grep forbidden strings only finds audit/changelog/reference docs.
-- Web export still works.
+Build yang sudah bersih secara player-facing dan repo runtime:
+
+```text
+aircraft-only forward combat flow
+forward flight HUD
+aircraft-only hangar/progression
+old car/convoy/top-down code removed or fully inactive
+```
+
+### Acceptance Gate Phase 4
+
+- [ ] No car/convoy UI appears anywhere active.
+- [ ] No top-down gameplay path active.
+- [ ] Save/progression aircraft-only works.
+- [ ] Grep forbidden runtime functions clear except audit/changelog docs.
+- [ ] Browser QA pass.
+
+### Progress setelah Phase 4 selesai
+
+Forward rebuild boleh naik ke **85–90%**.
 
 ---
 
-### R11 — Web Export + Browser QA
+## 9. Phase 5 — Web QA, Optimization, Content Expansion
 
 **Status:** Planned
+**Tujuan besar:** menjadikan rebuilt vertical slice stabil, teroptimasi Web, dan cukup berisi untuk dinilai sebagai serious direction, bukan prototype kecil.
 
-Goal: validate rebuilt game in browser.
+### Scope Phase 5
 
-Tasks:
+#### 5.1 Web export and QA hardening
 
-- [ ] Godot `--check-only` script validation.
+- [ ] Godot check-only.
 - [ ] Godot import.
 - [ ] `./tools/export_web.sh`.
 - [ ] `npm run vercel-build`.
 - [ ] `npm run qa:web`.
-- [ ] Add visual QA check for:
-  - active Camera3D;
+- [ ] Add visual QA for:
   - GLB player visible;
-  - `missionMode: forward_air_combat`;
-  - no car/convoy UI.
-- [ ] Restart preview.
+  - chase camera active;
+  - mission mode forward air combat;
+  - no old UI;
+  - WebGL rendering 3D scene.
 
-Deliverables:
+#### 5.2 Performance optimization
 
-- Browser preview shows rebuilt 3D forward air combat.
+- [ ] Check Web FPS/perceived smoothness.
+- [ ] Reduce overdraw/particles if needed.
+- [ ] Compress/size GLB assets.
+- [ ] Keep root export reasonable.
+- [ ] Avoid giant generated artifacts in git.
 
-Exit criteria:
+#### 5.3 Content expansion for first rebuilt slice
 
-- QA passes and user can visually inspect live preview.
+- [ ] 2–4 player aircraft GLB variants or visual variants.
+- [ ] 4–6 enemy GLB types.
+- [ ] 1 polished boss dreadnought + at least 2 attack phases.
+- [ ] 2–3 arena biomes or biome variants.
+- [ ] Weather forecast/loadout matters in mission.
+- [ ] Audio placeholder or procedural first pass if scope allows.
 
----
+#### 5.4 Tuning and polish
 
-### R12 — Content Expansion Pass
+- [ ] Movement speed/camera comfort.
+- [ ] Weapon density/readability.
+- [ ] Enemy damage/safe gaps.
+- [ ] Boss HP/duration.
+- [ ] HUD readability on 720x1280.
+- [ ] Touch controls.
 
-**Status:** Later
+### Deliverable Phase 5
 
-Goal: expand after first forward slice is accepted.
-
-Tasks:
-
-- [ ] 4 player aircraft GLB variants.
-- [ ] 6+ enemy GLB types.
-- [ ] 3 boss dreadnought variants.
-- [ ] 3+ arena biomes.
-- [ ] Upgrade/economy tuning.
-- [ ] Audio pass.
-- [ ] Loading/menu art regenerated to match aircraft-only direction.
-- [ ] Save/progression polish.
-
-Deliverables:
-
-- Production vertical slice moving toward full version.
-
----
-
-## 5. Gate Definitions
-
-### Gate 0 — Direction Gate
-
-Passed if design direction is clear and no old direction is treated as target.
-
-Current status: **Passed**.
-
-### Gate 1 — Prep Gate
-
-Passed if code map and cleanup plan are precise enough to avoid accidental old-system carryover.
-
-Current status: **Next**.
-
-### Gate 2 — Scene Gate
-
-Passed if browser shows a 3D scene with active chase-camera infrastructure.
-
-### Gate 3 — Aircraft Gate
-
-Passed if player aircraft is a GLB visible from behind/slightly above.
-
-### Gate 4 — Control Gate
-
-Passed if movement reads as flight within a forward corridor.
-
-### Gate 5 — Arena Gate
-
-Passed if arena has layered forward motion and storm battlefield depth.
-
-### Gate 6 — Weapon Gate
-
-Passed if player fire is strong, hardpoint-based, and visually clear.
-
-### Gate 7 — Combat Gate
-
-Passed if enemies/boss exist in 3D and attack patterns are readable.
-
-### Gate 8 — Weather Gate
-
-Passed if weather affects moment-to-moment decisions.
-
-### Gate 9 — UI Gate
-
-Passed if HUD supports forward flight and no old UI remains.
-
-### Gate 10 — Cleanup Gate
-
-Passed if old gameplay code/assets are no longer active.
-
-### Gate 11 — Web Gate
-
-Passed if root export + browser QA pass with the rebuilt 3D scene.
-
----
-
-## 6. Immediate Next Work Order
-
-R1 is complete. Next work should be **R2 only**, not random VFX/gameplay tweaking:
-
-1. Create `scripts/forward_air_scene_3d.gd`.
-2. Instantiate a minimal `ForwardAirScene3D` from the current main shell.
-3. Add WorldEnvironment, DirectionalLight3D, CameraRig3D, and placeholder PlayerRig3D.
-4. Report bridge state `missionMode: forward_air_combat` and `cameraMode: chase_behind_above`.
-5. Keep loading/title/briefing shell intact until the 3D gameplay scene is visible.
-
----
-
-## 7. Progress Update Template
-
-Use this template after every rebuild commit:
+First rebuilt vertical slice:
 
 ```text
-Milestone: R# — Name
-Status: Not started / In progress / Blocked / Done
+Force War forward 3D air combat playable in browser
+GLB player + chase camera + forward arena + weather + weapons + enemies + boss
+root Web export updated
+QA passed
+```
+
+### Acceptance Gate Phase 5
+
+- [ ] User can open preview and immediately see the new gameplay form.
+- [ ] It no longer resembles the rejected top-down/static/old setup.
+- [ ] Web export root files are current.
+- [ ] Browser QA pass.
+- [ ] Roadmap/progress updated honestly.
+
+### Progress setelah Phase 5 selesai
+
+Forward rebuilt vertical slice boleh disebut **100% for first rebuilt slice**, bukan full commercial game.
+
+---
+
+## 10. Active Work Order Sekarang
+
+Karena user meminta phase besar, next work bukan “R2 skeleton” terpisah. Next work adalah:
+
+```text
+Phase 1 — Core Forward Flight Rebuild
+```
+
+Urutan kerja Phase 1:
+
+1. Buat `forward_air_scene_3d.gd`.
+2. Generate/import `player_stormhawk.glb` placeholder 3D nyata.
+3. Spawn `ForwardAirScene3D` dari current main shell.
+4. Pasang chase camera behind/slightly above.
+5. Pasang player GLB lower-third portrait framing.
+6. Implement movement X/Y corridor + roll/pitch.
+7. Tambah minimal forward lane/depth markers/cloud placeholders.
+8. Matikan old top-down renderer saat forward scene active.
+9. Export Web + QA + preview.
+
+Phase 1 tidak selesai sampai browser memperlihatkan player GLB dari chase camera.
+
+---
+
+## 11. Progress Update Template untuk Phase Besar
+
+Gunakan template ini setiap selesai commit besar:
+
+```text
+Phase: Phase # — Name
+Status: Not started / Active / Blocked / Done
 Changed files:
 Validation run:
-What is visibly different:
+Visible result in browser:
+Acceptance checklist passed:
 What remains incomplete:
-Next step:
+Next work inside same phase or next phase:
 ```
 
 ---
 
-## 8. Do Not Claim Done Until
+## 12. Do Not Claim Done Until
 
-Do not mark forward rebuild as playable until all are true:
+Jangan mark phase selesai jika hanya dokumen/code skeleton. Phase selesai hanya kalau acceptance gate-nya terlihat/tervalidasi.
 
-- player GLB visible;
-- chase camera visible in browser;
-- forward movement readable;
-- arena has 3D depth;
-- weapon VFX emitted from model hardpoints;
-- old car/convoy/top-down flow absent;
-- root Web export rebuilt and QA passed.
+Khusus Phase 1, jangan klaim selesai sampai:
 
-## 9. Progress Log
-
-```text
-Milestone: R1 — Rebuild Prep & Legacy Quarantine
-Status: Done
-Changed files: docs/CODE_REBUILD_MAP.md, docs/REBUILD_ROADMAP_AND_MILESTONES.md, docs/ROADMAP.md, README.md, docs/REPO_CLEANUP_AUDIT.md
-Validation run: git diff --check; npm run vercel-build
-What is visibly different: no gameplay visual change; this phase is prep only
-What remains incomplete: ForwardAirScene3D skeleton is not created yet
-Next step: R2 — create minimal 3D forward air scene and chase camera skeleton
-```
+- player GLB terlihat;
+- kamera chase terlihat;
+- forward movement terbaca;
+- top-down renderer tidak muncul di gameplay;
+- Web QA pass.

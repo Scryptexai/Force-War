@@ -38,8 +38,8 @@ Gambar ini dipakai sebagai **mood/quality target**, bukan sebagai asset gameplay
 
 ```text
 docs/THIRD_PERSON_AIR_COMBAT_REDESIGN.md  # Target kamera, gameplay, arena, VFX, benchmark
-docs/REBUILD_ROADMAP_AND_MILESTONES.md    # Roadmap rebuild detail + progress milestone gates
-docs/CODE_REBUILD_MAP.md                  # R1 map scripts/main.gd: keep/rewrite/delete + next cut points
+docs/REBUILD_ROADMAP_AND_MILESTONES.md    # Big phase rebuild roadmap + progress gates
+docs/CODE_REBUILD_MAP.md                  # Phase 1 prep map: keep/rewrite/delete + cut points
 docs/REPO_CLEANUP_AUDIT.md                # Audit setup lama dan daftar bersih-bersih repo
 docs/ROADMAP.md                           # Roadmap baru tanpa convoy/car/top-down sebagai target
 docs/ASSET_CATALOG.md                     # Katalog asset target GLB + legacy quarantine

@@ -1,11 +1,11 @@
-# Force War — Code Rebuild Map (R1)
+# Force War — Code Rebuild Map (Phase 1 Prep)
 
 Tanggal: 2026-10-05
-Milestone: **R1 — Rebuild Prep & Legacy Quarantine**
+Milestone: **Phase 1 Prep — Core Forward Flight Rebuild Preparation**
 
-Dokumen ini memetakan `scripts/main.gd` dan scene/project setup saat ini sebelum masuk coding R2. Tujuannya supaya rebuild tidak membawa kembali sistem lama: top-down, convoy/car, static PNG gameplay, dan upward scroll.
+Dokumen ini memetakan `scripts/main.gd` dan scene/project setup saat ini sebelum masuk implementation Phase 1. Tujuannya supaya rebuild tidak membawa kembali sistem lama: top-down, convoy/car, static PNG gameplay, dan upward scroll.
 
-> Pass ini adalah prep/analysis. Tidak ada gameplay behavior yang diubah di R1.
+> Pass ini adalah prep/analysis. Tidak ada gameplay behavior yang diubah di prep phase ini.
 
 ---
 
@@ -13,7 +13,7 @@ Dokumen ini memetakan `scripts/main.gd` dan scene/project setup saat ini sebelum
 
 | Item | Current state | Rebuild implication |
 | --- | --- | --- |
-| Main scene | `scenes/Main.tscn` root masih `Node2D` dengan script `scripts/main.gd` | R2 boleh sementara menambah `Node3D` child untuk scene forward, lalu R9/R10 bisa migrasi ke root `Node` + `CanvasLayer`. |
+| Main scene | `scenes/Main.tscn` root masih `Node2D` dengan script `scripts/main.gd` | Phase 1 boleh sementara menambah `Node3D` child untuk scene forward, lalu Phase 4 bisa migrasi ke root `Node` + `CanvasLayer`. |
 | Main script | `scripts/main.gd`, 3521 lines, `extends Node2D` | Terlalu besar dan campur: loading, UI, save, top-down gameplay, convoy, ground car, 3D arena lama. Perlu split bertahap. |
 | GameState | `LOADING, TITLE, BRIEFING, HANGAR, GROUND, PLAYING, STAGE_CLEAR, GAME_OVER, PAUSED` | `GROUND` harus dihapus nanti. `PLAYING` menjadi forward air combat. |
 | Save key | `force-war-storm-convoy-v2` | Harus migrasi ke `force-war-forward-air-v1` setelah gameplay baru stabil. |
@@ -25,9 +25,9 @@ Dokumen ini memetakan `scripts/main.gd` dan scene/project setup saat ini sebelum
 
 ## 2. New Runtime Architecture Target
 
-### 2.1 Short-term R2/R3 architecture
+### 2.1 Short-term Phase 1 architecture
 
-Untuk mengurangi risiko besar, R2 boleh tetap memakai `Main.tscn` saat ini sebagai host shell, tetapi gameplay world baru dibuat sebagai child 3D:
+Untuk mengurangi risiko besar, Phase 1 boleh tetap memakai `Main.tscn` saat ini sebagai host shell, tetapi gameplay world baru dibuat sebagai child 3D:
 
 ```text
 Main (Node2D, scripts/main.gd, temporary shell)
@@ -53,7 +53,7 @@ Alasan:
 
 ### 2.2 Long-term clean architecture
 
-Setelah R9/R10:
+Setelah Phase 4 cleanup:
 
 ```text
 Main (Node)
@@ -68,7 +68,7 @@ Main (Node)
 
 ## 3. New Script Layout Decision
 
-R1 decision: **split new forward systems into new scripts**, while `main.gd` stays as temporary app shell.
+Phase 1 prep decision: **split new forward systems into new scripts**, while `main.gd` stays as temporary app shell.
 
 Planned scripts:
 
@@ -81,13 +81,13 @@ Planned scripts:
 | `scripts/enemy_director_3d.gd` | Node3D | Enemy waves, boss dreadnought, attack patterns. |
 | `scripts/forward_hud.gd` | CanvasLayer later | Reticle, lock-on, boss bar, ability buttons. |
 
-R2 may start with only `forward_air_scene_3d.gd` to prove camera/GLB visibility. Other scripts can be added as systems become real.
+Phase 1 implementation may start with only `forward_air_scene_3d.gd` to prove camera/GLB visibility. Other scripts can be added as systems become real.
 
 ---
 
 ## 4. Function Map: Keep / Rewrite / Delete Later
 
-Line numbers are from the current `scripts/main.gd` at R1 start.
+Line numbers are from the current `scripts/main.gd` at Phase 1 prep start.
 
 ### 4.1 Keep with light edits
 
@@ -219,11 +219,11 @@ weather_cells_3d
 
 ---
 
-## 6. R2 Implementation Cut Points
+## 6. Phase 1 Implementation Cut Points
 
-R2 should be minimal and safe. Do not attempt the whole rewrite in one pass.
+Phase 1 tetap besar, tetapi implementasinya harus aman dan berurutan. Jangan mencoba seluruh game selesai dalam satu commit.
 
-### R2.1 Add new script and node
+### Phase 1A — Add new script and node
 
 Create:
 
@@ -241,7 +241,7 @@ func update_forward(delta: float, input_state: Dictionary) -> void
 func get_bridge_state() -> Dictionary
 ```
 
-### R2.2 Main integration
+### Phase 1B — Main integration
 
 In `main.gd`:
 
@@ -251,7 +251,7 @@ In `main.gd`:
 - in `update_playing()`, call `forward_scene.update_forward(...)`;
 - in `_draw()`, do not call `draw_game_world()` while forward scene active; only HUD/debug overlay.
 
-### R2.3 Temporary compatibility
+### Phase 1C — Temporary compatibility
 
 Allowed temporarily:
 
@@ -259,7 +259,7 @@ Allowed temporarily:
 - old save with migration fallback;
 - old export root files until next export.
 
-Forbidden in R2 visible gameplay:
+Forbidden in Phase 1 visible gameplay:
 
 - car/convoy prologue;
 - top-down player sprite;
@@ -268,9 +268,9 @@ Forbidden in R2 visible gameplay:
 
 ---
 
-## 7. QA Checklist for R2/R3
+## 7. QA Checklist for Phase 1
 
-### R2 visual QA
+### Phase 1 scene/camera QA
 
 Browser/preview must prove:
 
@@ -280,7 +280,7 @@ Browser/preview must prove:
 - [ ] active camera mode reports `chase_behind_above` or equivalent;
 - [ ] no car/convoy UI appears after launch.
 
-### R3 visual QA
+### Phase 1 aircraft/control QA
 
 - [ ] player aircraft is GLB/model instance, not PNG;
 - [ ] camera is behind and slightly above aircraft;
@@ -288,7 +288,7 @@ Browser/preview must prove:
 - [ ] nose points toward forward depth;
 - [ ] movement/roll is visible when steering.
 
-### R5/R6 visual QA
+### Later phase arena/weapon QA
 
 - [ ] arena has far/mid/near depth layers;
 - [ ] cloud/warzone chunks move as forward flight;
@@ -300,7 +300,7 @@ Browser/preview must prove:
 
 ## 8. Forbidden Runtime Checklist
 
-Before each gameplay commit after R2, run targeted grep and visual check.
+Before each gameplay commit after Phase 1 implementation starts, run targeted grep and visual check.
 
 Forbidden in active runtime flow:
 
@@ -330,9 +330,9 @@ storm convoy
 
 ---
 
-## 9. R1 Exit Summary
+## 9. Phase 1 Prep Exit Summary
 
-R1 is complete when the following are true:
+Phase 1 prep is complete when the following are true:
 
 - [x] `scripts/main.gd` sections are mapped into keep/rewrite/delete.
 - [x] New script/module layout is defined.
@@ -341,4 +341,4 @@ R1 is complete when the following are true:
 - [x] Visual QA checklist is written.
 - [x] No gameplay behavior is changed in this phase.
 
-Next phase after R1: **R2 — ForwardAirScene3D Skeleton**.
+Next implementation work: **Phase 1 — Core Forward Flight Rebuild**.
