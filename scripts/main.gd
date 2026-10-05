@@ -1079,7 +1079,6 @@ func start_stage(index: int) -> void:
 		if forward_scene and forward_scene.has_method("start_mission"):
 			forward_scene.start_mission(stage, loadout, active_aircraft())
 		state = GameState.PLAYING
-		show_warning("STORM BATTLEFIELD: forward GLB chase camera deployment")
 		js_emit("stage_start", {"stage": stage_index + 1, "name": stage["name"], "loadout": loadout["name"], "weather": stage["weather"], "phase": "forward_air_combat", "camera": "chase_behind_above", "playerModel": "glb"})
 	else:
 		start_ground_phase()
@@ -3457,45 +3456,85 @@ func draw_forward_hud() -> void:
 	var forward_state = {}
 	if using_forward_air_scene() and forward_scene.has_method("get_bridge_state"):
 		forward_state = forward_scene.get_bridge_state()
-	draw_rect(Rect2(0, 0, W, 108), Color(0.0, 0.02, 0.06, 0.50))
-	draw_text("FORCE WAR // FORWARD AIR COMBAT", 18, 26, 18, Color(0.70, 0.93, 1.0, 0.96))
-	draw_text("CAM " + str(forward_state.get("cameraMode", "chase_behind_above")), 18, 56, 14, Color(0.86, 0.96, 1.0, 0.82))
 	var hp_ratio = float(forward_state.get("hp", player.get("hp", 0))) / max(1.0, float(forward_state.get("maxHp", player.get("max_hp", 1))))
-	draw_text("JET " + str(active_aircraft().get("name", "Stormhawk")), 330, 26, 14, Color(0.86, 0.96, 1.0, 0.92))
-	draw_bar(Rect2(330, 42, 190, 12), hp_ratio, Color(0.25, 0.90, 1.0, 1.0), Color(0.0, 0.0, 0.0, 0.55))
 	var progress = float(forward_state.get("progress", route_progress / max(1.0, route_distance)))
-	draw_text("DEPTH", 548, 26, 14, Color(0.86, 0.96, 1.0, 0.88))
-	draw_bar(Rect2(548, 42, 132, 12), progress, Color(1.0, 0.74, 0.24, 1.0), Color(1.0, 1.0, 1.0, 0.13))
-	draw_text("SPD " + str(int(float(forward_state.get("forwardSpeed", 0.0)))), 548, 76, 14, Color(0.72, 0.9, 1.0, 0.90))
-
 	var visibility = float(forward_state.get("rainVisibility", 1.0))
 	var cloud_cover = float(forward_state.get("cloudCover", 0.0))
 	var storm_hazard = float(forward_state.get("stormHazard", 0.0))
 	var wind_drift = float(forward_state.get("windDrift", 0.0))
+	var lightning_flash = float(forward_state.get("lightningFlash", 0.0))
 	var overcharged = bool(forward_state.get("lightningOvercharge", false))
-	var reticle_alpha = clamp(0.25 + visibility * 0.48 - cloud_cover * 0.24, 0.22, 0.78)
-	var reticle_color = Color(0.35, 0.95, 1.0, reticle_alpha)
-	var reticle = Vector2(W * 0.5, H * 0.43)
-	draw_circle(reticle, 34.0, Color(0.08, 0.50, 0.75, 0.10 + reticle_alpha * 0.08))
-	draw_arc(reticle, 42.0, 0.0, TAU, 64, reticle_color, 2.0)
-	draw_line(reticle + Vector2(-58, 0), reticle + Vector2(-16, 0), reticle_color, 2.0)
-	draw_line(reticle + Vector2(16, 0), reticle + Vector2(58, 0), reticle_color, 2.0)
-	draw_line(reticle + Vector2(0, -58), reticle + Vector2(0, -16), reticle_color, 2.0)
-	draw_line(reticle + Vector2(0, 16), reticle + Vector2(0, 58), reticle_color, 2.0)
-	draw_text_centered_at("FORWARD VECTOR" if not bool(forward_state.get("cloudOcclusion", false)) else "CLOUD OCCLUSION", reticle + Vector2(0, 62), 13, Color(0.70, 0.93, 1.0, 0.58 + reticle_alpha * 0.25))
 
-	var cx = float(forward_state.get("corridorX", 0.0))
-	var cy = float(forward_state.get("corridorY", 0.0))
-	draw_rect(Rect2(22, H - 158, 332, 114), Color(0.0, 0.02, 0.06, 0.52))
-	draw_text("PHASE 2 STORM BATTLEFIELD", 38, H - 130, 15, Color(1.0, 0.86, 0.30, 0.96))
-	draw_text("corridor x " + str(snapped(cx, 0.01)) + " / y " + str(snapped(cy, 0.01)), 38, H - 104, 13, Color(0.82, 0.94, 1.0, 0.86))
-	draw_text("wind " + str(snapped(wind_drift, 0.01)) + "  cloud " + str(int(cloud_cover * 100.0)) + "%  vis " + str(int(visibility * 100.0)) + "%", 38, H - 80, 13, Color(0.82, 0.94, 1.0, 0.78))
-	draw_bar(Rect2(38, H - 66, 136, 8), storm_hazard, Color(0.80, 0.20, 1.0, 0.95), Color(1,1,1,0.10))
-	draw_text("storm cell hazard" + ("  OVERCHARGED" if overcharged else ""), 188, H - 58, 12, Color(0.95, 0.90, 1.0, 0.76))
-	draw_text("drag or WASD/arrow; weather pushes aircraft", 38, H - 42, 12, Color(0.82, 0.94, 1.0, 0.68))
+	# Clean reference-style HUD: readable combat frame, no Phase/debug telemetry block.
+	draw_rect(Rect2(0, 0, W, 76), Color(0.0, 0.015, 0.035, 0.28))
+	draw_rect(Rect2(0, 76, W, 42), Color(0.0, 0.0, 0.0, 0.08))
+	draw_text("HP", 84, 28, 14, Color(0.86, 0.96, 1.0, 0.92))
+	draw_bar(Rect2(114, 16, 178, 12), hp_ratio, Color(1.0, 0.19, 0.16, 0.98), Color(0.05, 0.02, 0.04, 0.78))
+	draw_bar(Rect2(114, 36, 134, 9), 0.76 + (0.18 if overcharged else 0.0), Color(0.18, 0.84, 1.0, 0.92), Color(0.05, 0.10, 0.15, 0.70))
+	draw_text("FORCE WAR", 20, 62, 14, Color(0.66, 0.92, 1.0, 0.88))
+
+	var boss_rect = Rect2(170, 76, 380, 34)
+	draw_rect(boss_rect, Color(0.11, 0.02, 0.03, 0.54))
+	draw_rect(boss_rect, Color(1.0, 0.26, 0.18, 0.38), false, 1.6)
+	draw_text("BOSS", boss_rect.position.x + 14, boss_rect.position.y + 22, 14, Color(1.0, 0.90, 0.86, 0.96))
+	draw_text(str(forward_state.get("bossName", "Dreadnought Leviathan")), boss_rect.position.x + 72, boss_rect.position.y + 22, 13, Color(0.96, 0.98, 1.0, 0.90))
+	draw_bar(Rect2(boss_rect.position.x + 72, boss_rect.position.y + 24, 292, 6), 0.82 - progress * 0.12, Color(0.95, 0.08, 0.08, 0.96), Color(0.08, 0.03, 0.04, 0.80))
+
+	draw_text("SCORE", W - 146, 24, 13, Color(0.84, 0.95, 1.0, 0.82))
+	draw_text("2,487,360", W - 146, 52, 23, Color(0.92, 0.98, 1.0, 0.96))
+	draw_text("COMBO", W - 128, 98, 16, Color(1.0, 0.78, 0.20, 0.82))
+	draw_text("x " + str(150 + int(progress * 12.0)), W - 118, 134, 36, Color(1.0, 0.72, 0.12, 0.78))
+
+	var reticle = Vector2(W * 0.5, H * 0.50)
+	var reticle_alpha = clamp(0.28 + visibility * 0.50 - cloud_cover * 0.22, 0.20, 0.78)
+	var reticle_color = Color(0.30, 0.92, 1.0, reticle_alpha)
+	if bool(forward_state.get("cloudOcclusion", false)):
+		draw_circle(reticle, 64.0, Color(0.48, 0.58, 0.72, 0.08 + cloud_cover * 0.06))
+	draw_circle(reticle, 20.0, Color(0.05, 0.38, 0.58, 0.09))
+	draw_arc(reticle, 34.0, 0.0, TAU, 64, reticle_color, 2.0)
+	draw_arc(reticle, 58.0, -PI * 0.18, PI * 0.18, 18, reticle_color, 2.0)
+	draw_arc(reticle, 58.0, PI * 0.82, PI * 1.18, 18, reticle_color, 2.0)
+	draw_line(reticle + Vector2(-62, 0), reticle + Vector2(-17, 0), reticle_color, 2.0)
+	draw_line(reticle + Vector2(17, 0), reticle + Vector2(62, 0), reticle_color, 2.0)
+	draw_line(reticle + Vector2(0, -62), reticle + Vector2(0, -17), reticle_color, 2.0)
+	draw_line(reticle + Vector2(0, 17), reticle + Vector2(0, 62), reticle_color, 2.0)
+
+	var ability_labels = ["MSL", "OVR", "SHD"]
+	var ability_counts = [12, int(float(forward_state.get("overchargeSeconds", 0.0))), 3]
+	for i in range(3):
+		var center = Vector2(54, H - 308 + i * 74)
+		draw_circle(center, 28.0, Color(0.02, 0.09, 0.15, 0.58))
+		draw_arc(center, 30.0, 0.0, TAU, 48, Color(0.20, 0.82, 1.0, 0.72), 2.0)
+		draw_text_centered_at(str(ability_labels[i]), center + Vector2(0, 5), 12, Color(0.88, 0.98, 1.0, 0.92))
+		draw_text(str(ability_counts[i]), center.x + 34, center.y + 8, 18, Color(0.92, 0.98, 1.0, 0.88))
+
+	var weather_panel = Rect2(198, H - 52, 316, 30)
+	draw_rect(weather_panel, Color(0.0, 0.025, 0.055, 0.40))
+	draw_rect(weather_panel, Color(0.35, 0.88, 1.0, 0.18), false, 1.2)
+	draw_text("WIND " + str(snapped(wind_drift, 0.01)) + "   VIS " + str(int(visibility * 100.0)) + "%   STORM", weather_panel.position.x + 14, weather_panel.position.y + 21, 12, Color(0.82, 0.96, 1.0, 0.76))
+	draw_bar(Rect2(weather_panel.position.x + 236, weather_panel.position.y + 11, 58, 6), storm_hazard, Color(0.80, 0.22, 1.0, 0.86), Color(1, 1, 1, 0.10))
+
+	var radar_center = Vector2(W - 108, H - 108)
+	draw_circle(radar_center, 62.0, Color(0.0, 0.04, 0.08, 0.48))
+	draw_arc(radar_center, 62.0, 0.0, TAU, 72, Color(0.32, 0.88, 1.0, 0.48), 1.5)
+	draw_arc(radar_center, 38.0, 0.0, TAU, 72, Color(0.32, 0.88, 1.0, 0.24), 1.0)
+	draw_line(radar_center + Vector2(0, 52), radar_center + Vector2(0, -52), Color(0.32, 0.88, 1.0, 0.30), 1.0)
+	draw_line(radar_center + Vector2(-52, 0), radar_center + Vector2(52, 0), Color(0.32, 0.88, 1.0, 0.22), 1.0)
+	for i in range(14):
+		var a = time * 0.45 + float(i) * 0.93
+		var r = 14.0 + fmod(float(i) * 9.0 + time * 4.0, 42.0)
+		var blip = radar_center + Vector2(cos(a), sin(a)) * r
+		draw_circle(blip, 2.4, Color(1.0, 0.18, 0.16, 0.72))
+	draw_line(radar_center + Vector2(0, -34), radar_center + Vector2(-10, -10), Color(0.80, 0.96, 1.0, 0.92), 2.2)
+	draw_line(radar_center + Vector2(0, -34), radar_center + Vector2(10, -10), Color(0.80, 0.96, 1.0, 0.92), 2.2)
+	draw_line(radar_center + Vector2(-10, -10), radar_center + Vector2(10, -10), Color(0.80, 0.96, 1.0, 0.68), 1.4)
+
+	if overcharged:
+		draw_text_center("LIGHTNING OVERCHARGE", 138, 18, Color(0.70, 0.94, 1.0, 0.82))
+	if lightning_flash > 0.02:
+		draw_rect(Rect2(0, 0, W, H), Color(0.58, 0.82, 1.0, lightning_flash * 0.10))
 	if warning_timer > 0:
-		draw_text_center(warning_text, 132, 18, Color(1.0, 0.9, 0.35, min(1.0, warning_timer)))
-
+		draw_text_center(warning_text, 150, 16, Color(1.0, 0.9, 0.35, min(1.0, warning_timer)))
 
 func draw_hud() -> void:
 	draw_rect(Rect2(0, 0, W, 102), Color(0,0,0,0.52))

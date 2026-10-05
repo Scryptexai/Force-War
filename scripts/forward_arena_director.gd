@@ -37,6 +37,14 @@ var rain_sheets: Array = []
 var debris_streaks: Array = []
 var air_traffic: Array = []
 var tracer_streaks: Array = []
+var boss_anchor: Node3D
+var boss_core: MeshInstance3D
+var boss_beams: Array = []
+var cinematic_bullets: Array = []
+var player_beams: Array = []
+var missile_trails: Array = []
+var shield_bubbles: Array = []
+var explosion_bursts: Array = []
 var storm_cells: Array = []
 var lightning_nodes: Array = []
 
@@ -56,6 +64,13 @@ var tracer_cyan_mat: StandardMaterial3D
 var debris_mat: StandardMaterial3D
 var lightning_mat: StandardMaterial3D
 var hazard_mat: StandardMaterial3D
+var boss_hull_mat: StandardMaterial3D
+var boss_armor_mat: StandardMaterial3D
+var boss_core_mat: StandardMaterial3D
+var player_beam_mat: StandardMaterial3D
+var missile_smoke_mat: StandardMaterial3D
+var shield_mat: StandardMaterial3D
+var explosion_mat: StandardMaterial3D
 
 
 func setup() -> void:
@@ -71,6 +86,7 @@ func setup() -> void:
 	_create_warzone_layer()
 	_create_near_weather_layer()
 	_create_distant_battle_layer()
+	_create_visual_lock_composition_layer()
 	_create_storm_hazard_cells()
 	is_setup = true
 
@@ -112,6 +128,7 @@ func update_arena(delta: float, player_corridor: Vector2, travel_speed: float) -
 	_update_warzone(delta, travel_speed)
 	_update_near_weather(delta, travel_speed)
 	_update_distant_battle(delta, travel_speed)
+	_update_visual_lock_composition(delta, travel_speed)
 	_update_storm_cells(delta, travel_speed, player_corridor)
 	_update_lightning_nodes()
 	return get_weather_effect()
@@ -134,6 +151,9 @@ func get_weather_effect() -> Dictionary:
 		"lightningOvercharge": overcharge_timer > 0.0,
 		"overchargeSeconds": overcharge_timer,
 		"stormHazard": storm_hazard,
+		"bossAnchor": boss_anchor != null,
+		"bossName": "Dreadnought Leviathan",
+		"visualLockComposition": "dreadnought_forward_battle",
 		"hazardPushX": hazard_push.x,
 		"hazardPushY": hazard_push.y,
 		"distantTraffic": air_traffic.size(),
@@ -160,35 +180,42 @@ func _load_scene_assets() -> void:
 
 
 func _create_materials() -> void:
-	storm_cloud_mat = _make_material(Color(0.48, 0.61, 0.76, 0.44), Color(0.05, 0.11, 0.18, 1.0), 0.0, 0.44)
-	deep_cloud_mat = _make_material(Color(0.16, 0.22, 0.32, 0.70), Color(0.03, 0.08, 0.14, 1.0), 0.0, 0.70)
+	storm_cloud_mat = _make_material(Color(0.48, 0.61, 0.76, 0.26), Color(0.05, 0.11, 0.18, 1.0), 0.0, 0.26)
+	deep_cloud_mat = _make_material(Color(0.16, 0.22, 0.32, 0.38), Color(0.03, 0.08, 0.14, 1.0), 0.0, 0.38)
 	ocean_mat = _make_material(Color(0.02, 0.09, 0.15, 1.0), Color(0.00, 0.04, 0.08, 1.0), 0.05, 1.0)
 	city_mat = _make_material(Color(0.10, 0.13, 0.18, 1.0), Color(0.03, 0.06, 0.10, 1.0), 0.18, 1.0)
-	smoke_mat = _make_material(Color(0.22, 0.24, 0.26, 0.58), Color(0.02, 0.02, 0.02, 1.0), 0.0, 0.58)
+	smoke_mat = _make_material(Color(0.22, 0.24, 0.26, 0.42), Color(0.02, 0.02, 0.02, 1.0), 0.0, 0.42)
 	fire_mat = _make_material(Color(1.0, 0.32, 0.06, 0.92), Color(1.0, 0.20, 0.02, 1.0), 0.0, 0.92)
-	rain_mat = _make_material(Color(0.50, 0.78, 1.0, 0.28), Color(0.20, 0.50, 0.90, 1.0), 0.0, 0.28)
+	rain_mat = _make_material(Color(0.50, 0.78, 1.0, 0.16), Color(0.20, 0.50, 0.90, 1.0), 0.0, 0.16)
 	tracer_red_mat = _make_material(Color(1.0, 0.22, 0.08, 0.82), Color(1.0, 0.12, 0.02, 1.0), 0.0, 0.82)
 	tracer_cyan_mat = _make_material(Color(0.15, 0.88, 1.0, 0.80), Color(0.1, 0.85, 1.0, 1.0), 0.0, 0.80)
 	debris_mat = _make_material(Color(0.72, 0.64, 0.52, 0.82), Color(0.10, 0.08, 0.05, 1.0), 0.0, 0.82)
 	lightning_mat = _make_material(Color(0.75, 0.92, 1.0, 0.86), Color(0.45, 0.85, 1.0, 1.0), 0.0, 0.86)
-	hazard_mat = _make_material(Color(0.78, 0.18, 1.0, 0.32), Color(0.48, 0.10, 1.0, 1.0), 0.0, 0.32)
+	hazard_mat = _make_material(Color(0.78, 0.18, 1.0, 0.055), Color(0.48, 0.10, 1.0, 1.0), 0.0, 0.055)
+	boss_hull_mat = _make_material(Color(0.13, 0.15, 0.19, 1.0), Color(0.035, 0.055, 0.08, 1.0), 0.55, 1.0)
+	boss_armor_mat = _make_material(Color(0.28, 0.31, 0.37, 1.0), Color(0.045, 0.10, 0.16, 1.0), 0.62, 1.0)
+	boss_core_mat = _make_material(Color(1.0, 0.38, 0.08, 0.96), Color(1.0, 0.20, 0.02, 1.0), 0.0, 0.96)
+	player_beam_mat = _make_material(Color(0.10, 0.82, 1.0, 0.76), Color(0.05, 0.82, 1.0, 1.0), 0.0, 0.76)
+	missile_smoke_mat = _make_material(Color(0.70, 0.76, 0.82, 0.46), Color(0.08, 0.10, 0.12, 1.0), 0.0, 0.46)
+	shield_mat = _make_material(Color(0.18, 0.75, 1.0, 0.20), Color(0.12, 0.68, 1.0, 1.0), 0.0, 0.20)
+	explosion_mat = _make_material(Color(1.0, 0.52, 0.08, 0.90), Color(1.0, 0.22, 0.02, 1.0), 0.0, 0.90)
 
 
 func _create_far_sky_layer() -> void:
-	for i in range(7):
-		var bank = _cloud_bank_node("FarStormWall_%02d" % i, 4, true)
-		bank.position = Vector3(rng.randf_range(-28.0, 28.0), rng.randf_range(7.0, 13.5), -58.0 - i * 28.0)
-		bank.scale = Vector3(rng.randf_range(2.4, 4.8), rng.randf_range(1.1, 2.0), rng.randf_range(2.0, 4.0))
+	for i in range(4):
+		var bank = _cloud_bank_node("FarStormWall_%02d" % i, 3, true)
+		bank.position = Vector3(rng.randf_range(-26.0, 26.0), rng.randf_range(9.0, 16.0), -72.0 - i * 34.0)
+		bank.scale = Vector3(rng.randf_range(1.6, 3.0), rng.randf_range(0.8, 1.4), rng.randf_range(1.4, 2.6))
 		bank.set_meta("speed_mul", rng.randf_range(0.10, 0.18))
 		add_child(bank)
 		far_sky_banks.append(bank)
 
 
 func _create_mid_cloud_layer() -> void:
-	for i in range(14):
-		var bank = _cloud_bank_node("GameplayCloudVolume_%02d" % i, 3, false)
-		bank.position = Vector3(rng.randf_range(-12.0, 12.0), rng.randf_range(0.7, 5.9), -20.0 - rng.randf_range(0.0, 135.0))
-		bank.scale = Vector3(rng.randf_range(1.0, 2.6), rng.randf_range(0.65, 1.35), rng.randf_range(1.0, 2.2))
+	for i in range(8):
+		var bank = _cloud_bank_node("GameplayCloudVolume_%02d" % i, 2, false)
+		bank.position = Vector3(rng.randf_range(-13.5, 13.5), rng.randf_range(3.0, 8.2), -36.0 - rng.randf_range(0.0, 130.0))
+		bank.scale = Vector3(rng.randf_range(0.9, 1.8), rng.randf_range(0.45, 0.9), rng.randf_range(0.8, 1.5))
 		bank.set_meta("speed_mul", rng.randf_range(0.45, 0.68))
 		bank.set_meta("radius", rng.randf_range(2.7, 5.6))
 		add_child(bank)
@@ -199,26 +226,21 @@ func _create_warzone_layer() -> void:
 	for i in range(8):
 		var chunk = Node3D.new()
 		chunk.name = "ForwardWarzoneChunk_%02d" % i
-		chunk.position = Vector3(0.0, -5.0, -18.0 - i * 18.5)
+		chunk.position = Vector3(0.0, -9.0, -24.0 - i * 22.0)
 		chunk.set_meta("speed_mul", 0.88)
-		chunk.add_child(_box_mesh("OceanOrFloodedCityPlate", Vector3.ZERO, Vector3(24.0, 0.06, 16.0), ocean_mat))
-		if arena_scene:
-			var imported = arena_scene.instantiate()
-			imported.name = "ForwardArenaGLBReference"
-			imported.position = Vector3(0.0, 0.10, 0.0)
-			imported.scale = Vector3(1.25, 0.18, 1.4)
-			chunk.add_child(imported)
+		chunk.add_child(_box_mesh("OceanOrFloodedCityPlateLeft", Vector3(-8.5, 0.0, 0.0), Vector3(8.5, 0.045, 13.0), ocean_mat))
+		chunk.add_child(_box_mesh("OceanOrFloodedCityPlateRight", Vector3(8.5, 0.0, 0.0), Vector3(8.5, 0.045, 13.0), ocean_mat))
 		for b in range(9):
-			var bx = rng.randf_range(-10.0, 10.0)
-			var bz = rng.randf_range(-6.8, 6.8)
+			var bx = rng.randf_range(-11.0, -5.0) if b % 2 == 0 else rng.randf_range(5.0, 11.0)
+			var bz = rng.randf_range(-5.6, 5.6)
 			var by = rng.randf_range(0.35, 1.8)
 			chunk.add_child(_box_mesh("CityBlock_%02d" % b, Vector3(bx, by * 0.5, bz), Vector3(rng.randf_range(0.45, 1.25), by, rng.randf_range(0.45, 1.4)), city_mat))
 		for f in range(4):
-			var fire = _box_mesh("GroundFirePocket_%02d" % f, Vector3(rng.randf_range(-9.0, 9.0), 0.52, rng.randf_range(-6.0, 6.0)), Vector3(0.35, rng.randf_range(0.7, 1.45), 0.35), fire_mat)
+			var fire = _box_mesh("GroundFirePocket_%02d" % f, Vector3(rng.randf_range(-10.0, -4.8) if f % 2 == 0 else rng.randf_range(4.8, 10.0), 0.52, rng.randf_range(-5.6, 5.6)), Vector3(0.35, rng.randf_range(0.7, 1.45), 0.35), fire_mat)
 			chunk.add_child(fire)
 			fire_pockets.append(fire)
 		for s in range(3):
-			var smoke = _smoke_column("SmokeColumn_%02d" % s, Vector3(rng.randf_range(-8.5, 8.5), 1.0, rng.randf_range(-6.5, 6.5)))
+			var smoke = _smoke_column("SmokeColumn_%02d" % s, Vector3(rng.randf_range(-10.5, -5.0) if s % 2 == 0 else rng.randf_range(5.0, 10.5), 1.0, rng.randf_range(-5.8, 5.8)))
 			chunk.add_child(smoke)
 			smoke_columns.append(smoke)
 		add_child(chunk)
@@ -226,14 +248,14 @@ func _create_warzone_layer() -> void:
 
 
 func _create_near_weather_layer() -> void:
-	for i in range(28):
+	for i in range(16):
 		var sheet = _box_mesh("RainSheet_%02d" % i, Vector3.ZERO, Vector3(rng.randf_range(0.025, 0.055), rng.randf_range(3.6, 8.4), rng.randf_range(0.025, 0.055)), rain_mat)
 		sheet.position = Vector3(rng.randf_range(-8.5, 8.5), rng.randf_range(0.5, 6.0), -5.0 - rng.randf_range(0.0, 78.0))
 		sheet.rotation_degrees = Vector3(rng.randf_range(-18.0, -8.0), 0.0, rng.randf_range(-15.0, 15.0))
 		sheet.set_meta("speed_mul", rng.randf_range(1.18, 1.48))
 		add_child(sheet)
 		rain_sheets.append(sheet)
-	for i in range(22):
+	for i in range(12):
 		var debris = _box_mesh("NearDebrisStreak_%02d" % i, Vector3.ZERO, Vector3(rng.randf_range(0.06, 0.13), rng.randf_range(0.03, 0.08), rng.randf_range(0.8, 2.2)), debris_mat)
 		debris.position = Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(-1.8, 4.7), -8.0 - rng.randf_range(0.0, 95.0))
 		debris.rotation_degrees = Vector3(rng.randf_range(-4.0, 4.0), rng.randf_range(-12.0, 12.0), rng.randf_range(-24.0, 24.0))
@@ -269,6 +291,81 @@ func _create_distant_battle_layer() -> void:
 		tracer_streaks.append(tracer)
 
 
+func _create_visual_lock_composition_layer() -> void:
+	# Recenter the arena around the reference composition: readable player path,
+	# a massive boss carrier in the upper half, ordered projectile lanes, smoke,
+	# shielded support craft, and explosions over the warzone below.
+	boss_anchor = Node3D.new()
+	boss_anchor.name = "DreadnoughtLeviathanBossAnchor"
+	boss_anchor.position = Vector3(0.0, 12.5, -96.0)
+	boss_anchor.set_meta("base_z", -96.0)
+	boss_anchor.add_child(_box_mesh("LeviathanMainHull", Vector3(0.0, 0.0, 0.0), Vector3(24.0, 2.4, 8.2), boss_hull_mat))
+	boss_anchor.add_child(_box_mesh("LeviathanUpperDeck", Vector3(0.0, 1.65, -0.3), Vector3(17.0, 0.95, 5.9), boss_armor_mat))
+	boss_anchor.add_child(_box_mesh("LeviathanBowPlate", Vector3(0.0, -0.15, 5.1), Vector3(11.5, 1.3, 0.9), boss_armor_mat))
+	boss_anchor.add_child(_box_mesh("LeftFlightSponson", Vector3(-12.7, -0.15, 0.6), Vector3(3.8, 0.65, 5.8), boss_hull_mat))
+	boss_anchor.add_child(_box_mesh("RightFlightSponson", Vector3(12.7, -0.15, 0.6), Vector3(3.8, 0.65, 5.8), boss_hull_mat))
+	for i in range(7):
+		var tx = -7.8 + i * 2.6
+		var tower = _box_mesh("CommandTower_%02d" % i, Vector3(tx, 2.8 + rng.randf_range(0.0, 1.0), rng.randf_range(-2.8, 2.5)), Vector3(0.75, rng.randf_range(2.2, 4.8), 0.75), boss_armor_mat)
+		boss_anchor.add_child(tower)
+		var light = _box_mesh("TowerBlueBeacon_%02d" % i, tower.position + Vector3(0.0, tower.mesh.size.y * 0.55 + 0.10, 0.0), Vector3(0.20, 0.12, 0.20), player_beam_mat)
+		boss_anchor.add_child(light)
+	for i in range(11):
+		var sx = -7.5 + i * 1.5
+		boss_anchor.add_child(_box_mesh("LeviathanBlueWindow_%02d" % i, Vector3(sx, -0.45, 5.68), Vector3(0.45, 0.16, 0.08), player_beam_mat))
+		if i % 2 == 0:
+			boss_anchor.add_child(_box_mesh("LeviathanRedPort_%02d" % i, Vector3(sx + 0.7, 0.20, 5.75), Vector3(0.34, 0.14, 0.08), tracer_red_mat))
+	boss_core = _sphere_mesh("LeviathanCoreCannon", Vector3(0.0, -0.20, 5.92), 0.92, boss_core_mat)
+	boss_anchor.add_child(boss_core)
+	add_child(boss_anchor)
+
+	for i in range(5):
+		var x = -4.4 + i * 2.2
+		var beam = _box_mesh("BossLaserLance_%02d" % i, Vector3(x, 5.8 - abs(float(i) - 2.0) * 0.30, -54.0 + i * 1.4), Vector3(0.07, 0.07, 46.0), tracer_red_mat)
+		beam.rotation_degrees = Vector3(0.0, -x * 1.6, x * 2.0)
+		beam.set_meta("base_x", x)
+		add_child(beam)
+		boss_beams.append(beam)
+
+	var lanes = [-3.4, -2.15, -0.9, 0.9, 2.15, 3.4]
+	for i in range(36):
+		var lane = lanes[i % lanes.size()]
+		var bullet = _box_mesh("ReadableEnemyBolt_%02d" % i, Vector3(lane, rng.randf_range(1.6, 5.4), -34.0 - i * 3.8), Vector3(0.16, 0.16, 1.28), tracer_red_mat)
+		bullet.set_meta("lane", lane)
+		bullet.set_meta("speed_mul", rng.randf_range(1.20, 1.55))
+		add_child(bullet)
+		cinematic_bullets.append(bullet)
+
+	for i in range(2):
+		var beam_x = -0.42 if i == 0 else 0.42
+		var player_beam = _box_mesh("PlayerCyanFireLane_%02d" % i, Vector3(beam_x, 1.75, -38.0), Vector3(0.075, 0.075, 72.0), player_beam_mat)
+		player_beam.set_meta("beam_x", beam_x)
+		add_child(player_beam)
+		player_beams.append(player_beam)
+
+	for i in range(16):
+		var trail = _box_mesh("MissileSmokeTrail_%02d" % i, Vector3(rng.randf_range(-11.0, 11.0), rng.randf_range(-0.7, 3.5), -14.0 - rng.randf_range(0.0, 94.0)), Vector3(0.24, 0.24, rng.randf_range(3.0, 8.5)), missile_smoke_mat)
+		trail.rotation_degrees = Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(-26.0, 26.0), rng.randf_range(-18.0, 18.0))
+		trail.set_meta("speed_mul", rng.randf_range(0.72, 1.05))
+		add_child(trail)
+		missile_trails.append(trail)
+
+	for i in range(5):
+		var explosion = _sphere_mesh("WarzoneExplosionBurst_%02d" % i, Vector3(rng.randf_range(-9.5, 9.5), rng.randf_range(-2.4, 1.4), -24.0 - rng.randf_range(0.0, 86.0)), rng.randf_range(0.65, 1.35), explosion_mat)
+		explosion.set_meta("base_radius", explosion.scale.x)
+		explosion.set_meta("speed_mul", rng.randf_range(0.78, 1.05))
+		add_child(explosion)
+		explosion_bursts.append(explosion)
+
+	for i in range(2):
+		var shield_x = -8.8 if i == 0 else 8.6
+		var shield = _sphere_mesh("WingmanShieldBubble_%02d" % i, Vector3(shield_x, 2.0 + i * 0.45, -34.0 - i * 18.0), 1.75, shield_mat)
+		shield.set_meta("speed_mul", 0.66 + i * 0.06)
+		add_child(shield)
+		shield_bubbles.append(shield)
+
+
+
 func _create_storm_hazard_cells() -> void:
 	for i in range(4):
 		var cell = _cloud_bank_node("StormCellHazard_%02d" % i, 5, false)
@@ -290,11 +387,11 @@ func _create_storm_hazard_cells() -> void:
 
 func _reset_layers() -> void:
 	for i in range(far_sky_banks.size()):
-		far_sky_banks[i].position = Vector3(rng.randf_range(-28.0, 28.0), rng.randf_range(7.0, 13.5), -58.0 - i * 28.0)
+		far_sky_banks[i].position = Vector3(rng.randf_range(-26.0, 26.0), rng.randf_range(9.0, 16.0), -72.0 - i * 34.0)
 	for cloud in mid_cloud_banks:
-		cloud.position = Vector3(rng.randf_range(-12.0, 12.0), rng.randf_range(0.7, 5.9), -20.0 - rng.randf_range(0.0, 135.0))
+		cloud.position = Vector3(rng.randf_range(-13.5, 13.5), rng.randf_range(3.0, 8.2), -36.0 - rng.randf_range(0.0, 130.0))
 	for i in range(warzone_chunks.size()):
-		warzone_chunks[i].position = Vector3(0.0, -5.0, -18.0 - i * 18.5)
+		warzone_chunks[i].position = Vector3(0.0, -9.0, -24.0 - i * 22.0)
 	for rain in rain_sheets:
 		rain.position = Vector3(rng.randf_range(-8.5, 8.5), rng.randf_range(0.5, 6.0), -5.0 - rng.randf_range(0.0, 78.0))
 	for debris in debris_streaks:
@@ -303,6 +400,17 @@ func _reset_layers() -> void:
 		traffic.position = Vector3(rng.randf_range(-18.0, 18.0), rng.randf_range(3.0, 10.0), -45.0 - rng.randf_range(0.0, 130.0))
 	for tracer in tracer_streaks:
 		tracer.position = Vector3(rng.randf_range(-18.0, 18.0), rng.randf_range(1.0, 10.5), -24.0 - rng.randf_range(0.0, 145.0))
+	if boss_anchor:
+		boss_anchor.position = Vector3(0.0, 12.5, -96.0)
+	for bullet in cinematic_bullets:
+		bullet.position.z = -18.0 - rng.randf_range(0.0, 112.0)
+		bullet.position.y = rng.randf_range(1.1, 4.5)
+	for trail in missile_trails:
+		trail.position = Vector3(rng.randf_range(-11.0, 11.0), rng.randf_range(-0.7, 3.5), -14.0 - rng.randf_range(0.0, 94.0))
+	for explosion in explosion_bursts:
+		explosion.position = Vector3(rng.randf_range(-9.5, 9.5), rng.randf_range(-2.4, 1.4), -24.0 - rng.randf_range(0.0, 86.0))
+	for i in range(shield_bubbles.size()):
+		shield_bubbles[i].position = Vector3(-8.8 if i == 0 else 8.6, 2.0 + i * 0.45, -34.0 - i * 18.0)
 	for i in range(storm_cells.size()):
 		storm_cells[i].position = Vector3(rng.randf_range(-5.0, 5.0), rng.randf_range(0.4, 3.8), -35.0 - i * 42.0)
 
@@ -317,7 +425,7 @@ func _update_weather_logic(delta: float, player_corridor: Vector2) -> void:
 	wind_drift = wind * (0.70 + gust * 0.24)
 	turbulence = Vector2(wind_drift * 0.42 + sin(forward_time * 2.4) * cloud * 0.11, sin(forward_time * 1.65 + 0.8) * (rain + cloud) * 0.08)
 
-	cloud_cover = clamp(cloud * 0.32, 0.0, 0.65)
+	cloud_cover = clamp(cloud * 0.22, 0.0, 0.38)
 	cloud_occlusion = false
 	for bank in mid_cloud_banks:
 		if bank.position.z > -38.0 and bank.position.z < 4.0:
@@ -327,8 +435,8 @@ func _update_weather_logic(delta: float, player_corridor: Vector2) -> void:
 			var proximity = clamp(1.0 - (horizontal + vertical * 0.8) / max(1.0, radius), 0.0, 1.0)
 			if proximity > 0.22:
 				cloud_occlusion = true
-				cloud_cover = max(cloud_cover, 0.42 + proximity * 0.52)
-	rain_visibility = clamp(base_visibility - rain * 0.23 - cloud_cover * 0.20 - storm_hazard * 0.12 + lightning_flash * 0.12, 0.30, 1.0)
+				cloud_cover = max(cloud_cover, 0.26 + proximity * 0.30)
+	rain_visibility = clamp(base_visibility - rain * 0.08 - cloud_cover * 0.06 - storm_hazard * 0.05 + lightning_flash * 0.10, 0.62, 1.0)
 
 	lightning_timer -= delta
 	if lightning > 0.05 and lightning_timer <= 0.0:
@@ -401,6 +509,49 @@ func _update_distant_battle(delta: float, travel_speed: float) -> void:
 			tracer.position = Vector3(rng.randf_range(-18.0, 18.0), rng.randf_range(1.0, 10.5), -145.0 - rng.randf_range(0.0, 45.0))
 
 
+func _update_visual_lock_composition(delta: float, travel_speed: float) -> void:
+	if boss_anchor:
+		boss_anchor.position.z = lerp(boss_anchor.position.z, -96.0 + sin(forward_time * 0.22) * 2.0, min(1.0, delta * 0.7))
+		boss_anchor.position.x = sin(forward_time * 0.17) * 1.0
+		boss_anchor.rotation_degrees.z = sin(forward_time * 0.19) * 1.5
+	if boss_core:
+		var core_pulse = 1.0 + sin(forward_time * 7.5) * 0.10 + lightning_flash * 0.32
+		boss_core.scale = Vector3.ONE * core_pulse
+	for beam in boss_beams:
+		beam.visible = true
+		beam.position.x = float(beam.get_meta("base_x", 0.0)) + sin(forward_time * 0.9 + beam.position.z) * 0.22
+		beam.scale.z = 1.0 + lightning_flash * 0.18
+	for bullet in cinematic_bullets:
+		bullet.position.z += travel_speed * float(bullet.get_meta("speed_mul", 1.35)) * delta
+		bullet.position.x = float(bullet.get_meta("lane", 0.0)) + sin(forward_time * 1.15 + bullet.position.z * 0.05) * 0.18
+		bullet.rotation_degrees.x = 0.0
+		if bullet.position.z > 6.0:
+			bullet.position.z = -112.0 - rng.randf_range(0.0, 28.0)
+			bullet.position.y = rng.randf_range(1.1, 4.5)
+	for beam in player_beams:
+		beam.position.x = float(beam.get_meta("beam_x", 0.0)) + sin(forward_time * 12.0) * 0.025
+		beam.scale.z = 1.0 + (0.22 if overcharge_timer > 0.0 else 0.0) + sin(forward_time * 14.0) * 0.02
+	for trail in missile_trails:
+		trail.position.z += travel_speed * float(trail.get_meta("speed_mul", 0.9)) * delta
+		trail.position.x += wind_drift * delta * 0.72
+		trail.scale.z = 1.0 + sin(forward_time * 1.7 + trail.position.x) * 0.06
+		if trail.position.z > 12.0:
+			trail.position = Vector3(rng.randf_range(-11.0, 11.0), rng.randf_range(-0.7, 3.5), -112.0 - rng.randf_range(0.0, 28.0))
+	for explosion in explosion_bursts:
+		explosion.position.z += travel_speed * float(explosion.get_meta("speed_mul", 0.86)) * delta
+		var pulse = 1.0 + sin(forward_time * 9.0 + explosion.position.x) * 0.18
+		explosion.scale = Vector3.ONE * float(explosion.get_meta("base_radius", 1.0)) * pulse
+		if explosion.position.z > 10.0:
+			explosion.position = Vector3(rng.randf_range(-9.5, 9.5), rng.randf_range(-2.4, 1.4), -112.0 - rng.randf_range(0.0, 36.0))
+	for shield in shield_bubbles:
+		shield.position.z += travel_speed * float(shield.get_meta("speed_mul", 0.66)) * delta
+		shield.rotation_degrees.y += delta * 22.0
+		shield.scale = Vector3.ONE * (1.0 + sin(forward_time * 2.5 + shield.position.x) * 0.045)
+		if shield.position.z > 10.0:
+			shield.position = Vector3(rng.randf_range(-9.5, 9.5), rng.randf_range(1.5, 3.1), -105.0 - rng.randf_range(0.0, 44.0))
+
+
+
 func _update_storm_cells(delta: float, travel_speed: float, player_corridor: Vector2) -> void:
 	storm_hazard = 0.0
 	hazard_push = Vector2.ZERO
@@ -466,6 +617,21 @@ func _smoke_column(node_name: String, pos: Vector3) -> Node3D:
 		puff.rotation_degrees = Vector3(rng.randf_range(-12.0, 12.0), rng.randf_range(0.0, 360.0), rng.randf_range(-12.0, 12.0))
 		root.add_child(puff)
 	return root
+
+
+func _sphere_mesh(node_name: String, pos: Vector3, radius: float, material: Material) -> MeshInstance3D:
+	var mesh = SphereMesh.new()
+	mesh.radius = radius
+	mesh.height = radius * 2.0
+	mesh.radial_segments = 24
+	mesh.rings = 12
+	var mi = MeshInstance3D.new()
+	mi.name = node_name
+	mi.mesh = mesh
+	mi.position = pos
+	mi.material_override = material
+	return mi
+
 
 
 func _box_mesh(node_name: String, pos: Vector3, size: Vector3, material: Material) -> MeshInstance3D:

@@ -217,8 +217,8 @@ func _create_afterburners() -> void:
 
 
 func _create_forward_depth_markers() -> void:
-	var lane_mat = _make_material(Color(0.1, 0.9, 1.0, 0.22), Color(0.1, 0.65, 1.0, 1.0), 0.0, 0.22)
-	for i in range(8):
+	var lane_mat = _make_material(Color(0.1, 0.9, 1.0, 0.10), Color(0.1, 0.65, 1.0, 1.0), 0.0, 0.10)
+	for i in range(0):
 		var gate = Node3D.new()
 		gate.name = "ForwardFlightGate_%02d" % i
 		gate.position = Vector3(0.0, 1.65, -18.0 - i * 13.5)
@@ -229,8 +229,8 @@ func _create_forward_depth_markers() -> void:
 		add_child(gate)
 		lane_markers.append(gate)
 
-	var cloud_mat = _make_material(Color(0.58, 0.72, 0.88, 0.35), Color(0.04, 0.10, 0.16, 1.0), 0.0, 0.35)
-	for i in range(18):
+	var cloud_mat = _make_material(Color(0.58, 0.72, 0.88, 0.16), Color(0.04, 0.10, 0.16, 1.0), 0.0, 0.16)
+	for i in range(0):
 		var cloud = _box_mesh("StormCloudChunk_%02d" % i, Vector3.ZERO, Vector3(rng.randf_range(2.2, 5.6), rng.randf_range(0.35, 0.95), rng.randf_range(1.2, 3.5)), cloud_mat)
 		cloud.position = Vector3(rng.randf_range(-9.5, 9.5), rng.randf_range(2.2, 7.0), -12.0 - rng.randf_range(0.0, 110.0))
 		add_child(cloud)
@@ -238,7 +238,7 @@ func _create_forward_depth_markers() -> void:
 
 	var ocean_mat = _make_material(Color(0.03, 0.12, 0.18, 1.0), Color(0.0, 0.05, 0.08, 1.0), 0.15)
 	var fire_mat = _make_material(Color(1.0, 0.34, 0.08, 1.0), Color(1.0, 0.18, 0.02, 1.0), 0.0)
-	for i in range(10):
+	for i in range(0):
 		var chunk = _box_mesh("WarzoneBelow_%02d" % i, Vector3.ZERO, Vector3(14.0, 0.06, 10.0), ocean_mat)
 		chunk.position = Vector3(0.0, -3.2, -10.0 - i * 12.0)
 		add_child(chunk)
@@ -301,7 +301,7 @@ func _update_environment_weather(delta: float, effect: Dictionary) -> void:
 	var cover = float(effect.get("cloudCover", 0.0))
 	var lightning = float(effect.get("lightningFlash", 0.0))
 	var hazard = float(effect.get("stormHazard", 0.0))
-	var target_fog = 0.014 + (1.0 - visibility) * 0.036 + cover * 0.020 + hazard * 0.012
+	var target_fog = 0.004 + (1.0 - visibility) * 0.012 + cover * 0.006 + hazard * 0.005
 	env.fog_density = lerp(env.fog_density, target_fog, min(1.0, delta * 1.9))
 	var storm_color = Color(0.012, 0.026, 0.065, 1.0).lerp(Color(0.06, 0.11, 0.16, 1.0), cover * 0.42)
 	env.background_color = storm_color.lerp(Color(0.55, 0.74, 1.0, 1.0), lightning * 0.55)

@@ -109,7 +109,9 @@ async function main() {
       if (typeof result.state?.rainVisibility !== 'number') fail('rainVisibility was not numeric');
       if (typeof result.state?.cloudCover !== 'number') fail('cloudCover was not numeric');
       if (typeof result.state?.stormHazard !== 'number') fail('stormHazard was not numeric');
-      console.log(`Forward/weather browser QA ok: mode=${result.state.missionMode} camera=${result.state.cameraMode} model=${result.state.playerModel} arena=${result.state.arenaPhase} layers=${result.state.depthLayerCount} wind=${Number(result.state.windDrift).toFixed(2)} visibility=${Number(result.state.rainVisibility).toFixed(2)} progress=${Number(result.state.progress).toFixed(3)} canvas=${result.canvas.width}x${result.canvas.height}`);
+      if (result.state?.bossAnchor !== true) fail(`boss anchor missing: ${JSON.stringify(result.state)}`);
+      if (result.state?.visualLockComposition !== 'dreadnought_forward_battle') fail(`visual lock composition missing: ${result.state?.visualLockComposition}`);
+      console.log(`Forward/weather browser QA ok: mode=${result.state.missionMode} camera=${result.state.cameraMode} model=${result.state.playerModel} arena=${result.state.arenaPhase} composition=${result.state.visualLockComposition} layers=${result.state.depthLayerCount} wind=${Number(result.state.windDrift).toFixed(2)} visibility=${Number(result.state.rainVisibility).toFixed(2)} progress=${Number(result.state.progress).toFixed(3)} canvas=${result.canvas.width}x${result.canvas.height}`);
     } finally {
       await browser.close();
     }
