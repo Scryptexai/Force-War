@@ -3480,7 +3480,10 @@ func draw_forward_hud() -> void:
 	draw_rect(boss_rect, Color(1.0, 0.26, 0.18, 0.38), false, 1.6)
 	draw_text("BOSS", boss_rect.position.x + 14, boss_rect.position.y + 22, 14, Color(1.0, 0.90, 0.86, 0.96))
 	draw_text(str(forward_state.get("bossName", "Dreadnought Leviathan")), boss_rect.position.x + 72, boss_rect.position.y + 22, 13, Color(0.96, 0.98, 1.0, 0.90))
-	draw_bar(Rect2(boss_rect.position.x + 72, boss_rect.position.y + 24, 292, 6), 0.82 - progress * 0.12, Color(0.95, 0.08, 0.08, 0.96), Color(0.08, 0.03, 0.04, 0.80))
+	if forward_state.has("bossPhase"):
+		draw_text("P" + str(int(forward_state.get("bossPhase", 1))), boss_rect.position.x + 340, boss_rect.position.y + 22, 12, Color(1.0, 0.72, 0.45, 0.88))
+	var boss_hp_ratio = float(forward_state.get("bossHpRatio", 0.82 - progress * 0.12))
+	draw_bar(Rect2(boss_rect.position.x + 72, boss_rect.position.y + 24, 292, 6), boss_hp_ratio, Color(0.95, 0.08, 0.08, 0.96), Color(0.08, 0.03, 0.04, 0.80))
 
 	draw_text("FORWARD AIR", W - 154, 30, 13, Color(0.84, 0.95, 1.0, 0.72))
 	draw_text(str(int(progress * 100.0)) + "%", W - 92, 56, 20, Color(0.92, 0.98, 1.0, 0.86))

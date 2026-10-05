@@ -65,7 +65,7 @@ scripts/main.gd                       # Baseline gameplay lama; wajib dibedah pa
 assets/models/                        # Asset gameplay baru: GLB pesawat, enemy, boss, arena/deck chunks
 assets/vfx/                           # Authored projectile/explosion/smoke/shield/reticle/ocean/deck textures for 3D chase combat
 assets/source_textures/               # Source material textures for Blender pass; .gdignore prevents direct Godot import
-data/                                # Data contract for projectile/wave definitions and future data-driven combat
+data/                                # Data contracts for projectile, boss, and wave definitions used by the runtime slice
 assets/rendered/                      # Hanya untuk logo/loading/UI reference; tidak boleh menjadi player aircraft gameplay final
 gameplay_visual_lock_build.jpg        # Visual target reference, bukan gameplay texture
 tools/export_web.sh                   # Export Web Godot 4.6.2 ke root repo

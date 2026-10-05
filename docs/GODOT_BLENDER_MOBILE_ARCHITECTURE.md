@@ -27,8 +27,9 @@ The current browser build remains a preview/debug target. It is useful for contr
 | Textured boss/deck GLBs | First production pass active |
 | BattlefieldDirector concept | Existing `ForwardArenaDirector` acts as the active battlefield director |
 | Renderer-aware VFX | Started with pooled MultiMesh projectile visuals plus existing textured quads |
-| Projectile architecture | First runtime step added: `ProjectileVisualPool3D` batches 84 bolt visuals using MultiMesh; gameplay collision/data patterns still need the next pass |
-| Data-driven weapons/patterns | Initial JSON data files added under `data/` as the contract for the next implementation pass |
+| Projectile architecture | `ProjectileVisualPool3D` batches 84 bolt visuals using MultiMesh, and `ProjectileManager3D` now owns a 140-slot logical enemy bullet pool with no physics body per bullet |
+| Data-driven weapons/patterns | JSON projectile contracts added under `data/projectiles/`; runtime logical manager loads those definitions |
+| Boss phase/damage model | `BossPhaseController` active with shield, wings, turrets, and core health; HUD boss bar reads real boss ratio |
 | Quality manager | Not implemented yet |
 | Android APK/AAB | Not implemented in this branch yet |
 
@@ -59,9 +60,8 @@ A feature is not considered production-ready until the repo contains:
 
 The next major chunk should implement the actual logical combat layer behind the current visual layer:
 
-- `ProjectileManager` object pooling for gameplay bullets;
-- `ProjectileData` resources or JSON-driven projectile definitions;
-- logical distance/radius collision instead of physics bodies for bullet hell;
-- boss phase data with turret/core weak points;
+- expand `ProjectileManager3D` into full player/enemy/missile/laser gameplay pools;
+- convert JSON projectile contracts into Resource-based editor tooling when the schema stabilizes;
+- add boss attack pattern scheduling for phase 2/3, not just health-state progression;
 - debug commands for bullet count, boss phase, and quality tier;
 - later: Android export and device profiling.

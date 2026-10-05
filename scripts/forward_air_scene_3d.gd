@@ -8,6 +8,7 @@ class_name ForwardAirScene3D
 const PLAYER_MODEL_PATH = "res://assets/models/player_stormhawk.glb"
 const FORWARD_DIR = Vector3(0.0, 0.0, -1.0)
 const ARENA_DIRECTOR_SCRIPT = preload("res://scripts/forward_arena_director.gd")
+const PROJECTILE_MANAGER_SCRIPT = preload("res://scripts/projectiles/projectile_manager_3d.gd")
 
 var owner_main: Node
 var active = false
@@ -22,6 +23,7 @@ var player_model: Node3D
 var afterburner_left: MeshInstance3D
 var afterburner_right: MeshInstance3D
 var arena_director: Node3D
+var projectile_manager: Node
 
 var lane_markers: Array = []
 var cloud_markers: Array = []
@@ -54,6 +56,7 @@ func setup(main_owner: Node) -> void:
 	_create_environment()
 	_create_camera_rig()
 	_create_arena_director()
+	_create_projectile_manager()
 	_create_player_rig()
 	_create_forward_depth_markers()
 	is_setup = true
@@ -76,6 +79,8 @@ func start_mission(stage_data: Dictionary, loadout_data: Dictionary, aircraft_da
 	weather_effect = {}
 	if arena_director and arena_director.has_method("start_mission"):
 		arena_director.start_mission(stage_data)
+	if projectile_manager and projectile_manager.has_method("start_mission"):
+		projectile_manager.start_mission(stage_data)
 	if player_rig:
 		player_rig.position = Vector3(0.0, 1.5, 0.0)
 		player_rig.rotation = Vector3.ZERO
@@ -91,6 +96,8 @@ func stop_mission() -> void:
 	visible = false
 	if arena_director and arena_director.has_method("stop_mission"):
 		arena_director.stop_mission()
+	if projectile_manager and projectile_manager.has_method("stop_mission"):
+		projectile_manager.stop_mission()
 	if camera:
 		camera.current = false
 
@@ -108,6 +115,7 @@ func update_forward(delta: float, input_state: Dictionary) -> void:
 		weather_effect = arena_director.update_arena(delta, corridor_pos, travel_speed)
 	mission_progress = clamp(mission_progress + delta * forward_speed / 1380.0, 0.0, 0.985)
 	_update_corridor_position(delta, input_state, weather_effect)
+	_update_projectile_logic(delta, weather_effect)
 	_update_weather_damage(delta, weather_effect)
 	_update_player_pose(delta, input_state, weather_effect)
 	_update_forward_markers(delta)
@@ -133,6 +141,10 @@ func get_bridge_state() -> Dictionary:
 		var arena_state = arena_director.get_bridge_state()
 		for key in arena_state.keys():
 			bridge[key] = arena_state[key]
+	if projectile_manager and projectile_manager.has_method("get_bridge_state"):
+		var projectile_state = projectile_manager.get_bridge_state()
+		for key in projectile_state.keys():
+			bridge[key] = projectile_state[key]
 	return bridge
 
 
@@ -174,6 +186,13 @@ func _create_arena_director() -> void:
 	add_child(arena_director)
 	if arena_director.has_method("setup"):
 		arena_director.setup()
+
+
+func _create_projectile_manager() -> void:
+	projectile_manager = PROJECTILE_MANAGER_SCRIPT.new()
+	add_child(projectile_manager)
+	if projectile_manager.has_method("setup"):
+		projectile_manager.setup()
 
 
 func _create_player_rig() -> void:
@@ -279,6 +298,15 @@ func _update_corridor_position(delta: float, input_state: Dictionary, effect: Di
 	corridor_pos += hazard_vec * delta * 1.35
 	corridor_pos.x = clamp(corridor_pos.x, -corridor_width, corridor_width)
 	corridor_pos.y = clamp(corridor_pos.y, -corridor_height, corridor_height)
+
+
+func _update_projectile_logic(delta: float, effect: Dictionary) -> void:
+	if projectile_manager == null or not projectile_manager.has_method("update_logic"):
+		return
+	var damage := float(projectile_manager.update_logic(delta, corridor_pos, effect, boost_amount))
+	if damage > 0.0:
+		hp = max(0, hp - int(ceil(damage)))
+		hazard_damage_buffer = max(hazard_damage_buffer, 0.18)
 
 
 func _update_weather_damage(delta: float, effect: Dictionary) -> void:

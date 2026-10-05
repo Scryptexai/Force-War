@@ -21,6 +21,7 @@ const ENEMY_HERO_JET_READY_PATH = "res://assets/models/enemy_hero_jet_blender_re
 const ENEMY_HERO_JET_PATH = "res://assets/models/enemy_hero_jet.glb"
 const DEPTH_LAYER_COUNT = 5
 const PROJECTILE_VISUAL_POOL_SCRIPT = preload("res://scripts/projectiles/projectile_visual_pool_3d.gd")
+const BOSS_PHASE_CONTROLLER_SCRIPT = preload("res://scripts/boss/boss_phase_controller.gd")
 
 var active = false
 var is_setup = false
@@ -53,6 +54,7 @@ var air_traffic: Array = []
 var tracer_streaks: Array = []
 var boss_anchor: Node3D
 var boss_core: MeshInstance3D
+var boss_phase_controller: Node
 var boss_beams: Array = []
 var cinematic_bullets: Array = []
 var player_beams: Array = []
@@ -122,6 +124,7 @@ func setup() -> void:
 	_create_near_weather_layer()
 	_create_distant_battle_layer()
 	_create_visual_lock_composition_layer()
+	_create_boss_phase_controller()
 	_create_storm_hazard_cells()
 	is_setup = true
 
@@ -146,11 +149,15 @@ func start_mission(stage_data: Dictionary) -> void:
 	storm_hazard = 0.0
 	hazard_push = Vector2.ZERO
 	_reset_layers()
+	if boss_phase_controller and boss_phase_controller.has_method("start_mission"):
+		boss_phase_controller.start_mission(stage_data)
 
 
 func stop_mission() -> void:
 	active = false
 	visible = false
+	if boss_phase_controller and boss_phase_controller.has_method("stop_mission"):
+		boss_phase_controller.stop_mission()
 
 
 func update_arena(delta: float, player_corridor: Vector2, travel_speed: float) -> Dictionary:
@@ -165,6 +172,7 @@ func update_arena(delta: float, player_corridor: Vector2, travel_speed: float) -
 	_update_near_weather(delta, travel_speed)
 	_update_distant_battle(delta, travel_speed)
 	_update_visual_lock_composition(delta, travel_speed)
+	_update_boss_phase_logic(delta)
 	_update_storm_cells(delta, travel_speed, player_corridor)
 	_update_lightning_nodes()
 	return get_weather_effect()
@@ -189,6 +197,7 @@ func get_weather_effect() -> Dictionary:
 		"stormHazard": storm_hazard,
 		"bossAnchor": boss_anchor != null,
 		"bossName": "Dreadnought Leviathan",
+		"bossPhaseController": boss_phase_controller != null,
 		"visualLockComposition": "dreadnought_forward_battle",
 		"blenderPipeline": "bpy_4_5_14_generated_glb",
 		"enemyHeroJetModel": enemy_hero_jet_scene != null,
@@ -216,6 +225,10 @@ func get_weather_effect() -> Dictionary:
 
 func get_bridge_state() -> Dictionary:
 	var effect = get_weather_effect()
+	if boss_phase_controller and boss_phase_controller.has_method("get_bridge_state"):
+		var boss_state = boss_phase_controller.get_bridge_state()
+		for key in boss_state.keys():
+			effect[key] = boss_state[key]
 	effect.erase("turbulence")
 	return effect
 
@@ -580,6 +593,22 @@ func _projectile_pool_count() -> int:
 	if enemy_projectile_visual_pool != null and enemy_projectile_visual_pool.has_method("get_pool_count"):
 		count += int(enemy_projectile_visual_pool.get_pool_count())
 	return count
+
+func _create_boss_phase_controller() -> void:
+	boss_phase_controller = BOSS_PHASE_CONTROLLER_SCRIPT.new()
+	add_child(boss_phase_controller)
+
+
+func _update_boss_phase_logic(delta: float) -> void:
+	if boss_phase_controller == null or not boss_phase_controller.has_method("update_boss"):
+		return
+	var overcharged: bool = overcharge_timer > 0.0
+	var pressure: float = 1.0 + (0.30 if overcharged else 0.0) + lightning_flash * 0.22
+	boss_phase_controller.update_boss(delta, overcharged, pressure)
+	if boss_core and boss_phase_controller.has_method("get_hp_ratio"):
+		var wounded := 1.0 - float(boss_phase_controller.get_hp_ratio())
+		boss_core.scale = Vector3.ONE * (1.0 + wounded * 0.20 + lightning_flash * 0.25)
+
 
 func _play_first_animation(root: Node) -> void:
 	for child in root.get_children():

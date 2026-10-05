@@ -1,0 +1,22 @@
+{
+  "id": "boss_dreadnought_leviathan",
+  "name": "Dreadnought Leviathan",
+  "model": "res://assets/models/boss_dreadnought_leviathan.glb",
+  "damage_model": "parts_shield_wings_turrets_core",
+  "parts": {
+    "shield": { "hp": 2400, "phase": 1 },
+    "left_wing": { "hp": 950, "phase": 2 },
+    "right_wing": { "hp": 950, "phase": 2 },
+    "turrets": { "hp": 1250, "phase": 2 },
+    "core": { "hp": 2050, "phase": 3 }
+  },
+  "patterns": [
+    "boss_lane_sweep_pool_v1",
+    "turret_crossfire_future",
+    "core_laser_future"
+  ],
+  "renderer_contract": {
+    "mobile": "Mobile renderer target with particles and material instances",
+    "web": "Compatibility-safe baseline VFX and MultiMesh preview"
+  }
+}

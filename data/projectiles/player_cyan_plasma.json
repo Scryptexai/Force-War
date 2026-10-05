@@ -6,8 +6,14 @@
   "lifetime": 1.65,
   "damage": 18,
   "radius": 0.34,
-  "lanes": [-0.98, -0.32, 0.32, 0.98],
+  "lanes": [
+    -0.98,
+    -0.32,
+    0.32,
+    0.98
+  ],
   "render_pool_count": 36,
   "collision_mode": "future_logical_radius",
-  "renderer": "multimesh_visual_pool"
+  "renderer": "multimesh_visual_pool",
+  "logic_pool_count": 80
 }
