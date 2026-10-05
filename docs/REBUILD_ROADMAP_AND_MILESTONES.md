@@ -32,19 +32,19 @@ Non-negotiable untuk semua milestone:
 | Visual reference lock | Done | 100% | `gameplay_visual_lock_build.jpg` menjadi mood/quality target. |
 | Repo audit setup lama | Done for docs | 80% | Code/assets legacy masih ada, tapi sudah dipetakan. |
 | Web pipeline | Stable baseline | 80% | `npm start`, Vercel headers, root export masih aktif. |
-| ForwardAirScene3D gameplay | Not started | 0% | Belum ada scene gameplay baru. |
+| ForwardAirScene3D gameplay | Not started | 0% | R2 belum dimulai; R1 cut points sudah dipetakan. |
 | Player GLB final | Not started | 0% | Belum ada `player_stormhawk.glb`. |
 | Chase camera rig | Not started | 0% | Belum implement. |
 | Forward arena director | Not started | 0% | GLB tile/cloud lama belum dirombak. |
 | 3D weapon VFX | Not started | 0% | Efek lama masih 2D/procedural baseline. |
 | Boss dreadnought GLB | Not started | 0% | Baru target desain. |
-| Legacy code removal | Not started | 0% | Ditunda sampai replacement 3D playable. |
+| Legacy code removal | Mapped | 10% | Keep/rewrite/delete map selesai; removal fisik ditunda sampai replacement 3D playable. |
 
 ### Estimasi overall rebuild
 
 ```text
-Forward 3D gameplay rebuild only: ±7%
-Full product including existing Web pipeline/docs: ±22–25%
+Forward 3D gameplay rebuild only: ±10%
+Full product including existing Web pipeline/docs: ±26%
 ```
 
 Angka ini sengaja konservatif. Jangan menaikkan progress hanya karena dokumen selesai; milestone gameplay harus dibuktikan lewat browser preview.
@@ -56,8 +56,8 @@ Angka ini sengaja konservatif. Jangan menaikkan progress hanya karena dokumen se
 | ID | Milestone | Status | Target output utama | Gate |
 | --- | --- | --- | --- | --- |
 | R0 | Direction Lock & Cleanup Docs | Done | Docs baru + audit setup lama | Gate 0 |
-| R1 | Rebuild Prep & Legacy Quarantine | Next | Code map, deletion plan, scene split plan | Gate 1 |
-| R2 | ForwardAirScene3D Skeleton | Planned | Scene 3D baru bootable | Gate 2 |
+| R1 | Rebuild Prep & Legacy Quarantine | Done | Code map, deletion plan, scene split plan | Gate 1 |
+| R2 | ForwardAirScene3D Skeleton | Next | Scene 3D baru bootable | Gate 2 |
 | R3 | Player GLB + Chase Camera | Planned | Pesawat GLB terlihat dari kamera belakang | Gate 3 |
 | R4 | 3D Flight Corridor Controls | Planned | Movement maju/strafe/altitude/roll | Gate 4 |
 | R5 | Forward Arena Director | Planned | Arena 3D bergerak maju berlapis | Gate 5 |
@@ -75,7 +75,7 @@ Angka ini sengaja konservatif. Jangan menaikkan progress hanya karena dokumen se
 
 ### R0 — Direction Lock & Cleanup Docs
 
-**Status:** Done  
+**Status:** Done
 **Commit reference:** `f00934f Lock forward 3D air combat redesign`
 
 Deliverables:
@@ -96,30 +96,30 @@ Exit criteria:
 
 ### R1 — Rebuild Prep & Legacy Quarantine
 
-**Status:** Next  
+**Status:** Done
 **Goal:** siapkan pembedahan code tanpa merusak Web baseline sebelum replacement scene siap.
 
 Tasks:
 
-- [ ] Map all `scripts/main.gd` sections into categories:
+- [x] Map all `scripts/main.gd` sections into categories:
   - keep: Web bridge, save shell, loading shell, shared UI utilities;
   - rewrite: gameplay update loop, camera, player control, weapon system;
   - delete later: car/convoy/ground chase/top-down rendering.
-- [ ] Define new script/module layout:
+- [x] Define new script/module layout:
   - `ForwardAirScene3D` / `ForwardArenaDirector` / `WeaponVFXDirector` / `EnemyDirector3D`.
-- [ ] Decide whether to keep one-file prototype first or split scripts immediately.
-- [ ] Create strict forbidden-runtime list:
+- [x] Decide whether to keep one-file prototype first or split scripts immediately.
+- [x] Create strict forbidden-runtime list:
   - `ground_car`, `convoy`, top-down player draw, static gameplay background.
-- [ ] Create QA checklist for visual 3D verification.
+- [x] Create QA checklist for visual 3D verification.
 
 Deliverables:
 
-- Code map section added to `docs/REPO_CLEANUP_AUDIT.md` or a new `docs/CODE_REBUILD_MAP.md`.
-- No gameplay behavior change yet.
+- [x] New `docs/CODE_REBUILD_MAP.md` added.
+- [x] No gameplay behavior changed.
 
 Exit criteria:
 
-- Next coding pass has exact cut points and no accidental old-system carryover.
+- [x] Next coding pass has exact cut points and no accidental old-system carryover.
 
 ---
 
@@ -483,13 +483,13 @@ Passed if root export + browser QA pass with the rebuilt 3D scene.
 
 ## 6. Immediate Next Work Order
 
-Next work should be **R1 only**, not random gameplay tweaking:
+R1 is complete. Next work should be **R2 only**, not random VFX/gameplay tweaking:
 
-1. Create code rebuild map.
-2. Identify exact functions/variables to keep, rewrite, delete.
-3. Decide scene/script split.
-4. Define visual QA checks for GLB/camera verification.
-5. Only after R1 is accepted, start R2 scene skeleton.
+1. Create `scripts/forward_air_scene_3d.gd`.
+2. Instantiate a minimal `ForwardAirScene3D` from the current main shell.
+3. Add WorldEnvironment, DirectionalLight3D, CameraRig3D, and placeholder PlayerRig3D.
+4. Report bridge state `missionMode: forward_air_combat` and `cameraMode: chase_behind_above`.
+5. Keep loading/title/briefing shell intact until the 3D gameplay scene is visible.
 
 ---
 
@@ -520,3 +520,15 @@ Do not mark forward rebuild as playable until all are true:
 - weapon VFX emitted from model hardpoints;
 - old car/convoy/top-down flow absent;
 - root Web export rebuilt and QA passed.
+
+## 9. Progress Log
+
+```text
+Milestone: R1 — Rebuild Prep & Legacy Quarantine
+Status: Done
+Changed files: docs/CODE_REBUILD_MAP.md, docs/REBUILD_ROADMAP_AND_MILESTONES.md, docs/ROADMAP.md, README.md, docs/REPO_CLEANUP_AUDIT.md
+Validation run: git diff --check; npm run vercel-build
+What is visibly different: no gameplay visual change; this phase is prep only
+What remains incomplete: ForwardAirScene3D skeleton is not created yet
+Next step: R2 — create minimal 3D forward air scene and chase camera skeleton
+```

@@ -76,6 +76,7 @@ Pass ini tidak mengubah gameplay code. Cleanup yang aman dilakukan:
 
 - README ditulis ulang ke arah **Forward Air Combat Redesign**.
 - Roadmap ditulis ulang tanpa convoy/car/top-down sebagai target aktif.
+- R1 code map dibuat di `docs/CODE_REBUILD_MAP.md` untuk memisahkan keep/rewrite/delete sebelum coding R2.
 - Asset catalog ditulis ulang sebagai katalog GLB target + legacy quarantine.
 - FX research ditulis ulang untuk third-person forward air-combat.
 - UI/UX docs ditulis ulang ke flow aircraft-only.
