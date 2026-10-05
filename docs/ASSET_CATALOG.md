@@ -66,13 +66,13 @@ Boss must be a 3D object ahead of player, not a top overlay image.
 
 | File | Current status | New policy |
 | --- | --- | --- |
-| `assets/models/player_stormhawk.glb` | Phase 1 player aircraft GLB placeholder, integrated in `ForwardAirScene3D` | Active first-pass gameplay player model; replace/detail later, but keep GLB requirement |
+| `assets/models/player_stormhawk.glb` | Textured Blender GLB first production pass, integrated in `ForwardAirScene3D` | Active player model; still needs final high-detail aircraft, but no longer a 23 KB untextured placeholder |
 | `assets/models/enemy_hero_jet.glb` | User-uploaded hero/fighter GLB moved into model catalog | Source for Blender-prepared enemy placeholder |
 | `assets/models/enemy_hero_jet_blender_ready.glb` | Blender-generated animated enemy placeholder with sockets plus attack-pass, muzzle-flash, and engine-pulse clips | Active enemy model in forward-air runtime |
 | `assets/models/support_jet.glb` | Existing low-poly jet | Can be used as temporary wingman/reference, not final player model |
 | `assets/models/air_arena_tile.glb` | Existing low-poly terrain/water/runway tile | Legacy/reference only; active forward deck now uses authored texture/GLB modules |
-| `assets/models/arena_battle_deck_cluster.glb` | Blender-authored deck/turret/radar module with beacon animation and sockets | Active below-flight arena detail replacing many unclear runtime boxes |
-| `assets/models/boss_dreadnought_leviathan.glb` | Blender-authored dreadnought boss, 447 KB, with `BossDreadnought_IdleHover` and `BossCore_ChargePulse` | Active boss arena asset in `ForwardArenaDirector` |
+| `assets/models/arena_battle_deck_cluster.glb` | Textured Blender deck/turret/radar module with carrier-deck/hull textures, beacon animation, and sockets | Active below-flight arena detail replacing many unclear runtime boxes |
+| `assets/models/boss_dreadnought_leviathan.glb` | Textured Blender dreadnought boss, ~578 KB, with carrier-deck/hull textures plus `BossDreadnought_IdleHover` and `BossCore_ChargePulse` | Active boss arena asset in `ForwardArenaDirector`; still first production pass, not final boss art |
 | `assets/models/air_cloud_cluster.glb` | Existing low-poly cloud cluster | Kept as reference only; active arena disables continuous cloud geometry per user correction |
 | `assets/models/player_car.glb` | Legacy ground chase car | Deprecated; remove after code rewrite |
 | `assets/models/enemy_car.glb` | Legacy ground chase car | Deprecated; remove after code rewrite |
@@ -118,13 +118,26 @@ These PNGs are authored gameplay VFX sprites used as textured quads inside the 3
 
 | File | Active role |
 | --- | --- |
-| `assets/vfx/hero_cyan_shot.png` | Player cyan cannon lanes, pulses, and distant friendly tracers |
-| `assets/vfx/enemy_orange_shot.png` | Enemy/boss orange-red bolts and laser-lane telegraphs |
+| `assets/vfx/hero_cyan_shot.png` | Image-authored cyan plasma cannon lanes, pulses, and distant friendly tracers |
+| `assets/vfx/enemy_orange_shot.png` | Image-authored orange-red enemy/boss bolts and laser-lane telegraphs |
 | `assets/vfx/explosion_fireball.png` | Ground fire pockets and explosion bursts |
 | `assets/vfx/smoke_plume.png` | Missile/smoke trails and smoke columns |
 | `assets/vfx/shield_bubble.png` | Wingman/support shield bubbles |
 | `assets/vfx/reticle_lock.png` | Clean authored HUD reticle replacing code-drawn clutter |
-| `assets/vfx/arena_deck_panel.png` | Textured arena deck/sea panels below the flight path |
+| `assets/vfx/arena_deck_panel.png` | Photo-style carrier deck material used on arena deck panels below the flight path |
+| `assets/vfx/storm_ocean_material.jpg` | Photo-style storm ocean material used on runtime 3D floor planes below the flight path |
+
+
+### Source Texture Inventory
+
+`assets/source_textures/` contains source material textures used by the Blender asset-generation pass. The folder includes `.gdignore` so Godot does not directly import these sources; exported GLBs and runtime VFX textures carry the actual in-game versions.
+
+| File | Role |
+| --- | --- |
+| `production_carrier_deck_texture.jpg` | Carrier deck material source for deck cluster/boss and `arena_deck_panel.png` |
+| `production_dreadnought_hull_texture.jpg` | Dreadnought hull material source for boss/deck cluster |
+| `production_stormhawk_livery_texture.jpg` | Player aircraft livery material source for `player_stormhawk.glb` |
+| `production_storm_ocean_material.jpg` | Storm-ocean material source for `assets/vfx/storm_ocean_material.jpg` |
 
 ## 5. SVG Policy
 

@@ -15,6 +15,7 @@ const EXPLOSION_TEXTURE_PATH = "res://assets/vfx/explosion_fireball.png"
 const SMOKE_TEXTURE_PATH = "res://assets/vfx/smoke_plume.png"
 const SHIELD_TEXTURE_PATH = "res://assets/vfx/shield_bubble.png"
 const ARENA_DECK_TEXTURE_PATH = "res://assets/vfx/arena_deck_panel.png"
+const STORM_OCEAN_TEXTURE_PATH = "res://assets/vfx/storm_ocean_material.jpg"
 const CINEMATIC_MATTE_TEXTURE_PATH = "res://assets/rendered/forward_air_battlefield_matte.jpg"
 const ENEMY_HERO_JET_READY_PATH = "res://assets/models/enemy_hero_jet_blender_ready.glb"
 const ENEMY_HERO_JET_PATH = "res://assets/models/enemy_hero_jet.glb"
@@ -42,6 +43,7 @@ var active_weather_kind = "storm"
 var far_sky_banks: Array = []
 var mid_cloud_banks: Array = []
 var warzone_chunks: Array = []
+var ocean_floor_planes: Array = []
 var smoke_columns: Array = []
 var fire_pockets: Array = []
 var rain_sheets: Array = []
@@ -75,6 +77,7 @@ var explosion_texture: Texture2D
 var smoke_texture: Texture2D
 var shield_texture: Texture2D
 var arena_deck_texture: Texture2D
+var storm_ocean_texture: Texture2D
 var cinematic_matte_texture: Texture2D
 
 var storm_cloud_mat: StandardMaterial3D
@@ -109,6 +112,7 @@ func setup() -> void:
 	_load_scene_assets()
 	_create_materials()
 	_create_cinematic_matte_layer()
+	_create_ocean_battlefield_floor()
 	_create_far_sky_layer()
 	_create_mid_cloud_layer()
 	_create_warzone_layer()
@@ -152,6 +156,7 @@ func update_arena(delta: float, player_corridor: Vector2, travel_speed: float) -
 	forward_time += delta
 	_update_weather_logic(delta, player_corridor)
 	_update_far_sky(delta, travel_speed)
+	_update_ocean_floor(delta, travel_speed)
 	_update_mid_clouds(delta, travel_speed)
 	_update_warzone(delta, travel_speed)
 	_update_near_weather(delta, travel_speed)
@@ -188,6 +193,8 @@ func get_weather_effect() -> Dictionary:
 		"enemyHeroJetAnimation": "EnemyJet_AttackPass_Loop" if enemy_hero_jet_blender_ready else "runtime_motion_only",
 		"bossArenaAsset": "boss_dreadnought_leviathan_glb" if boss_dreadnought_scene != null else "runtime_fallback",
 		"arenaAssetDeckCluster": arena_deck_cluster_scene != null,
+		"stormOceanTextureAsset": storm_ocean_texture != null,
+		"texturedBlenderAssets": arena_deck_cluster_scene != null and boss_dreadnought_scene != null and storm_ocean_texture != null,
 		"cinematicMatteAsset": cinematic_matte_texture != null,
 		"projectileAssetSprites": hero_shot_texture != null and enemy_shot_texture != null,
 		"cleanArenaOverlay": true,
@@ -229,6 +236,7 @@ func _load_scene_assets() -> void:
 	smoke_texture = load(SMOKE_TEXTURE_PATH)
 	shield_texture = load(SHIELD_TEXTURE_PATH)
 	arena_deck_texture = load(ARENA_DECK_TEXTURE_PATH)
+	storm_ocean_texture = load(STORM_OCEAN_TEXTURE_PATH)
 	cinematic_matte_texture = load(CINEMATIC_MATTE_TEXTURE_PATH)
 	var enemy_resource = load(ENEMY_HERO_JET_READY_PATH)
 	if enemy_resource is PackedScene:
@@ -244,7 +252,10 @@ func _load_scene_assets() -> void:
 func _create_materials() -> void:
 	storm_cloud_mat = _make_material(Color(0.48, 0.61, 0.76, 0.26), Color(0.05, 0.11, 0.18, 1.0), 0.0, 0.26)
 	deep_cloud_mat = _make_material(Color(0.16, 0.22, 0.32, 0.38), Color(0.03, 0.08, 0.14, 1.0), 0.0, 0.38)
-	ocean_mat = _make_material(Color(0.02, 0.09, 0.15, 1.0), Color(0.00, 0.04, 0.08, 1.0), 0.05, 1.0)
+	if storm_ocean_texture != null:
+		ocean_mat = _make_textured_material(storm_ocean_texture, Color(0.72, 0.86, 0.98, 0.92), Color(0.00, 0.06, 0.10, 1.0), 0.92, false, false, 0.35)
+	else:
+		ocean_mat = _make_material(Color(0.02, 0.09, 0.15, 1.0), Color(0.00, 0.04, 0.08, 1.0), 0.05, 1.0)
 	city_mat = _make_material(Color(0.10, 0.13, 0.18, 1.0), Color(0.03, 0.06, 0.10, 1.0), 0.18, 1.0)
 	smoke_mat = _make_material(Color(0.22, 0.24, 0.26, 0.42), Color(0.02, 0.02, 0.02, 1.0), 0.0, 0.42)
 	fire_mat = _make_material(Color(1.0, 0.32, 0.06, 0.92), Color(1.0, 0.20, 0.02, 1.0), 0.0, 0.92)
@@ -277,6 +288,18 @@ func _create_cinematic_matte_layer() -> void:
 	cinematic_matte_plane.rotation_degrees = Vector3(90.0, 0.0, 0.0)
 	cinematic_matte_plane.material_override = cinematic_matte_mat
 	add_child(cinematic_matte_plane)
+
+
+func _create_ocean_battlefield_floor() -> void:
+	# Runtime image-textured ocean floor. This is a real texture asset on Godot planes,
+	# used only as storm sea material under Blender deck/ship GLBs, not as a fake aircraft photo.
+	if ocean_mat == null:
+		return
+	for i in range(5):
+		var ocean = _plane_mesh("StormOceanTexturePlane_%02d" % i, Vector3(0.0, -9.45, -24.0 - i * 44.0), Vector2(58.0, 44.0), ocean_mat)
+		ocean.set_meta("speed_mul", 0.52)
+		add_child(ocean)
+		ocean_floor_planes.append(ocean)
 
 
 func _create_far_sky_layer() -> void:
@@ -537,6 +560,8 @@ func _reset_layers() -> void:
 		far_sky_banks[i].position = Vector3(rng.randf_range(-26.0, 26.0), rng.randf_range(9.0, 16.0), -72.0 - i * 34.0)
 	for cloud in mid_cloud_banks:
 		cloud.position = Vector3(rng.randf_range(-13.5, 13.5), rng.randf_range(3.0, 8.2), -36.0 - rng.randf_range(0.0, 130.0))
+	for i in range(ocean_floor_planes.size()):
+		ocean_floor_planes[i].position = Vector3(0.0, -9.45, -24.0 - i * 44.0)
 	for i in range(warzone_chunks.size()):
 		warzone_chunks[i].position = Vector3(0.0, -9.0, -24.0 - i * 22.0)
 	for rain in rain_sheets:
@@ -598,6 +623,14 @@ func _update_far_sky(delta: float, travel_speed: float) -> void:
 		bank.rotation_degrees.y += delta * 1.1
 		if bank.position.z > 34.0:
 			bank.position = Vector3(rng.randf_range(-30.0, 30.0), rng.randf_range(7.0, 13.5), -190.0 - rng.randf_range(0.0, 42.0))
+
+
+func _update_ocean_floor(delta: float, travel_speed: float) -> void:
+	for ocean in ocean_floor_planes:
+		ocean.position.z += travel_speed * float(ocean.get_meta("speed_mul", 0.52)) * delta
+		ocean.position.x = sin(forward_time * 0.18 + ocean.position.z * 0.05) * 0.55 + wind_drift * 0.35
+		if ocean.position.z > 26.0:
+			ocean.position.z -= 220.0
 
 
 func _update_mid_clouds(delta: float, travel_speed: float) -> void:
