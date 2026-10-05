@@ -162,9 +162,9 @@ func _ready() -> void:
 	init_background()
 	reset_player()
 	js_emit("ready", {
-		"game": "Force War: Sky Force War",
+		"game": "Force War: Forward Air Combat",
 		"engine_target": "Godot 4.6.2 stable Web",
-		"objective": "direct_sky_force_war"
+		"objective": "forward_air_combat"
 	})
 
 
@@ -1079,7 +1079,7 @@ func start_stage(index: int) -> void:
 		if forward_scene and forward_scene.has_method("start_mission"):
 			forward_scene.start_mission(stage, loadout, active_aircraft())
 		state = GameState.PLAYING
-		show_warning("FORWARD AIR COMBAT: GLB chase camera deployment")
+		show_warning("STORM BATTLEFIELD: forward GLB chase camera deployment")
 		js_emit("stage_start", {"stage": stage_index + 1, "name": stage["name"], "loadout": loadout["name"], "weather": stage["weather"], "phase": "forward_air_combat", "camera": "chase_behind_above", "playerModel": "glb"})
 	else:
 		start_ground_phase()
@@ -3468,21 +3468,31 @@ func draw_forward_hud() -> void:
 	draw_bar(Rect2(548, 42, 132, 12), progress, Color(1.0, 0.74, 0.24, 1.0), Color(1.0, 1.0, 1.0, 0.13))
 	draw_text("SPD " + str(int(float(forward_state.get("forwardSpeed", 0.0)))), 548, 76, 14, Color(0.72, 0.9, 1.0, 0.90))
 
+	var visibility = float(forward_state.get("rainVisibility", 1.0))
+	var cloud_cover = float(forward_state.get("cloudCover", 0.0))
+	var storm_hazard = float(forward_state.get("stormHazard", 0.0))
+	var wind_drift = float(forward_state.get("windDrift", 0.0))
+	var overcharged = bool(forward_state.get("lightningOvercharge", false))
+	var reticle_alpha = clamp(0.25 + visibility * 0.48 - cloud_cover * 0.24, 0.22, 0.78)
+	var reticle_color = Color(0.35, 0.95, 1.0, reticle_alpha)
 	var reticle = Vector2(W * 0.5, H * 0.43)
-	draw_circle(reticle, 34.0, Color(0.08, 0.50, 0.75, 0.16))
-	draw_arc(reticle, 42.0, 0.0, TAU, 64, Color(0.35, 0.95, 1.0, 0.72), 2.0)
-	draw_line(reticle + Vector2(-58, 0), reticle + Vector2(-16, 0), Color(0.35, 0.95, 1.0, 0.70), 2.0)
-	draw_line(reticle + Vector2(16, 0), reticle + Vector2(58, 0), Color(0.35, 0.95, 1.0, 0.70), 2.0)
-	draw_line(reticle + Vector2(0, -58), reticle + Vector2(0, -16), Color(0.35, 0.95, 1.0, 0.70), 2.0)
-	draw_line(reticle + Vector2(0, 16), reticle + Vector2(0, 58), Color(0.35, 0.95, 1.0, 0.70), 2.0)
-	draw_text_centered_at("FORWARD VECTOR", reticle + Vector2(0, 62), 13, Color(0.70, 0.93, 1.0, 0.78))
+	draw_circle(reticle, 34.0, Color(0.08, 0.50, 0.75, 0.10 + reticle_alpha * 0.08))
+	draw_arc(reticle, 42.0, 0.0, TAU, 64, reticle_color, 2.0)
+	draw_line(reticle + Vector2(-58, 0), reticle + Vector2(-16, 0), reticle_color, 2.0)
+	draw_line(reticle + Vector2(16, 0), reticle + Vector2(58, 0), reticle_color, 2.0)
+	draw_line(reticle + Vector2(0, -58), reticle + Vector2(0, -16), reticle_color, 2.0)
+	draw_line(reticle + Vector2(0, 16), reticle + Vector2(0, 58), reticle_color, 2.0)
+	draw_text_centered_at("FORWARD VECTOR" if not bool(forward_state.get("cloudOcclusion", false)) else "CLOUD OCCLUSION", reticle + Vector2(0, 62), 13, Color(0.70, 0.93, 1.0, 0.58 + reticle_alpha * 0.25))
 
 	var cx = float(forward_state.get("corridorX", 0.0))
 	var cy = float(forward_state.get("corridorY", 0.0))
-	draw_rect(Rect2(22, H - 128, 252, 84), Color(0.0, 0.02, 0.06, 0.46))
-	draw_text("PHASE 1 FLIGHT CORE", 38, H - 100, 15, Color(1.0, 0.86, 0.30, 0.96))
-	draw_text("corridor x " + str(snapped(cx, 0.01)) + " / y " + str(snapped(cy, 0.01)), 38, H - 72, 13, Color(0.82, 0.94, 1.0, 0.86))
-	draw_text("drag or WASD/arrow to steer", 38, H - 48, 13, Color(0.82, 0.94, 1.0, 0.70))
+	draw_rect(Rect2(22, H - 158, 332, 114), Color(0.0, 0.02, 0.06, 0.52))
+	draw_text("PHASE 2 STORM BATTLEFIELD", 38, H - 130, 15, Color(1.0, 0.86, 0.30, 0.96))
+	draw_text("corridor x " + str(snapped(cx, 0.01)) + " / y " + str(snapped(cy, 0.01)), 38, H - 104, 13, Color(0.82, 0.94, 1.0, 0.86))
+	draw_text("wind " + str(snapped(wind_drift, 0.01)) + "  cloud " + str(int(cloud_cover * 100.0)) + "%  vis " + str(int(visibility * 100.0)) + "%", 38, H - 80, 13, Color(0.82, 0.94, 1.0, 0.78))
+	draw_bar(Rect2(38, H - 66, 136, 8), storm_hazard, Color(0.80, 0.20, 1.0, 0.95), Color(1,1,1,0.10))
+	draw_text("storm cell hazard" + ("  OVERCHARGED" if overcharged else ""), 188, H - 58, 12, Color(0.95, 0.90, 1.0, 0.76))
+	draw_text("drag or WASD/arrow; weather pushes aircraft", 38, H - 42, 12, Color(0.82, 0.94, 1.0, 0.68))
 	if warning_timer > 0:
 		draw_text_center(warning_text, 132, 18, Color(1.0, 0.9, 0.35, min(1.0, warning_timer)))
 

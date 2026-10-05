@@ -7,7 +7,7 @@ Roadmap ini mengganti format milestone kecil per `R#`. Rebuild Force War sekaran
 
 Target akhir tetap sama: **3D forward air-combat** dengan pesawat GLB, kamera chase dari belakang-sedikit-atas, gerak maju ke depan, arena badai 3D, VFX sinematik, dan kualitas visual mengarah ke `gameplay_visual_lock_build.jpg`.
 
-> Status jujur: Phase 1 sudah menghasilkan forward-flight core yang terlihat dan tervalidasi di browser. Build ini belum punya arena sinematik final, hardpoint weapon combat, enemy waves, atau boss dreadnought. Phase 2 berikutnya harus membangun arena perang badai 3D yang hidup.
+> Status jujur: Phase 2 sudah menghasilkan arena perang badai 3D berlapis dengan weather gameplay awal dan browser QA. Build ini belum punya hardpoint weapon combat, enemy waves 3D, atau boss dreadnought. Phase 3 berikutnya harus membangun paket combat utama.
 
 ---
 
@@ -38,7 +38,7 @@ Semua phase wajib tunduk pada aturan ini:
 | Gameplay forward 3D playable | Phase 1 core done | 35% | `ForwardAirScene3D` aktif di browser dengan GLB player dan chase camera. |
 | Player GLB gameplay | First pass done | 35% | `assets/models/player_stormhawk.glb` dipakai sebagai player placeholder 3D. |
 | Chase camera | First pass done | 35% | `cameraMode: chase_behind_above` tervalidasi via browser QA. |
-| Arena forward 3D | Placeholder proof | 15% | Lane markers/cloud/warzone placeholders membuktikan forward depth; belum sinematik. |
+| Arena forward 3D | Phase 2 battlefield pass done | 55% | `ForwardArenaDirector` memberi storm sky, cloud volumes, warzone below, rain/debris/tracers, hazards. |
 | Weapon VFX hardpoint | Not started | 0% | Belum implement. |
 | Enemy/Boss 3D | Not started | 0% | Belum implement. |
 | Legacy cleanup fisik | Mapped only | 10% | Code/assets lama belum dihapus karena replacement belum ada. |
@@ -46,8 +46,8 @@ Semua phase wajib tunduk pada aturan ini:
 ### Estimasi overall rebuild
 
 ```text
-Forward 3D gameplay rebuild only: ±35%
-Full product including existing Web pipeline/docs: ±38–40%
+Forward 3D gameplay rebuild only: ±52–55%
+Full product including existing Web pipeline/docs: ±50–52%
 ```
 
 ---
@@ -58,8 +58,8 @@ Full product including existing Web pipeline/docs: ±38–40%
 | --- | --- | --- | --- | ---: |
 | Phase 0 | Direction Lock, Audit, Code Map | Done | Direction baru, visual lock, code map, docs cleanup | 10% forward rebuild |
 | Phase 1 | Core Forward Flight Rebuild | Done | Scene 3D playable: player GLB, chase camera, forward controls, browser QA | 35% forward rebuild |
-| Phase 2 | Cinematic Arena & Weather Battlefield | Active Next | Arena 3D berlapis, storm clouds, warzone below, weather gameplay awal | 50–55% forward rebuild |
-| Phase 3 | Weapon, Enemy, Boss Combat Package | Planned | Hardpoint weapons, enemy GLB waves, boss dreadnought, readable attack patterns | 70–75% forward rebuild |
+| Phase 2 | Cinematic Arena & Weather Battlefield | Done | Arena 3D berlapis, storm clouds, warzone below, weather gameplay awal, browser QA | 52–55% forward rebuild |
+| Phase 3 | Weapon, Enemy, Boss Combat Package | Active Next | Hardpoint weapons, enemy GLB waves, boss dreadnought, readable attack patterns | 70–75% forward rebuild |
 | Phase 4 | UI/UX, Progression, Legacy Cleanup | Planned | HUD forward flight, hangar aircraft-only, save migration, old code/assets removed | 85–90% forward rebuild |
 | Phase 5 | Web QA, Optimization, Content Expansion | Planned | Export final slice, browser QA, tuning, content expansion | 100% first rebuilt vertical slice |
 
@@ -189,42 +189,42 @@ Phase 1 lolos acceptance gate. Progress forward rebuild sekarang **±35%**. Buil
 
 ## 6. Phase 2 — Cinematic Arena & Weather Battlefield
 
-**Status:** Planned
+**Status:** Done for first cinematic/weather battlefield pass
 **Tujuan besar:** mengubah forward scene Phase 1 dari corridor kosong menjadi **arena perang badai 3D hidup** sesuai visual lock.
 
 ### Scope Phase 2
 
 #### 2.1 Forward arena director
 
-- [ ] Buat `scripts/forward_arena_director.gd`.
-- [ ] Buat system chunk spawn/despawn di depan kamera.
-- [ ] Rework `air_cloud_cluster.glb` atau buat cloud bank GLB baru.
-- [ ] Rework `air_arena_tile.glb` menjadi arena forward chunks, bukan tile top-down.
-- [ ] Tambah ocean/city warzone layer di bawah jalur terbang.
+- [x] Buat `scripts/forward_arena_director.gd`.
+- [x] Buat system chunk spawn/despawn di depan kamera.
+- [x] Rework `air_cloud_cluster.glb` atau buat cloud bank GLB baru.
+- [x] Rework `air_arena_tile.glb` menjadi arena forward chunks, bukan tile top-down.
+- [x] Tambah ocean/city warzone layer di bawah jalur terbang.
 
 #### 2.2 Layered battlefield depth
 
-- [ ] Far storm sky layer bergerak lambat.
-- [ ] Mid cloud banks bergerak medium.
-- [ ] Near debris/smoke streak bergerak cepat.
-- [ ] Warzone below bergerak perspektif.
-- [ ] Distant air traffic: ally/enemy silhouettes, tracer lines, tiny explosions.
+- [x] Far storm sky layer bergerak lambat.
+- [x] Mid cloud banks bergerak medium.
+- [x] Near debris/smoke streak bergerak cepat.
+- [x] Warzone below bergerak perspektif.
+- [x] Distant air traffic: ally/enemy silhouettes, tracer lines, tiny explosions.
 
 #### 2.3 Weather as gameplay volume
 
-- [ ] Wind field mempengaruhi smoke/trails dan sedikit steering/turbulence.
-- [ ] Cloud volume menyembunyikan musuh/target marker sampai dekat atau radar aktif.
-- [ ] Rain sheets menurunkan visibility.
-- [ ] Lightning flash menerangi arena dan men-trigger overcharge placeholder.
-- [ ] Storm cell hazard memaksa lane/altitude choice.
+- [x] Wind field mempengaruhi smoke/trails dan sedikit steering/turbulence.
+- [x] Cloud volume menyembunyikan musuh/target marker sampai dekat atau radar aktif.
+- [x] Rain sheets menurunkan visibility.
+- [x] Lightning flash menerangi arena dan men-trigger overcharge placeholder.
+- [x] Storm cell hazard memaksa lane/altitude choice.
 
 #### 2.4 Cinematic quality pass
 
-- [ ] Color grading storm/sunset blue-orange.
-- [ ] Light flashes and cloud edge lighting.
-- [ ] Smoke columns dari warzone bawah.
-- [ ] Fire pockets/explosions ambient.
-- [ ] Speed tuning supaya terasa maju tapi tidak terlalu cepat.
+- [x] Color grading storm/sunset blue-orange.
+- [x] Light flashes and cloud edge lighting.
+- [x] Smoke columns dari warzone bawah.
+- [x] Fire pockets/explosions ambient.
+- [x] Speed tuning supaya terasa maju tapi tidak terlalu cepat.
 
 ### Deliverable Phase 2
 
@@ -239,21 +239,21 @@ arena no longer feels empty or flat
 
 ### Acceptance Gate Phase 2
 
-- [ ] Minimal 4 depth layers terlihat jelas.
-- [ ] Arena bukan static photo dan bukan flat tile scroll.
-- [ ] Weather punya efek gameplay awal, bukan overlay dekoratif.
-- [ ] Kecepatan forward readable dan tidak terlalu cepat.
-- [ ] Browser QA pass.
+- [x] Minimal 4 depth layers terlihat jelas.
+- [x] Arena bukan static photo dan bukan flat tile scroll.
+- [x] Weather punya efek gameplay awal, bukan overlay dekoratif.
+- [x] Kecepatan forward readable dan tidak terlalu cepat.
+- [x] Browser QA pass.
 
 ### Progress setelah Phase 2 selesai
 
-Forward rebuild boleh naik ke **50–55%**.
+Phase 2 lolos acceptance gate. Forward rebuild sekarang **±52–55%**. Build masih belum full combat; Phase 3 harus menambahkan weapon/enemy/boss package.
 
 ---
 
 ## 7. Phase 3 — Weapon, Enemy, Boss Combat Package
 
-**Status:** Planned
+**Status:** Active Next
 **Tujuan besar:** membuat combat yang terasa seperti visual target: tembakan player kuat, enemy/boss 3D, projectile readable, dan boss dreadnought sebagai anchor besar di depan.
 
 ### Scope Phase 3
@@ -470,23 +470,23 @@ Forward rebuilt vertical slice boleh disebut **100% for first rebuilt slice**, b
 
 ## 10. Active Work Order Sekarang
 
-Phase 1 selesai untuk first playable forward-flight core. Next work adalah:
+Phase 2 selesai untuk first cinematic/weather battlefield pass. Next work adalah:
 
 ```text
-Phase 2 — Cinematic Arena & Weather Battlefield
+Phase 3 — Weapon, Enemy, Boss Combat Package
 ```
 
-Urutan kerja Phase 2:
+Urutan kerja Phase 3:
 
-1. Buat `forward_arena_director.gd`.
-2. Bangun storm cloud banks yang bergerak dalam depth.
-3. Bangun ocean/city warzone below flight path.
-4. Tambah smoke columns, fire pockets, distant explosions, tracer ambience.
-5. Ubah wind/rain/cloud/lightning menjadi volume gameplay 3D.
-6. Tuning forward speed/camera comfort supaya tidak terlalu cepat.
-7. Export Web + QA + preview.
+1. Buat `weapon_vfx_director.gd` untuk hardpoint fire dari GLB aircraft.
+2. Buat `enemy_director_3d.gd` untuk enemy fighter/drone/gunship di depth depan.
+3. Tambah projectile readable; enemy bullets tidak boleh terus-menerus chasing player.
+4. Tambah hit sparks, smoke trails, and debris impacts.
+5. Tambah first boss/dreadnought shell sebagai anchor besar di depan.
+6. Integrasikan wind/cloud/lightning ke bullet/VFX behavior.
+7. Export Web + browser QA.
 
-Phase 2 tidak selesai sampai arena terasa hidup dan tidak lagi seperti corridor placeholder.
+Phase 3 tidak selesai sampai combat 3D benar-benar terlihat dari chase camera.
 
 ---
 
@@ -528,4 +528,15 @@ Validation run: Godot check/import, forward smoke, export_web, npm run vercel-bu
 Visible result in browser: missionMode=forward_air_combat, cameraMode=chase_behind_above, playerModel=glb, canvas=720x1280
 What remains incomplete: cinematic arena, hardpoint weapons, enemy waves, boss dreadnought, legacy physical cleanup
 Next work: Phase 2 — Cinematic Arena & Weather Battlefield
+```
+
+
+```text
+Phase: Phase 2 — Cinematic Arena & Weather Battlefield
+Status: Done for first cinematic/weather battlefield pass
+Changed files: scripts/forward_arena_director.gd, scripts/forward_air_scene_3d.gd, scripts/main.gd, qa/forward-flight-browser-qa.mjs, docs/PHASE_2_CINEMATIC_ARENA_WEATHER_REPORT.md, root Web export
+Validation run: Godot check/import, Phase2 smoke, export_web, npm run vercel-build, npm run qa:web, npm run qa:forward
+Visible result in browser: arenaPhase=storm_battlefield, depthLayerCount=5, weatherGameplay=true, wind/rain/cloud/hazard bridge values active
+What remains incomplete: hardpoint weapons, enemy waves, boss dreadnought, final balancing, legacy physical cleanup
+Next work: Phase 3 — Weapon, Enemy, Boss Combat Package
 ```

@@ -102,7 +102,14 @@ async function main() {
       }
       if (result.state?.playerModel !== 'glb') fail(`expected playerModel glb, got ${result.state?.playerModel}`);
       if (result.state?.active !== true) fail(`forward scene was not active: ${JSON.stringify(result.state)}`);
-      console.log(`Forward browser QA ok: mode=${result.state.missionMode} camera=${result.state.cameraMode} model=${result.state.playerModel} progress=${Number(result.state.progress).toFixed(3)} canvas=${result.canvas.width}x${result.canvas.height}`);
+      if (result.state?.arenaPhase !== 'storm_battlefield') fail(`expected storm_battlefield arena phase, got ${result.state?.arenaPhase}`);
+      if (Number(result.state?.depthLayerCount || 0) < 4) fail(`expected at least 4 depth layers, got ${result.state?.depthLayerCount}`);
+      if (result.state?.weatherGameplay !== true) fail(`weather gameplay flag missing: ${JSON.stringify(result.state)}`);
+      if (typeof result.state?.windDrift !== 'number') fail('windDrift was not numeric');
+      if (typeof result.state?.rainVisibility !== 'number') fail('rainVisibility was not numeric');
+      if (typeof result.state?.cloudCover !== 'number') fail('cloudCover was not numeric');
+      if (typeof result.state?.stormHazard !== 'number') fail('stormHazard was not numeric');
+      console.log(`Forward/weather browser QA ok: mode=${result.state.missionMode} camera=${result.state.cameraMode} model=${result.state.playerModel} arena=${result.state.arenaPhase} layers=${result.state.depthLayerCount} wind=${Number(result.state.windDrift).toFixed(2)} visibility=${Number(result.state.rainVisibility).toFixed(2)} progress=${Number(result.state.progress).toFixed(3)} canvas=${result.canvas.width}x${result.canvas.height}`);
     } finally {
       await browser.close();
     }

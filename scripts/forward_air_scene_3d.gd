@@ -1,11 +1,13 @@
 extends Node3D
 class_name ForwardAirScene3D
 
-# Phase 1 forward-flight scene. This is the new gameplay direction:
-# GLB aircraft, chase camera behind/slightly above, and forward motion in 3D.
+# Phase 2 forward-flight scene. This is the new gameplay direction:
+# GLB aircraft, chase camera behind/slightly above, forward motion in 3D,
+# and a layered storm battlefield driven by ForwardArenaDirector.
 
 const PLAYER_MODEL_PATH = "res://assets/models/player_stormhawk.glb"
 const FORWARD_DIR = Vector3(0.0, 0.0, -1.0)
+const ARENA_DIRECTOR_SCRIPT = preload("res://scripts/forward_arena_director.gd")
 
 var owner_main: Node
 var active = false
@@ -19,6 +21,7 @@ var player_rig: Node3D
 var player_model: Node3D
 var afterburner_left: MeshInstance3D
 var afterburner_right: MeshInstance3D
+var arena_director: Node3D
 
 var lane_markers: Array = []
 var cloud_markers: Array = []
@@ -37,6 +40,8 @@ var max_hp = 120
 var hp = 120
 var current_stage_name = "Forward Air Trial"
 var camera_mode = "chase_behind_above"
+var weather_effect: Dictionary = {}
+var hazard_damage_buffer = 0.0
 
 
 func setup(main_owner: Node) -> void:
@@ -48,6 +53,7 @@ func setup(main_owner: Node) -> void:
 	visible = false
 	_create_environment()
 	_create_camera_rig()
+	_create_arena_director()
 	_create_player_rig()
 	_create_forward_depth_markers()
 	is_setup = true
@@ -63,9 +69,13 @@ func start_mission(stage_data: Dictionary, loadout_data: Dictionary, aircraft_da
 	mission_progress = 0.0
 	corridor_pos = Vector2.ZERO
 	corridor_target = Vector2.ZERO
-	forward_speed = 34.0 + float(stage_data.get("threat", 1.0)) * 4.0
+	forward_speed = 30.0 + float(stage_data.get("threat", 1.0)) * 3.6
 	max_hp = int(float(aircraft_data.get("hp", 120)) * float(loadout_data.get("armor", 1.0)))
 	hp = max_hp
+	hazard_damage_buffer = 0.0
+	weather_effect = {}
+	if arena_director and arena_director.has_method("start_mission"):
+		arena_director.start_mission(stage_data)
 	if player_rig:
 		player_rig.position = Vector3(0.0, 1.5, 0.0)
 		player_rig.rotation = Vector3.ZERO
@@ -79,6 +89,8 @@ func start_mission(stage_data: Dictionary, loadout_data: Dictionary, aircraft_da
 func stop_mission() -> void:
 	active = false
 	visible = false
+	if arena_director and arena_director.has_method("stop_mission"):
+		arena_director.stop_mission()
 	if camera:
 		camera.current = false
 
@@ -91,15 +103,20 @@ func update_forward(delta: float, input_state: Dictionary) -> void:
 	if not active:
 		return
 	forward_time += delta
-	mission_progress = clamp(mission_progress + delta * forward_speed / 1250.0, 0.0, 0.985)
-	_update_corridor_position(delta, input_state)
-	_update_player_pose(delta, input_state)
+	var travel_speed = forward_speed * (1.0 + boost_amount * 0.28)
+	if arena_director and arena_director.has_method("update_arena"):
+		weather_effect = arena_director.update_arena(delta, corridor_pos, travel_speed)
+	mission_progress = clamp(mission_progress + delta * forward_speed / 1380.0, 0.0, 0.985)
+	_update_corridor_position(delta, input_state, weather_effect)
+	_update_weather_damage(delta, weather_effect)
+	_update_player_pose(delta, input_state, weather_effect)
 	_update_forward_markers(delta)
-	_update_camera(delta, input_state)
+	_update_environment_weather(delta, weather_effect)
+	_update_camera(delta, input_state, weather_effect)
 
 
 func get_bridge_state() -> Dictionary:
-	return {
+	var bridge = {
 		"missionMode": "forward_air_combat",
 		"cameraMode": camera_mode,
 		"playerModel": "glb",
@@ -112,6 +129,11 @@ func get_bridge_state() -> Dictionary:
 		"maxHp": max_hp,
 		"active": active
 	}
+	if arena_director and arena_director.has_method("get_bridge_state"):
+		var arena_state = arena_director.get_bridge_state()
+		for key in arena_state.keys():
+			bridge[key] = arena_state[key]
+	return bridge
 
 
 func _create_environment() -> void:
@@ -142,9 +164,16 @@ func _create_camera_rig() -> void:
 	camera.name = "ChaseCamera_BehindAbove"
 	camera.fov = 58.0
 	camera.near = 0.04
-	camera.far = 420.0
+	camera.far = 520.0
 	camera.current = false
 	add_child(camera)
+
+
+func _create_arena_director() -> void:
+	arena_director = ARENA_DIRECTOR_SCRIPT.new()
+	add_child(arena_director)
+	if arena_director.has_method("setup"):
+		arena_director.setup()
 
 
 func _create_player_rig() -> void:
@@ -188,7 +217,7 @@ func _create_afterburners() -> void:
 
 
 func _create_forward_depth_markers() -> void:
-	var lane_mat = _make_material(Color(0.1, 0.9, 1.0, 0.38), Color(0.1, 0.65, 1.0, 1.0), 0.0, 0.38)
+	var lane_mat = _make_material(Color(0.1, 0.9, 1.0, 0.22), Color(0.1, 0.65, 1.0, 1.0), 0.0, 0.22)
 	for i in range(8):
 		var gate = Node3D.new()
 		gate.name = "ForwardFlightGate_%02d" % i
@@ -231,7 +260,7 @@ func _reset_depth_nodes() -> void:
 		node.position = Vector3(rng.randf_range(-5.0, 5.0), -2.75, -14.0 - rng.randf_range(0.0, 105.0))
 
 
-func _update_corridor_position(delta: float, input_state: Dictionary) -> void:
+func _update_corridor_position(delta: float, input_state: Dictionary, effect: Dictionary) -> void:
 	var move = Vector2(input_state.get("move", Vector2.ZERO))
 	var pointer_on = bool(input_state.get("pointer_active", false))
 	if pointer_on:
@@ -242,19 +271,56 @@ func _update_corridor_position(delta: float, input_state: Dictionary) -> void:
 		corridor_pos = corridor_pos.lerp(corridor_target, min(1.0, delta * 7.5))
 	else:
 		corridor_pos += Vector2(move.x, -move.y) * delta * 5.2
+	var turbulence_vec = Vector2(effect.get("turbulence", Vector2.ZERO))
+	var wind_push = float(effect.get("windDrift", 0.0))
+	var hazard_vec = Vector2(float(effect.get("hazardPushX", 0.0)), float(effect.get("hazardPushY", 0.0)))
+	corridor_pos += Vector2(wind_push * 0.52 + turbulence_vec.x * 0.8, turbulence_vec.y * 0.9) * delta
+	# Storm-cell volumes push the aircraft away, making weather a lane-choice hazard.
+	corridor_pos += hazard_vec * delta * 1.35
 	corridor_pos.x = clamp(corridor_pos.x, -corridor_width, corridor_width)
 	corridor_pos.y = clamp(corridor_pos.y, -corridor_height, corridor_height)
 
 
-func _update_player_pose(delta: float, input_state: Dictionary) -> void:
+func _update_weather_damage(delta: float, effect: Dictionary) -> void:
+	var hazard = float(effect.get("stormHazard", 0.0))
+	if hazard < 0.62:
+		hazard_damage_buffer = max(0.0, hazard_damage_buffer - delta * 0.5)
+		return
+	hazard_damage_buffer += delta * (hazard - 0.58) * 5.0
+	if hazard_damage_buffer >= 1.0:
+		var damage = int(floor(hazard_damage_buffer))
+		hazard_damage_buffer -= float(damage)
+		hp = max(1, hp - damage)
+
+
+func _update_environment_weather(delta: float, effect: Dictionary) -> void:
+	if not world_environment or not world_environment.environment:
+		return
+	var env = world_environment.environment
+	var visibility = float(effect.get("rainVisibility", 1.0))
+	var cover = float(effect.get("cloudCover", 0.0))
+	var lightning = float(effect.get("lightningFlash", 0.0))
+	var hazard = float(effect.get("stormHazard", 0.0))
+	var target_fog = 0.014 + (1.0 - visibility) * 0.036 + cover * 0.020 + hazard * 0.012
+	env.fog_density = lerp(env.fog_density, target_fog, min(1.0, delta * 1.9))
+	var storm_color = Color(0.012, 0.026, 0.065, 1.0).lerp(Color(0.06, 0.11, 0.16, 1.0), cover * 0.42)
+	env.background_color = storm_color.lerp(Color(0.55, 0.74, 1.0, 1.0), lightning * 0.55)
+	env.ambient_light_energy = lerp(env.ambient_light_energy, 0.70 + lightning * 1.6 + (1.0 - visibility) * 0.20, min(1.0, delta * 2.0))
+	if sun_light:
+		sun_light.light_energy = lerp(sun_light.light_energy, 1.35 + lightning * 4.8 + hazard * 0.55, min(1.0, delta * 4.5))
+
+
+func _update_player_pose(delta: float, input_state: Dictionary, effect: Dictionary) -> void:
 	var boost = bool(input_state.get("boost", false))
 	boost_amount = lerp(boost_amount, 1.0 if boost else 0.0, min(1.0, delta * 4.0))
-	var bob = sin(forward_time * 4.2) * 0.04
+	var hazard = float(effect.get("stormHazard", 0.0))
+	var overcharged = bool(effect.get("lightningOvercharge", false))
+	var bob = sin(forward_time * 4.2) * 0.04 + sin(forward_time * 15.0) * hazard * 0.045
 	player_rig.position = Vector3(corridor_pos.x, 1.55 + corridor_pos.y + bob, 0.0)
-	var roll = -corridor_pos.x / corridor_width * 0.32
-	var pitch = corridor_pos.y / corridor_height * 0.12 - boost_amount * 0.06
+	var roll = -corridor_pos.x / corridor_width * 0.32 - float(effect.get("windDrift", 0.0)) * 0.055
+	var pitch = corridor_pos.y / corridor_height * 0.12 - boost_amount * 0.06 + hazard * 0.035
 	player_rig.rotation = player_rig.rotation.lerp(Vector3(pitch, 0.0, roll), min(1.0, delta * 6.0))
-	var flame_scale = 1.0 + boost_amount * 0.65 + sin(forward_time * 18.0) * 0.08
+	var flame_scale = 1.0 + boost_amount * 0.65 + sin(forward_time * 18.0) * 0.08 + (0.35 if overcharged else 0.0)
 	if afterburner_left:
 		afterburner_left.scale.z = flame_scale
 	if afterburner_right:
@@ -283,13 +349,19 @@ func _update_forward_markers(delta: float) -> void:
 			debris.position = Vector3(rng.randf_range(-5.2, 5.2), -2.75, -118.0 - rng.randf_range(0.0, 24.0))
 
 
-func _update_camera(delta: float, input_state: Dictionary) -> void:
+func _update_camera(delta: float, input_state: Dictionary, effect: Dictionary) -> void:
 	var player_pos = player_rig.global_position
-	var target_camera = player_pos + Vector3(corridor_pos.x * 0.08, 3.25, 8.7 - boost_amount * 0.9)
+	var hazard = float(effect.get("stormHazard", 0.0))
+	var lightning = float(effect.get("lightningFlash", 0.0))
+	var shake = hazard * 0.10 + lightning * 0.07
+	var shake_offset = Vector3(sin(forward_time * 19.0) * shake, cos(forward_time * 17.0) * shake * 0.7, 0.0)
+	var target_camera = player_pos + Vector3(corridor_pos.x * 0.08, 3.25, 8.7 - boost_amount * 0.9) + shake_offset
 	camera.position = camera.position.lerp(target_camera, min(1.0, delta * 5.0))
 	var look_target = player_pos + Vector3(corridor_pos.x * 0.04, 0.85, -19.0)
 	camera.look_at(look_target, Vector3.UP)
-	camera.fov = lerp(camera.fov, 63.0 if bool(input_state.get("boost", false)) else 58.0, min(1.0, delta * 3.5))
+	var visibility = float(effect.get("rainVisibility", 1.0))
+	var target_fov = (63.0 if bool(input_state.get("boost", false)) else 58.0) + (1.0 - visibility) * 3.0
+	camera.fov = lerp(camera.fov, target_fov, min(1.0, delta * 3.5))
 
 
 func _box_mesh(node_name: String, pos: Vector3, size: Vector3, material: Material) -> MeshInstance3D:

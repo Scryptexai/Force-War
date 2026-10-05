@@ -140,10 +140,10 @@ Setelah implementation pass:
 
 ## 9. Forward Flight Browser QA
 
-Phase 1 adds a focused browser QA command:
+Phase 1 introduced this focused browser QA command, and Phase 2 expands it to verify weather battlefield state:
 
 ```bash
 npm run qa:forward
 ```
 
-This serves the root Web export, skips loading, launches a mission, and verifies `missionMode: forward_air_combat`, `cameraMode: chase_behind_above`, `playerModel: glb`, and a 720x1280 canvas.
+This serves the root Web export, skips loading, launches a mission, and verifies `missionMode: forward_air_combat`, `cameraMode: chase_behind_above`, `playerModel: glb`, `arenaPhase: storm_battlefield`, `weatherGameplay: true`, at least four depth layers, and a 720x1280 canvas.
