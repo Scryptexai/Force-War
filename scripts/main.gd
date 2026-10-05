@@ -1,14 +1,14 @@
 extends Node2D
 
-# Force War: Sky Force War
-# Original vertical air-war shooter for Godot Web. The current build deploys
-# directly into aircraft combat: no car prologue and no visible convoy layer.
+# Force War: Forward Air Combat
+# Current build deploys directly into 3D chase-camera aircraft combat.
+# No road/car/convoy visual should appear in loading or active mission flow.
 
 const W = 720.0
 const H = 1280.0
 const SAVE_PATH = "user://force_war_storm_convoy_save.json"
-const SAVE_KEY = "force-war-storm-convoy-v2"
-const DIRECT_SKY_FORCE_MODE = true
+const SAVE_KEY = "force-war-forward-air-v1"
+const DIRECT_FORWARD_AIR_MODE = true
 const PLAYER_RADIUS = 19.0
 const CONVOY_RADIUS = 25.0
 const ROAD_WIDTH = 156.0
@@ -24,8 +24,8 @@ var previous_state = GameState.TITLE
 var time = 0.0
 var textures = {}
 var loading_timer = 0.0
-var loading_duration = 4.8
-var loading_bg_keys = ["bg_thunder", "bg_delta", "bg_monsoon"]
+var loading_duration = 1.35
+var loading_bg_keys = ["loading_forward_01", "loading_forward_02", "loading_forward_03"]
 var loading_tips = [
 	"Direct air deployment: dodge, shoot, survive, and break the blockade.",
 	"Read the weather forecast before launch; wind bends bullets.",
@@ -43,7 +43,7 @@ var selected_stage = 0
 var selected_loadout = 0
 var selected_aircraft = 0
 var selected_car = 0
-var selected_hangar_tab = 0 # aircraft-only in direct Sky Force War mode
+var selected_hangar_tab = 0 # aircraft-only in direct forward-air mode
 var selected_upgrade_slot = 0
 var stage_index = 0
 var stage = {}
@@ -164,7 +164,8 @@ func _ready() -> void:
 	js_emit("ready", {
 		"game": "Force War: Forward Air Combat",
 		"engine_target": "Godot 4.6.2 stable Web",
-		"objective": "forward_air_combat"
+		"objective": "forward_air_combat",
+		"loadingHoldSeconds": loading_duration
 	})
 
 
@@ -357,8 +358,8 @@ func update_loading(delta: float) -> void:
 
 
 func request_skip_loading() -> void:
-	# Avoid skipping before the player sees branding and the first background.
-	if loading_timer >= 1.0:
+	# Keep a very short branded hold, but do not trap users behind an artificial delay.
+	if loading_timer >= 0.35:
 		finish_loading()
 
 
@@ -386,9 +387,9 @@ func load_textures() -> void:
 		"fuel": "res://assets/rendered/convoy_fuel_tanker.png",
 		"apc": "res://assets/rendered/convoy_apc.png",
 		"supply_truck": "res://assets/rendered/convoy_supply_truck.png",
-		"bg_monsoon": "res://assets/rendered/background_monsoon_pass.png",
-		"bg_delta": "res://assets/rendered/background_black_delta.png",
-		"bg_thunder": "res://assets/rendered/background_thunder_ridge.png",
+		"bg_monsoon": "res://assets/rendered/loading_forward_arena_01.jpg",
+		"bg_delta": "res://assets/rendered/loading_forward_arena_02.jpg",
+		"bg_thunder": "res://assets/rendered/loading_forward_arena_03.jpg",
 		"boss": "res://assets/rendered/boss_aegis_weather_engine.png",
 		"repair": "res://assets/rendered/support_repair_pod.png",
 		"smoke": "res://assets/rendered/support_smoke_pod.png",
@@ -399,9 +400,9 @@ func load_textures() -> void:
 		"rain_icon": "res://assets/weather/rain_icon.svg",
 		"wind_icon": "res://assets/weather/wind_icon.svg",
 		"cloud_icon": "res://assets/weather/cloud_icon.svg",
-		"loading_monsoon": "res://assets/rendered/loading_monsoon_convoy.png",
-		"loading_hangar": "res://assets/rendered/loading_thunder_hangar.png",
-		"loading_delta": "res://assets/rendered/loading_black_delta.png",
+		"loading_forward_01": "res://assets/rendered/loading_forward_arena_01.jpg",
+		"loading_forward_02": "res://assets/rendered/loading_forward_arena_02.jpg",
+		"loading_forward_03": "res://assets/rendered/loading_forward_arena_03.jpg",
 		"logo_wordmark": "res://assets/rendered/logo_force_war_wordmark.png",
 		"reticle_lock": "res://assets/vfx/reticle_lock.png"
 	}
@@ -706,15 +707,15 @@ func is_vehicle_owned(tab: int, index: int) -> bool:
 
 
 func current_hangar_index() -> int:
-	return selected_aircraft if DIRECT_SKY_FORCE_MODE else (selected_aircraft if selected_hangar_tab == 0 else selected_car)
+	return selected_aircraft if DIRECT_FORWARD_AIR_MODE else (selected_aircraft if selected_hangar_tab == 0 else selected_car)
 
 
 func current_hangar_defs() -> Array:
-	return aircraft_defs if DIRECT_SKY_FORCE_MODE else (aircraft_defs if selected_hangar_tab == 0 else car_defs)
+	return aircraft_defs if DIRECT_FORWARD_AIR_MODE else (aircraft_defs if selected_hangar_tab == 0 else car_defs)
 
 
 func current_upgrade_keys() -> Array:
-	return ["weapon", "armor", "systems"] if DIRECT_SKY_FORCE_MODE or selected_hangar_tab == 0 else ["cannon", "armor", "handling"]
+	return ["weapon", "armor", "systems"] if DIRECT_FORWARD_AIR_MODE or selected_hangar_tab == 0 else ["cannon", "armor", "handling"]
 
 
 func upgrade_label(key: String) -> String:
@@ -847,7 +848,7 @@ func equip_selected_vehicle() -> void:
 	if not is_vehicle_owned(selected_hangar_tab, index):
 		show_warning("Vehicle locked — buy first")
 		return
-	if DIRECT_SKY_FORCE_MODE or selected_hangar_tab == 0:
+	if DIRECT_FORWARD_AIR_MODE or selected_hangar_tab == 0:
 		selected_aircraft = index
 		save_data["selected_aircraft"] = index
 	else:
@@ -861,7 +862,7 @@ func change_hangar_selection(step: int) -> void:
 	var defs = current_hangar_defs()
 	if defs.is_empty():
 		return
-	if DIRECT_SKY_FORCE_MODE or selected_hangar_tab == 0:
+	if DIRECT_FORWARD_AIR_MODE or selected_hangar_tab == 0:
 		selected_aircraft = posmod(selected_aircraft + step, defs.size())
 	else:
 		selected_car = posmod(selected_car + step, defs.size())
@@ -987,7 +988,7 @@ func update_background(delta: float) -> void:
 
 func reset_player() -> void:
 	var hp = int(aircraft_stat_multiplier("hp"))
-	if DIRECT_SKY_FORCE_MODE:
+	if DIRECT_FORWARD_AIR_MODE:
 		hp = int(float(hp) * 1.45)
 	player = {
 		"pos": Vector2(W * 0.5, H - 150.0),
@@ -1015,7 +1016,7 @@ func start_stage(index: int) -> void:
 	player["hp"] = player["max_hp"]
 
 	convoy.clear()
-	if not DIRECT_SKY_FORCE_MODE:
+	if not DIRECT_FORWARD_AIR_MODE:
 		convoy.append(make_convoy_vehicle("command", "Command Truck", 165, -86.0, -20.0))
 		convoy.append(make_convoy_vehicle("fuel", "Fuel Tanker", 135, -28.0, 24.0))
 		convoy.append(make_convoy_vehicle("apc", "APC Guardian", 190, 34.0, -28.0))
@@ -1073,7 +1074,7 @@ func start_stage(index: int) -> void:
 	for key in ["repair", "smoke", "supply", "radar", "rod"]:
 		support_counts[key] = int(support.get(key, 0))
 	spawn_weather_field()
-	if DIRECT_SKY_FORCE_MODE:
+	if DIRECT_FORWARD_AIR_MODE:
 		cleanup_ground_scene()
 		cleanup_air_arena_scene()
 		ensure_forward_air_scene()
@@ -1301,7 +1302,7 @@ func update_air_arena_3d(delta: float) -> void:
 
 
 func using_air_arena_3d() -> bool:
-	return DIRECT_SKY_FORCE_MODE and air_root != null and is_instance_valid(air_root) and (state == GameState.PLAYING or state == GameState.PAUSED or state == GameState.STAGE_CLEAR or state == GameState.GAME_OVER)
+	return DIRECT_FORWARD_AIR_MODE and air_root != null and is_instance_valid(air_root) and (state == GameState.PLAYING or state == GameState.PAUSED or state == GameState.STAGE_CLEAR or state == GameState.GAME_OVER)
 
 
 func setup_ground_scene() -> void:
@@ -1671,7 +1672,7 @@ func update_support_jet(delta: float) -> void:
 			ground_jet_fire_timer = rng.randf_range(0.26, 0.42)
 	if ground_jet_timer > 2.2 and not ground_transition_ready:
 		ground_transition_ready = true
-		show_warning("JET LINK READY — press SPACE/ENTER to switch into Sky Force mode")
+		show_warning("JET LINK READY — press SPACE/ENTER to switch into forward air mode")
 		js_emit("air_switch_ready", {})
 	if ground_jet_timer > 8.0:
 		enter_air_phase()
@@ -1687,7 +1688,7 @@ func enter_air_phase() -> void:
 	player["max_hp"] = int(float(player["max_hp"]) * float(loadout.get("armor", 1.0)))
 	player["hp"] = player["max_hp"]
 	state = GameState.PLAYING
-	show_warning("AIRCRAFT SWITCH COMPLETE: Sky Force escort mode engaged")
+	show_warning("AIRCRAFT SWITCH COMPLETE: forward air combat engaged")
 	js_emit("air_phase_start", {"score": stage_score, "stars": stage_stars})
 
 
@@ -1726,7 +1727,7 @@ func update_playing(delta: float) -> void:
 	update_convoy_turrets(delta)
 	update_particles(delta)
 	check_collisions()
-	if (not DIRECT_SKY_FORCE_MODE) and convoy_total_hp() <= 0:
+	if (not DIRECT_FORWARD_AIR_MODE) and convoy_total_hp() <= 0:
 		game_over("Convoy destroyed")
 	elif int(player.get("hp", 0)) <= 0:
 		game_over("Aircraft lost")
@@ -1845,7 +1846,7 @@ func fire_player_shot() -> void:
 	var gun_mod = float(loadout.get("gun", 1.0)) * aircraft_stat_multiplier("gun")
 	if overcharge_timer > 0.0:
 		gun_mod *= 1.65
-	# Direct Sky Force War should feel like a real shmup volley, not two thin bullets.
+	# Direct forward air combat should feel like a strong volley, not two thin bullets.
 	var lanes = 5
 	if gun_mod >= 1.28:
 		lanes = 6
@@ -1894,7 +1895,7 @@ func update_route_and_convoy(delta: float) -> void:
 	if is_convoy_in_flood():
 		speed_factor *= max(0.62, 1.0 - flood * 0.38)
 		smoke_timer = max(0.0, smoke_timer - delta * 0.2)
-	var alive_ratio = 1.0 if DIRECT_SKY_FORCE_MODE or convoy.is_empty() else float(convoy_alive_count()) / max(1.0, float(convoy.size()))
+	var alive_ratio = 1.0 if DIRECT_FORWARD_AIR_MODE or convoy.is_empty() else float(convoy_alive_count()) / max(1.0, float(convoy.size()))
 	route_progress += route_speed * speed_factor * (0.55 + alive_ratio * 0.45) * delta
 	for i in range(convoy.size()):
 		var v = convoy[i]
@@ -1993,7 +1994,7 @@ func spawn_wave() -> void:
 
 
 func enemy_fire_delay(min_seconds: float, max_seconds: float) -> float:
-	return rng.randf_range(min_seconds, max_seconds) * (1.85 if DIRECT_SKY_FORCE_MODE else 1.0)
+	return rng.randf_range(min_seconds, max_seconds) * (1.85 if DIRECT_FORWARD_AIR_MODE else 1.0)
 
 
 func spawn_enemy(kind: String, pos: Vector2) -> void:
@@ -2078,7 +2079,7 @@ func update_enemies(delta: float) -> void:
 					shoot_at_player(pos, 260.0 + stage_index * 15.0, 13.0)
 					e["shoot_cd"] = enemy_fire_delay(1.45, 2.6)
 			"bomber":
-				var cpos = Vector2(W * 0.5 + sin(t * 0.55 + float(e["id"]) * 0.01) * 210.0, H + 160.0) if DIRECT_SKY_FORCE_MODE else convoy_center()
+				var cpos = Vector2(W * 0.5 + sin(t * 0.55 + float(e["id"]) * 0.01) * 210.0, H + 160.0) if DIRECT_FORWARD_AIR_MODE else convoy_center()
 				var desired = (cpos - pos).normalized() * (125.0 + stage_index * 8.0)
 				vel = vel.lerp(desired, min(1.0, delta * 0.8))
 				pos += vel * delta
@@ -2140,39 +2141,39 @@ func update_enemies(delta: float) -> void:
 
 
 func enemy_direct_bullet_dir(origin: Vector2, lane_bias: float = 0.0) -> Vector2:
-	# Direct Sky Force War uses authored lanes/patterns, not player-homing bullets.
+	# Direct forward air combat uses authored lanes/patterns, not player-homing bullets.
 	# Every shot travels mostly downward with jitter; it never re-aims after spawn.
 	var lane = lane_bias + rng.randf_range(-0.34, 0.34) + sin(time * 1.7 + origin.x * 0.021) * 0.12
 	return Vector2(clamp(lane, -0.58, 0.58), 1.0).normalized()
 
 
 func shoot_at_player(origin: Vector2, speed: float, damage: float, color: Color = Color(1.0, 0.35, 0.22, 1.0), guided: bool = false) -> void:
-	var dir = enemy_direct_bullet_dir(origin) if DIRECT_SKY_FORCE_MODE else (player["pos"] - origin).normalized()
-	var shot_speed = speed * (0.82 if DIRECT_SKY_FORCE_MODE else 1.0)
-	var shot_damage = damage * (0.52 if DIRECT_SKY_FORCE_MODE else 1.0)
+	var dir = enemy_direct_bullet_dir(origin) if DIRECT_FORWARD_AIR_MODE else (player["pos"] - origin).normalized()
+	var shot_speed = speed * (0.82 if DIRECT_FORWARD_AIR_MODE else 1.0)
+	var shot_damage = damage * (0.52 if DIRECT_FORWARD_AIR_MODE else 1.0)
 	spawn_muzzle_flash_2d(origin, dir, false, 1.0 if not guided else 1.25)
-	enemy_bullets.append({"pos": origin, "vel": dir * shot_speed, "damage": shot_damage, "radius": 5.0 if DIRECT_SKY_FORCE_MODE else 6.0, "target": "player", "color": color, "life": 5.0, "guided": false})
+	enemy_bullets.append({"pos": origin, "vel": dir * shot_speed, "damage": shot_damage, "radius": 5.0 if DIRECT_FORWARD_AIR_MODE else 6.0, "target": "player", "color": color, "life": 5.0, "guided": false})
 
 
 func shoot_at_convoy(origin: Vector2, speed: float, damage: float, color: Color = Color(1.0, 0.65, 0.25, 1.0), guided: bool = false) -> void:
-	# Legacy convoy shots become non-homing downward lanes in direct Sky Force War mode.
+	# Legacy enemy shots become non-homing downward lanes in direct forward-air mode.
 	var target = convoy_center()
-	var dir = enemy_direct_bullet_dir(origin) if DIRECT_SKY_FORCE_MODE else (target - origin).normalized()
-	var shot_speed = speed * (0.80 if DIRECT_SKY_FORCE_MODE else 1.0)
-	var shot_damage = damage * (0.50 if DIRECT_SKY_FORCE_MODE else 1.0)
+	var dir = enemy_direct_bullet_dir(origin) if DIRECT_FORWARD_AIR_MODE else (target - origin).normalized()
+	var shot_speed = speed * (0.80 if DIRECT_FORWARD_AIR_MODE else 1.0)
+	var shot_damage = damage * (0.50 if DIRECT_FORWARD_AIR_MODE else 1.0)
 	spawn_muzzle_flash_2d(origin, dir, false, 1.05 if not guided else 1.25)
-	enemy_bullets.append({"pos": origin, "vel": dir * shot_speed, "damage": shot_damage, "radius": 5.5 if DIRECT_SKY_FORCE_MODE else 7.0, "target": "player" if DIRECT_SKY_FORCE_MODE else "convoy", "color": color, "life": 5.0, "guided": false})
+	enemy_bullets.append({"pos": origin, "vel": dir * shot_speed, "damage": shot_damage, "radius": 5.5 if DIRECT_FORWARD_AIR_MODE else 7.0, "target": "player" if DIRECT_FORWARD_AIR_MODE else "convoy", "color": color, "life": 5.0, "guided": false})
 
 
 func shoot_spread_at_convoy(origin: Vector2, count: int, spread: float, speed: float, damage: float) -> void:
 	# Legacy spread pattern: in direct mode it becomes a fixed downward bullet fan.
 	var target = convoy_center()
-	var base = PI * 0.5 + rng.randf_range(-0.14, 0.14) if DIRECT_SKY_FORCE_MODE else (target - origin).angle()
+	var base = PI * 0.5 + rng.randf_range(-0.14, 0.14) if DIRECT_FORWARD_AIR_MODE else (target - origin).angle()
 	spawn_muzzle_flash_2d(origin, Vector2(cos(base), sin(base)), false, 1.4)
 	for i in range(count):
 		var t = 0.0 if count == 1 else float(i) / float(count - 1) - 0.5
 		var a = base + t * spread
-		enemy_bullets.append({"pos": origin, "vel": Vector2(cos(a), sin(a)) * speed * (0.82 if DIRECT_SKY_FORCE_MODE else 1.0), "damage": damage * (0.48 if DIRECT_SKY_FORCE_MODE else 1.0), "radius": 5.2 if DIRECT_SKY_FORCE_MODE else 6.0, "target": "player" if DIRECT_SKY_FORCE_MODE else "convoy", "color": Color(1.0, 0.28, 0.38, 1.0), "life": 5.0, "guided": false})
+		enemy_bullets.append({"pos": origin, "vel": Vector2(cos(a), sin(a)) * speed * (0.82 if DIRECT_FORWARD_AIR_MODE else 1.0), "damage": damage * (0.48 if DIRECT_FORWARD_AIR_MODE else 1.0), "radius": 5.2 if DIRECT_FORWARD_AIR_MODE else 6.0, "target": "player" if DIRECT_FORWARD_AIR_MODE else "convoy", "color": Color(1.0, 0.28, 0.38, 1.0), "life": 5.0, "guided": false})
 
 
 func drop_bomb(origin: Vector2, target: Vector2) -> void:
@@ -2195,7 +2196,7 @@ func boss_attack(pos: Vector2) -> void:
 
 func spawn_artillery_marker(count: int = 1) -> void:
 	for i in range(count):
-		var base_target = Vector2(player.get("pos", convoy_center())) if DIRECT_SKY_FORCE_MODE else convoy_center()
+		var base_target = Vector2(player.get("pos", convoy_center())) if DIRECT_FORWARD_AIR_MODE else convoy_center()
 		var target = base_target + Vector2(rng.randf_range(-95.0, 95.0), rng.randf_range(-70.0, 45.0))
 		hazards.append({"kind": "artillery", "pos": target, "radius": 62.0, "timer": 1.8 + i * 0.25, "armed": false, "damage": 42.0})
 
@@ -2235,7 +2236,7 @@ func update_enemy_bullets(delta: float) -> void:
 		var p = enemy_bullets[i]["pos"]
 		if p.y > H + 80.0 or p.y < -120.0 or p.x < -130.0 or p.x > W + 130.0 or float(enemy_bullets[i].get("life", 0.0)) <= 0.0:
 			enemy_bullets.remove_at(i)
-	while DIRECT_SKY_FORCE_MODE and enemy_bullets.size() > 54:
+	while DIRECT_FORWARD_AIR_MODE and enemy_bullets.size() > 54:
 		enemy_bullets.remove_at(0)
 
 
@@ -2297,7 +2298,7 @@ func resolve_support_drop(d: Dictionary) -> void:
 	var pos = d["pos"]
 	match kind:
 		"repair":
-			if DIRECT_SKY_FORCE_MODE:
+			if DIRECT_FORWARD_AIR_MODE:
 				player["hp"] = min(int(player.get("max_hp", 1)), int(player.get("hp", 0)) + 64)
 				stage_score += 220
 				spawn_particles(player["pos"], Color(0.3, 1.0, 0.45, 1.0), 24, 210.0)
@@ -2310,12 +2311,12 @@ func resolve_support_drop(d: Dictionary) -> void:
 					stage_score += 280
 					spawn_particles(v["pos"], Color(0.3, 1.0, 0.45, 1.0), 24, 210.0)
 		"smoke":
-			var smoke_pos = Vector2(player.get("pos", pos)) if DIRECT_SKY_FORCE_MODE else Vector2(pos.x, H - 175.0)
+			var smoke_pos = Vector2(player.get("pos", pos)) if DIRECT_FORWARD_AIR_MODE else Vector2(pos.x, H - 175.0)
 			effects.append({"kind": "smoke", "pos": smoke_pos, "radius": 125.0, "life": 8.0, "max_life": 8.0})
 			smoke_timer = max(smoke_timer, 8.0)
 			stage_score += 120
 		"supply":
-			if DIRECT_SKY_FORCE_MODE:
+			if DIRECT_FORWARD_AIR_MODE:
 				overcharge_timer = max(overcharge_timer, 8.0)
 				storm_burst_charges += 1
 				stage_score += 240
@@ -2471,7 +2472,7 @@ func check_collisions() -> void:
 			if player["pos"].distance_to(b["pos"]) <= PLAYER_RADIUS + float(b["radius"]):
 				spawn_hit_flash_2d(b["pos"], b.get("color", Color(1.0, 0.25, 0.12, 1.0)), false)
 				var dmg = float(b["damage"])
-				if DIRECT_SKY_FORCE_MODE and is_smoke_covering(player["pos"]):
+				if DIRECT_FORWARD_AIR_MODE and is_smoke_covering(player["pos"]):
 					dmg *= 0.35
 					display_miss(player["pos"])
 				damage_player(dmg)
@@ -2540,9 +2541,9 @@ func kill_enemy_at(index: int) -> void:
 func damage_player(amount: float) -> void:
 	if float(player.get("invuln", 0.0)) > 0.0:
 		return
-	var final_amount = amount * (0.58 if DIRECT_SKY_FORCE_MODE else 1.0)
+	var final_amount = amount * (0.58 if DIRECT_FORWARD_AIR_MODE else 1.0)
 	player["hp"] = int(player["hp"]) - max(1, int(final_amount))
-	player["invuln"] = 1.35 if DIRECT_SKY_FORCE_MODE else 0.9
+	player["invuln"] = 1.35 if DIRECT_FORWARD_AIR_MODE else 0.9
 	screen_shake = max(screen_shake, 1.2)
 	screen_flash = max(screen_flash, 0.35)
 	spawn_particles(player["pos"], Color(1.0, 0.2, 0.13, 1.0), 26, 280.0)
@@ -2573,8 +2574,8 @@ func complete_stage() -> void:
 		return
 	state = GameState.STAGE_CLEAR
 	var survival_ratio = float(player.get("hp", 0)) / max(1.0, float(player.get("max_hp", 1)))
-	var convoy_bonus = 0 if DIRECT_SKY_FORCE_MODE else int(convoy_total_hp() * 6.0)
-	var survival_bonus = int(survival_ratio * 900.0) if DIRECT_SKY_FORCE_MODE else convoy_bonus
+	var convoy_bonus = 0 if DIRECT_FORWARD_AIR_MODE else int(convoy_total_hp() * 6.0)
+	var survival_bonus = int(survival_ratio * 900.0) if DIRECT_FORWARD_AIR_MODE else convoy_bonus
 	var support_bonus = int((support_counts.get("repair", 0) + support_counts.get("smoke", 0) + support_counts.get("supply", 0)) * 60)
 	var route_bonus = int(stage_reward_mod * 450.0)
 	var clear_stars = int(70 + stage_index * 25 + survival_bonus / 25 + route_bonus / 20)
@@ -2588,7 +2589,7 @@ func complete_stage() -> void:
 	if stage_index == stages.size() - 1:
 		save_data["campaign_cleared"] = true
 	save_game()
-	js_emit("stage_clear", {"stage": stage_index + 1, "score": stage_score, "stars": stage_stars, "survival": survival_ratio, "branches": applied_branches, "mode": "sky_force_war" if DIRECT_SKY_FORCE_MODE else "escort"})
+	js_emit("stage_clear", {"stage": stage_index + 1, "score": stage_score, "stars": stage_stars, "survival": survival_ratio, "branches": applied_branches, "mode": "sky_force_war" if DIRECT_FORWARD_AIR_MODE else "escort"})
 
 
 func game_over(reason: String) -> void:
@@ -2750,10 +2751,10 @@ func push_js_state() -> void:
 		"stars": stage_stars,
 		"stage": stage_index + 1,
 		"progress": route_progress / max(1.0, route_distance),
-		"convoyHp": 0 if DIRECT_SKY_FORCE_MODE else convoy_total_hp(),
-		"convoyMaxHp": 0 if DIRECT_SKY_FORCE_MODE else convoy_max_hp(),
+		"convoyHp": 0 if DIRECT_FORWARD_AIR_MODE else convoy_total_hp(),
+		"convoyMaxHp": 0 if DIRECT_FORWARD_AIR_MODE else convoy_max_hp(),
 		"playerHp": int(player.get("hp", 0)),
-		"missionMode": "forward_air_combat" if using_forward_air_scene() else ("sky_force_war" if DIRECT_SKY_FORCE_MODE else "escort_convoy"),
+		"missionMode": "forward_air_combat" if using_forward_air_scene() else ("sky_force_war" if DIRECT_FORWARD_AIR_MODE else "escort_convoy"),
 		"weather": stage.get("weather", {})
 	}
 	if using_forward_air_scene() and forward_scene.has_method("get_bridge_state"):
@@ -2875,7 +2876,7 @@ func draw_background() -> void:
 		draw_rect(Rect2(0, H * t, W, H / 23.0 + 2), top.lerp(bottom, t))
 	var bg_key = stage_background_key()
 	if textures.has(bg_key):
-		# During the aircraft arena, the stage art is loop-scrolled like a Sky Force-style flight path,
+		# During the aircraft arena, the stage art is loop-scrolled like a forward-air flight path,
 		# not held as a static photo.
 		if state == GameState.PLAYING or state == GameState.PAUSED or state == GameState.STAGE_CLEAR or state == GameState.GAME_OVER:
 			var scroll = fmod(route_progress * 3.2 + time * 42.0, H)
@@ -3240,13 +3241,13 @@ func draw_loading() -> void:
 
 	# Wordmark/logo lives on the loading page first, then repeats on title for brand recall.
 	draw_sprite("logo_wordmark", Vector2(W * 0.5, 212), Vector2(604, 310), 0.0, Color(1, 1, 1, 0.98))
-	draw_text_center("MOBILE SKY FORCE WAR", 374, 18, Color(0.74, 0.94, 1.0, 0.86))
+	draw_text_center("FORWARD AIR COMBAT", 374, 18, Color(0.74, 0.94, 1.0, 0.86))
 
 	var ratio = loading_ratio()
 	var percent = int(round(ratio * 100.0))
 	var bar = Rect2(78, H - 138, W - 156, 16)
 	draw_bar(bar, ratio, Color(0.42, 0.92, 1.0, 1.0), Color(1.0, 1.0, 1.0, 0.14))
-	draw_text_center("LOADING WAR THEATER " + str(percent) + "%", H - 158, 18, Color(0.88, 0.98, 1.0, 0.95))
+	draw_text_center("LOADING FORWARD ARENA " + str(percent) + "%", H - 158, 18, Color(0.88, 0.98, 1.0, 0.95))
 	var tip_idx = int(floor(loading_timer / 1.7)) % max(1, loading_tips.size())
 	draw_text_wrapped("TIP: " + str(loading_tips[tip_idx]), Rect2(92, H - 104, W - 184, 46), 15, Color(0.82, 0.92, 1.0, 0.88))
 
@@ -3264,12 +3265,12 @@ func draw_title() -> void:
 	var y = 168.0 + sin(time * 1.5) * 8.0
 	draw_sprite("player", Vector2(W * 0.5, y), Vector2(112.0, 112.0), 0, Color(1, 1, 1, 0.78))
 	draw_sprite("logo_wordmark", Vector2(W * 0.5, 332.0), Vector2(590.0, 303.0), 0, Color.WHITE)
-	draw_text_center("Vertical shooter taktis: langsung masuk jet, tembus badai, hancurkan blockade.", 514.0, 20, Color(0.86, 0.94, 1.0, 0.9))
-	draw_panel(Rect2(74, 590, W - 148, 214), "SKY FORCE WAR LOOP")
-	draw_text("• Tidak ada prologue mobil/konvoi: misi langsung masuk aircraft battle.", 105, 653, 18, Color(1,1,1,0.9))
-	draw_text("• Scroll arena 9:16 bergerak terus dengan awan, hujan, petir, dan blockade.", 105, 685, 18, Color(1,1,1,0.9))
+	draw_text_center("Forward 3D air combat: chase camera, GLB aircraft, weather combat.", 514.0, 20, Color(0.86, 0.94, 1.0, 0.9))
+	draw_panel(Rect2(74, 590, W - 148, 214), "FORWARD AIR COMBAT LOOP")
+	draw_text("• No road, car, or convoy visual in the active aircraft flow.", 105, 653, 18, Color(1,1,1,0.9))
+	draw_text("• 9:16 forward arena moves into depth with rain, lightning, boss, and VFX.", 105, 685, 18, Color(1,1,1,0.9))
 	draw_text("• Peluru musuh aim saat ditembakkan, bukan terus mengejar player.", 105, 717, 18, Color(1,1,1,0.9))
-	draw_text("• Drop repair, smoke, supply, radar, lightning rod untuk aircraft survival.", 105, 749, 18, Color(1,1,1,0.9))
+	draw_text("• Weather affects visibility, wind drift, lightning overcharge, and survival.", 105, 749, 18, Color(1,1,1,0.9))
 	var start_rect = title_start_rect()
 	var hangar_rect = title_hangar_rect()
 	draw_rect(start_rect, Color(0.18, 0.55, 0.75, 0.82))
@@ -3322,7 +3323,7 @@ func draw_briefing() -> void:
 	draw_rect(hangar_rect, Color(0.10, 0.18, 0.28, 0.88))
 	draw_rect(hangar_rect, Color(1.0, 0.86, 0.28, 0.34), false, 2.0)
 	draw_text_centered_at("HANGAR", hangar_rect.get_center() + Vector2(0, 8), 20, Color(1.0,0.9,0.35,0.96))
-	draw_text_center("Active aircraft: " + str(active_aircraft().get("name", "Stormhawk")) + "  • ENTER direct Sky Force launch • H upgrade", H - 42.0, 16, Color(1,1,1,0.86))
+	draw_text_center("Active aircraft: " + str(active_aircraft().get("name", "Stormhawk")) + "  • ENTER direct forward launch • H upgrade", H - 42.0, 16, Color(1,1,1,0.86))
 
 
 func draw_hangar_vehicle_preview(center: Vector2, tab: int, color: Color) -> void:
@@ -3354,13 +3355,13 @@ func draw_hangar() -> void:
 	selected_hangar_tab = 0
 	draw_rect(Rect2(0, 0, W, H), Color(0, 0, 0, 0.32))
 	draw_text_center("AIRCRAFT HANGAR", 54, 36, Color(0.74, 0.94, 1.0, 1.0))
-	draw_text_center("Car/convoy prologue removed: upgrade aircraft for direct Sky Force War", 86, 15, Color(0.80, 0.90, 1.0, 0.78))
+	draw_text_center("Aircraft-only build: no road/car/convoy visuals in active flow", 86, 15, Color(0.80, 0.90, 1.0, 0.78))
 	draw_text("SALVAGE ★ " + str(int(save_data.get("stars", 0))), 54, 104, 18, Color(1.0, 0.86, 0.25, 1.0))
 
 	var aircraft_tab = Rect2(54.0, 116.0, W - 108.0, 54.0)
 	draw_rect(aircraft_tab, Color(0.18, 0.55, 0.75, 0.82))
 	draw_rect(aircraft_tab, Color(0.7, 0.95, 1.0, 0.30), false, 2.0)
-	draw_text_centered_at("AIRCRAFT ONLY — DIRECT SKY FORCE WAR", aircraft_tab.get_center() + Vector2(0, 6), 18, Color(1,1,1,0.94))
+	draw_text_centered_at("AIRCRAFT ONLY — FORWARD AIR COMBAT", aircraft_tab.get_center() + Vector2(0, 6), 18, Color(1,1,1,0.94))
 
 	var defs = current_hangar_defs()
 	if defs.is_empty():
@@ -3508,7 +3509,7 @@ func draw_hud() -> void:
 	var hp_ratio = float(player.get("hp", 0)) / max(1.0, float(player.get("max_hp", 1)))
 	draw_text("JET " + str(active_aircraft().get("name", "Stormhawk")), 170, 28, 14, Color(0.86, 0.96, 1, 0.88))
 	draw_bar(Rect2(205, 17, 190, 12), hp_ratio, Color(0.35, 0.92, 1, 1), Color(0.1,0.02,0.02,0.7))
-	draw_text("SKY FORCE WAR", 170, 59, 14, Color(0.86, 0.96, 1, 0.88))
+	draw_text("FORWARD AIR", 170, 59, 14, Color(0.86, 0.96, 1, 0.88))
 	draw_text("HP " + str(int(player.get("hp", 0))) + "/" + str(int(player.get("max_hp", 0))), 300, 59, 14, Color(0.55, 1, 0.65, 0.9))
 	var progress = route_progress / max(1.0, route_distance)
 	draw_text("STAGE", 430, 28, 14, Color(0.86,0.96,1,0.88))
@@ -3549,7 +3550,7 @@ func draw_branch_prompt() -> void:
 
 func draw_stage_clear() -> void:
 	draw_rect(Rect2(0,0,W,H), Color(0,0,0,0.6))
-	draw_panel(Rect2(78, 248, W - 156, 420), "SKY FORCE COMPLETE")
+	draw_panel(Rect2(78, 248, W - 156, 420), "FORWARD AIR COMPLETE")
 	draw_text_center("AIR CORRIDOR SECURED", 330, 42, Color(1.0,0.86,0.28,1))
 	draw_text_center(str(stage["name"]), 372, 22, Color(0.86,0.96,1,1))
 	draw_text("Score", 150, 440, 22, Color(0.82,0.92,1,0.9))

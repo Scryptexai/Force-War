@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dfk2xppg8f84f"
-path="res://.godot/imported/loading_thunder_hangar.png-b6ca2865adb8e81f8db5dc456271e0e3.ctex"
+uid="uid://f6do7ggsh6dn"
+path="res://.godot/imported/loading_forward_arena_03.jpg-cdc377eab5b106d7edfc2781c69b67fd.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/rendered/loading_thunder_hangar.png"
-dest_files=["res://.godot/imported/loading_thunder_hangar.png-b6ca2865adb8e81f8db5dc456271e0e3.ctex"]
+source_file="res://assets/rendered/loading_forward_arena_03.jpg"
+dest_files=["res://.godot/imported/loading_forward_arena_03.jpg-cdc377eab5b106d7edfc2781c69b67fd.ctex"]
 
 [params]
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ce6g14npqt40m"
-path="res://.godot/imported/loading_monsoon_convoy.png-edf6cad19ed24ab9fe5f594f5ccda4ba.ctex"
+uid="uid://cjsb4k5i7vovi"
+path="res://.godot/imported/loading_forward_arena_02.jpg-c5e211a5570ba169bb745516ec416d99.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/rendered/loading_monsoon_convoy.png"
-dest_files=["res://.godot/imported/loading_monsoon_convoy.png-edf6cad19ed24ab9fe5f594f5ccda4ba.ctex"]
+source_file="res://assets/rendered/loading_forward_arena_02.jpg"
+dest_files=["res://.godot/imported/loading_forward_arena_02.jpg-c5e211a5570ba169bb745516ec416d99.ctex"]
 
 [params]
 

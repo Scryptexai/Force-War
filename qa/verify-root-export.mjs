@@ -9,6 +9,10 @@ const required = [
   ['index.wasm', 1024 * 1024],
   ['index.pck', 1024 * 512]
 ];
+const maxSizes = new Map([
+  // Keep the Godot PCK lean enough that the Web boot progress is not mistaken for a server hang.
+  ['index.pck', 16 * 1024 * 1024]
+]);
 
 let ok = true;
 for (const [file, minSize] of required) {
@@ -22,7 +26,13 @@ for (const [file, minSize] of required) {
   if (size < minSize) {
     console.error(`Web export file is unexpectedly small: ${file} (${size} bytes)`);
     ok = false;
-  } else {
+  }
+  const maxSize = maxSizes.get(file);
+  if (maxSize && size > maxSize) {
+    console.error(`Web export file is too large for fast mobile boot: ${file} (${size} bytes > ${maxSize} bytes)`);
+    ok = false;
+  }
+  if (size >= minSize && (!maxSize || size <= maxSize)) {
     console.log(`${file} ${size}`);
   }
 }

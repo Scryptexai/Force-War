@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { createGzip } from 'node:zlib';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -16,6 +17,8 @@ const mimeTypes = new Map([
   ['.wasm', 'application/wasm'],
   ['.pck', 'application/octet-stream'],
   ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
   ['.svg', 'image/svg+xml'],
   ['.json', 'application/json; charset=utf-8'],
   ['.ico', 'image/x-icon'],
@@ -53,8 +56,28 @@ function setGodotHeaders(res, pathname) {
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Permissions-Policy', 'interest-cohort=()');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  const noCachePaths = new Set(['/', '/index.html', '/index.js', '/index.wasm', '/index.pck', '/index.png', '/index.icon.png', '/index.apple-touch-icon.png']);
-  res.setHeader('Cache-Control', noCachePaths.has(pathname) ? 'no-cache' : 'public, max-age=3600');
+  res.setHeader('Vary', 'Accept-Encoding');
+  const shellPaths = new Set(['/', '/index.html']);
+  const enginePaths = new Set(['/index.js', '/index.wasm', '/index.pck', '/index.png', '/index.icon.png', '/index.apple-touch-icon.png']);
+  if (shellPaths.has(pathname)) {
+    res.setHeader('Cache-Control', 'no-cache');
+  } else if (enginePaths.has(pathname)) {
+    // The Web export can be large. Let browsers keep it, but revalidate with ETag
+    // so refreshes do not redownload the whole Godot WASM/PCK payload.
+    res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+  } else {
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+  }
+}
+
+function makeEtag(stat) {
+  return `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+}
+
+function requestAcceptsGzip(req, filePath) {
+  const ext = extname(filePath).toLowerCase();
+  if (!['.wasm', '.pck', '.js'].includes(ext)) return false;
+  return String(req.headers['accept-encoding'] || '').includes('gzip');
 }
 
 if (!existsSync(join(staticRoot, 'index.html'))) {
@@ -97,19 +120,43 @@ const server = createServer((req, res) => {
   }
 
   const stat = statSync(filePath);
+  const etag = makeEtag(stat);
   setGodotHeaders(res, requestUrl.pathname);
-  res.writeHead(200, {
-    'Content-Type': contentType(filePath),
-    'Content-Length': stat.size,
-    'Last-Modified': stat.mtime.toUTCString()
-  });
+  res.setHeader('ETag', etag);
+  res.setHeader('Last-Modified', stat.mtime.toUTCString());
+
+  const ifNoneMatch = req.headers['if-none-match'];
+  const ifModifiedSince = req.headers['if-modified-since'];
+  const notModifiedByEtag = ifNoneMatch && String(ifNoneMatch).split(',').map((v) => v.trim()).includes(etag);
+  const notModifiedByDate = ifModifiedSince && Date.parse(String(ifModifiedSince)) >= Math.floor(stat.mtimeMs / 1000) * 1000;
+  if (notModifiedByEtag || notModifiedByDate) {
+    res.writeHead(304);
+    res.end();
+    return;
+  }
+
+  const gzip = method === 'GET' && requestAcceptsGzip(req, filePath);
+  const headers = {
+    'Content-Type': contentType(filePath)
+  };
+  if (gzip) {
+    headers['Content-Encoding'] = 'gzip';
+  } else {
+    headers['Content-Length'] = stat.size;
+  }
+  res.writeHead(200, headers);
 
   if (method === 'HEAD') {
     res.end();
     return;
   }
 
-  createReadStream(filePath).pipe(res);
+  const stream = createReadStream(filePath);
+  if (gzip) {
+    stream.pipe(createGzip({ level: 6 })).pipe(res);
+  } else {
+    stream.pipe(res);
+  }
 });
 
 server.listen(port, host, () => {

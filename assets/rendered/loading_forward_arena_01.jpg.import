@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://nwcayox4ifos"
-path="res://.godot/imported/loading_black_delta.png-a39ae5c6998bd7978ce3eedba2d90a2d.ctex"
+uid="uid://b1dp33xh3u7gy"
+path="res://.godot/imported/loading_forward_arena_01.jpg-39e8cd06f4d9f83857eac95a11177a27.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/rendered/loading_black_delta.png"
-dest_files=["res://.godot/imported/loading_black_delta.png-a39ae5c6998bd7978ce3eedba2d90a2d.ctex"]
+source_file="res://assets/rendered/loading_forward_arena_01.jpg"
+dest_files=["res://.godot/imported/loading_forward_arena_01.jpg-39e8cd06f4d9f83857eac95a11177a27.ctex"]
 
 [params]
 
