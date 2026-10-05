@@ -1,7 +1,7 @@
 # Force War — Forward 3D Air Combat Roadmap
 
 Tanggal update: 2026-10-05
-Status: roadmap high-level setelah koreksi visual Phase 2 dan instruksi Blender pipeline.
+Status: roadmap high-level setelah Phase 3 first arena gameplay/VFX pass.
 
 Roadmap ini memakai **phase besar** dengan output browser-verifiable. Detail checklist teknis ada di `docs/REBUILD_ROADMAP_AND_MILESTONES.md`. Pipeline asset/animation baru ada di `docs/BLENDER_ANIMATION_PIPELINE.md`.
 
@@ -21,7 +21,7 @@ Force War diarahkan menjadi **3D forward air-combat mobile game**:
 
 ## Koreksi Visual Aktif
 
-Arahan terbaru yang harus dipatuhi sebelum lanjut combat package:
+Arahan terbaru yang dipakai untuk first combat/VFX pass:
 
 1. **Blender wajib masuk pipeline produksi** untuk asset, sockets, dan animation clips.
 2. Uploaded hero jet GLB dipakai sebagai enemy placeholder: `assets/models/enemy_hero_jet.glb`.
@@ -31,6 +31,7 @@ Arahan terbaru yang harus dipatuhi sebelum lanjut combat package:
    - player cyan shots bergerak maju;
    - enemy red/orange shots bergerak ke arah player secara readable;
    - enemy bullets tidak boleh terus-menerus mengejar player.
+6. Arena tidak boleh dipenuhi overlay/debug object yang tidak jelas; projectile/explosion/smoke/shield/reticle sekarang memakai authored PNG sprites, boss memakai Blender GLB, dan deck battlefield memakai textured panel + Blender deck cluster GLB.
 
 ---
 
@@ -38,15 +39,15 @@ Arahan terbaru yang harus dipatuhi sebelum lanjut combat package:
 
 | Area | Status | Catatan |
 | --- | --- | --- |
-| Godot/Web pipeline | 80% | Root export, Vercel flow, server, QA browser berjalan. |
-| Forward chase camera | 70% | Arah kamera diterima user, masih perlu polish gameplay feel. |
+| Godot/Web pipeline | 82% | Root export, Vercel flow, server, and Chromium QA pass after latest VFX export. |
+| Forward chase camera | 72% | Arah kamera diterima user, masih perlu polish gameplay feel. |
 | Player GLB gameplay | 45% | Player GLB aktif dan diperkecil; model final/Blender sockets belum selesai. |
-| Enemy GLB integration | 35% | Uploaded hero jet GLB aktif sebagai placeholder musuh. |
-| Shot animation readability | 40% | Cyan player pulses dan red/orange lanes aktif; butuh hardpoint/socket dan hit logic lengkap. |
-| Cinematic arena | 40% | Boss anchor, warzone, shots, haze aktif; cloud geometry sudah dimatikan sesuai koreksi. |
-| Blender production pipeline | 35% | Blender `bpy 4.5.14 LTS` runtime installed in sandbox and used to generate `enemy_hero_jet_blender_ready.glb`; final boss/player assets still pending. |
+| Enemy GLB integration | 42% | Uploaded hero jet GLB sudah diproses Blender dan aktif sebagai placeholder musuh. |
+| Shot animation readability | 58% | Authored cyan/orange projectile sprites aktif; hardpoint/socket spawning and hit logic masih pending. |
+| Cinematic arena | 55% | Blender boss GLB, deck cluster GLB, deck texture, VFX sprites, warzone, and haze active; cloud geometry disabled. |
+| Blender production pipeline | 52% | Blender `bpy 4.5.14 LTS` runtime generated enemy, boss, and deck GLBs; final player/enemy set still pending. |
 | Legacy cleanup | 35% | Gameplay runtime sudah forward-air, tetapi legacy monolith/assets lama masih perlu dipangkas bertahap. |
-| Overall menuju full target | ±45% | Baseline playable sudah ada, tetapi belum full combat package/final art. |
+| Overall menuju full target | ±52% | Browser-playable combat/VFX slice exists, but not full boss fight/progression/final art. |
 
 ---
 
@@ -106,15 +107,23 @@ Acceptance Phase 2 setelah koreksi:
 - player tidak memenuhi layar bawah;
 - tidak ada cloud bank berulang yang menutup arena;
 - boss/projectile lanes terbaca;
-- visual bridge menyatakan `cloudGeometry=false`, `enemyHeroJetModel=true`, `enemyHeroJetSource=blender_ready_glb`, `enemyHeroJetAnimation=EnemyJet_AttackPass_Loop`, dan `shotAnimation=player_cyan_pulses_enemy_red_lanes`.
+- visual bridge menyatakan `cloudGeometry=false`, `enemyHeroJetModel=true`, `enemyHeroJetSource=blender_ready_glb`, `enemyHeroJetAnimation=EnemyJet_AttackPass_Loop`, `bossArenaAsset=boss_dreadnought_leviathan_glb`, `projectileAssetSprites=true`, `cleanArenaOverlay=true`, dan `shotAnimation=asset_sprite_hero_enemy_lanes`.
 
 ---
 
 ### Phase 3 — Weapon, Enemy, Boss Combat Package
 
-Status: **Active next production phase**
+Status: **Active — first arena gameplay/VFX/boss asset pass completed**
 
-Scope besar:
+Completed in first pass:
+
+- Blender-authored `boss_dreadnought_leviathan.glb` is loaded by the active arena.
+- Blender-authored `arena_battle_deck_cluster.glb` replaces many unclear warzone box modules.
+- Authored projectile/explosion/smoke/shield/reticle PNG sprites are loaded as textured quads.
+- Forward HUD was simplified to one reticle sprite plus compact weather strip, removing radar/ability/debug clutter.
+- Browser QA now asserts boss GLB, deck cluster GLB, projectile sprites, and clean overlay state.
+
+Scope besar yang masih berjalan:
 
 1. **Blender asset/animation lane**
    - Blender pipeline sudah dijalankan via official `bpy 4.5.14 LTS` runtime untuk enemy placeholder; gunakan executable Blender penuh ketika environment menyediakan binary;
@@ -134,10 +143,10 @@ Scope besar:
    - hit sparks, smoke, debris, damage feedback.
 
 4. **Boss package**
-   - dreadnought attack phases;
-   - boss weak points;
-   - boss lasers and missile barrages;
-   - later replace procedural boss anchor with Blender-authored GLB.
+   - Blender dreadnought GLB is now active;
+   - add fightable weak points and damage state;
+   - add boss attack phases;
+   - refine boss lasers and missile barrages with safe gaps.
 
 Acceptance:
 

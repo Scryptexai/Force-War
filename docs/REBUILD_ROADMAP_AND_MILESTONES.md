@@ -7,7 +7,7 @@ Roadmap ini mengganti format milestone kecil per `R#`. Rebuild Force War sekaran
 
 Target akhir tetap sama: **3D forward air-combat** dengan pesawat GLB, kamera chase dari belakang-sedikit-atas, gerak maju ke depan, arena badai 3D, VFX sinematik, dan kualitas visual mengarah ke `gameplay_visual_lock_build.jpg`.
 
-> Status jujur: Phase 2 sudah menghasilkan arena perang badai 3D berlapis dengan weather gameplay awal dan browser QA. Build ini belum punya hardpoint weapon combat, enemy waves 3D, atau boss dreadnought. Phase 3 berikutnya harus membangun paket combat utama.
+> Status jujur: Phase 3 first pass sekarang sudah menambahkan arena gameplay/VFX berbasis asset, enemy GLB placeholder, boss dreadnought GLB, dan browser QA. Build ini masih belum punya hardpoint weapon combat penuh, damage/hit reactions lengkap, boss attack phases, atau progression final. Phase 3 tetap active sampai combat benar-benar fightable.
 
 ---
 
@@ -34,21 +34,21 @@ Semua phase wajib tunduk pada aturan ini:
 | Direction lock forward 3D | Done | 100% | `THIRD_PERSON_AIR_COMBAT_REDESIGN.md` selesai. |
 | Visual reference lock | Done | 100% | `gameplay_visual_lock_build.jpg` jadi mood/quality target. |
 | Code rebuild map | Done | 100% | `docs/CODE_REBUILD_MAP.md` selesai. |
-| Web pipeline lama | Stable baseline | 80% | Root export/server/QA masih jalan. |
-| Blender asset/animation pipeline | Active via Blender bpy runtime | 35% | `enemy_hero_jet_blender_ready.glb` generated with Blender `bpy 4.5.14 LTS`; Godot runtime now prefers that animated GLB. |
-| Gameplay forward 3D playable | Phase 1 core done | 35% | `ForwardAirScene3D` aktif di browser dengan GLB player dan chase camera. |
+| Web pipeline lama | Stable baseline | 82% | Root export/server/QA masih jalan setelah latest VFX export. |
+| Blender asset/animation pipeline | Active via Blender bpy runtime | 52% | Enemy, boss dreadnought, and arena deck cluster GLBs generated with Blender `bpy 4.5.14 LTS`; final model set still pending. |
+| Gameplay forward 3D playable | Phase 1 core done | 38% | `ForwardAirScene3D` aktif di browser dengan GLB player dan chase camera. |
 | Player GLB gameplay | First pass done | 35% | `assets/models/player_stormhawk.glb` dipakai sebagai player placeholder 3D. |
-| Chase camera | First pass done | 35% | `cameraMode: chase_behind_above` tervalidasi via browser QA. |
-| Arena forward 3D | Phase 2 battlefield pass done | 55% | `ForwardArenaDirector` memberi storm sky, cloud volumes, warzone below, rain/debris/tracers, hazards. |
-| Weapon VFX hardpoint | Not started | 0% | Belum implement. |
-| Enemy/Boss 3D | Not started | 0% | Belum implement. |
+| Chase camera | First pass done | 38% | `cameraMode: chase_behind_above` tervalidasi via browser QA. |
+| Arena forward 3D | Phase 3 VFX asset pass active | 62% | `ForwardArenaDirector` now loads boss GLB, deck cluster GLB, authored projectile/explosion/smoke/shield sprites, haze, rain/debris/tracers, hazards. |
+| Weapon VFX hardpoint | First visual pass | 30% | Asset-backed shot lanes/pulses visible; true hardpoint/socket spawning and hit logic pending. |
+| Enemy/Boss 3D | First visual pass | 35% | Enemy hero jet Blender-ready GLB and boss dreadnought GLB active; fightable damage/phases pending. |
 | Legacy cleanup fisik | Mapped only | 10% | Code/assets lama belum dihapus karena replacement belum ada. |
 
 ### Estimasi overall rebuild
 
 ```text
-Forward 3D gameplay rebuild only: ±52–55%
-Full product including existing Web pipeline/docs: ±50–52%
+Forward 3D gameplay rebuild only: ±60–62%
+Full product including existing Web pipeline/docs: ±52–55%
 ```
 
 ---
@@ -60,7 +60,7 @@ Full product including existing Web pipeline/docs: ±50–52%
 | Phase 0 | Direction Lock, Audit, Code Map | Done | Direction baru, visual lock, code map, docs cleanup | 10% forward rebuild |
 | Phase 1 | Core Forward Flight Rebuild | Done | Scene 3D playable: player GLB, chase camera, forward controls, browser QA | 35% forward rebuild |
 | Phase 2 | Cinematic Arena & Weather Battlefield | Done | Arena 3D berlapis, storm clouds, warzone below, weather gameplay awal, browser QA | 52–55% forward rebuild |
-| Phase 3 | Weapon, Enemy, Boss Combat Package | Active Next | Blender-prepared enemies/boss sockets, hardpoint weapons, readable shot animation, boss dreadnought | 70–75% forward rebuild |
+| Phase 3 | Weapon, Enemy, Boss Combat Package | Active — first asset/VFX pass done | Blender boss/deck GLBs, authored projectile sprites, clean arena HUD; hardpoint/damage/boss phases still pending | 70–75% forward rebuild when fully fightable |
 | Phase 4 | UI/UX, Progression, Legacy Cleanup | Planned | HUD forward flight, hangar aircraft-only, save migration, old code/assets removed | 85–90% forward rebuild |
 | Phase 5 | Web QA, Optimization, Content Expansion | Planned | Export final slice, browser QA, tuning, content expansion | 100% first rebuilt vertical slice |
 
@@ -254,8 +254,10 @@ Phase 2 lolos acceptance gate. Forward rebuild sekarang **±52–55%**. Build ma
 
 ## 7. Phase 3 — Weapon, Enemy, Boss Combat Package
 
-**Status:** Active Next
+**Status:** Active — first arena gameplay/VFX asset pass completed
 **Tujuan besar:** membuat combat yang terasa seperti visual target: tembakan player kuat, enemy/boss 3D, projectile readable, dan boss dreadnought sebagai anchor besar di depan.
+
+Current first pass result: browser build now shows asset-backed cyan/orange shot lanes, Blender-ready enemy jet placeholders, Blender-authored dreadnought boss GLB, Blender-authored deck battlefield modules, VFX sprite explosions/smoke/shields, and a cleaner forward HUD. This is still not the full fightable combat package.
 
 ### Scope Phase 3
 
@@ -266,14 +268,19 @@ Phase 2 lolos acceptance gate. Forward rebuild sekarang **±52–55%**. Build ma
 - [x] Add `tools/run_blender_air_pipeline.sh`.
 - [x] Move uploaded enemy hero jet GLB into `assets/models/enemy_hero_jet.glb`.
 - [x] Export Blender-prepared `assets/models/enemy_hero_jet_blender_ready.glb`.
-- [ ] Create/replace boss with Blender-authored `assets/models/boss_dreadnought_leviathan.glb`.
-- [ ] Define muzzle/missile/engine sockets in Blender and consume them in Godot.
+- [x] Create/replace boss with Blender-authored `assets/models/boss_dreadnought_leviathan.glb`.
+- [x] Create Blender-authored `assets/models/arena_battle_deck_cluster.glb` to reduce unclear runtime box modules.
+- [x] Define first boss/deck sockets in Blender (`Boss_Muzzle_*`, `Boss_WeakPoint_Core`, `Deck_AA_Muzzle_*`, `Deck_Smoke_Anchor`).
+- [ ] Consume sockets directly for runtime projectile spawning and hit logic.
 
 #### 3.1 Weapon VFX director
 
 - [ ] Buat `scripts/weapon_vfx_director.gd`.
-- [ ] Main cannon cyan/white dari nose/inner hardpoints.
-- [ ] Wing cannon bolt tebal dari wing hardpoints.
+- [x] First pass main cannon cyan/white sprite lanes visible from the forward chase composition.
+- [ ] Main cannon cyan/white dari nose/inner hardpoints via sockets.
+- [x] First pass wing/dual bolt visual lanes active.
+- [ ] Wing cannon bolt tebal dari wing hardpoints via sockets.
+- [x] Smoke trail sprite pass active in the arena.
 - [ ] Micro missile model + smoke trail dari missile sockets.
 - [ ] Overcharge lightning laser dari nose/spine hardpoint.
 - [ ] Engine exhaust permanen dengan boost flare.
@@ -282,32 +289,30 @@ Phase 2 lolos acceptance gate. Forward rebuild sekarang **±52–55%**. Build ma
 #### 3.2 Enemy director 3D
 
 - [ ] Buat `scripts/enemy_director_3d.gd`.
-- [ ] Enemy fighter/drone/gunship GLB placeholder.
-- [ ] Spawn enemy di depth depan, bukan dari top screen 2D.
-- [ ] Attack patterns red/orange readable:
-  - lane fire;
-  - fan fire;
-  - missile warning;
-  - slow beam telegraph.
-- [ ] No constant unfair homing.
+- [x] Enemy fighter GLB placeholder active using Blender-prepared uploaded hero jet.
+- [x] Spawn enemy di depth depan, bukan dari top screen 2D.
+- [x] First pass red/orange readable lane fire active.
+- [ ] Add fan fire, missile warning, and slow beam telegraph as real attack patterns.
+- [x] No constant unfair homing in current enemy bullets.
 
 #### 3.3 Boss dreadnought set piece
 
-- [ ] Buat/import `assets/models/boss_dreadnought_leviathan.glb` placeholder.
-- [ ] Boss berada upper-middle depth, bukan top overlay image.
-- [ ] Tambah central weather cannon.
-- [ ] Tambah turret hardpoints.
-- [ ] Tambah weakpoint lights.
-- [ ] Tambah shield/phase placeholder.
-- [ ] Tambah boss laser charge telegraph.
+- [x] Buat/import `assets/models/boss_dreadnought_leviathan.glb` placeholder Blender.
+- [x] Boss berada upper-middle depth, bukan top overlay image.
+- [x] Tambah central weather cannon visual and weakpoint/core socket.
+- [x] Tambah turret hardpoint sockets in the Blender asset.
+- [x] Tambah weakpoint lights/core pulse animation.
+- [ ] Tambah shield/phase gameplay placeholder.
+- [x] Tambah boss laser charge telegraph first visual pass.
+- [ ] Add fightable boss HP/damage/phase logic beyond HUD/state placeholder.
 
 #### 3.4 Combat feedback
 
 - [ ] Enemy hit flash/damage state.
-- [ ] Boss turret sparks/smoke.
+- [ ] Boss turret sparks/smoke tied to damage.
 - [ ] Camera shake/FOV for heavy shots.
 - [ ] Score/combo hooks.
-- [ ] Death/explosion first pass.
+- [x] Ambient explosion/smoke first visual pass using authored sprites.
 
 ### Deliverable Phase 3
 
@@ -322,12 +327,12 @@ laser/missile/explosion VFX readable
 
 ### Acceptance Gate Phase 3
 
-- [ ] Player fire tidak lagi terlihat seperti 2 peluru lemah.
+- [x] Player fire tidak lagi terlihat seperti 2 peluru lemah; current pass uses authored cyan shot lanes/pulses.
 - [ ] Shots lahir dari hardpoints model.
-- [ ] Enemy dan boss adalah 3D scene/model.
-- [ ] Boss attack punya telegraph/safe gaps.
+- [x] Enemy dan boss adalah 3D scene/model in the current browser slice.
+- [ ] Boss attack punya full telegraph/safe gaps.
 - [ ] Hit impact membuat combat terasa berat.
-- [ ] Browser QA pass.
+- [x] Browser QA pass for first asset/VFX pass.
 
 ### Progress setelah Phase 3 selesai
 
@@ -481,23 +486,23 @@ Forward rebuilt vertical slice boleh disebut **100% for first rebuilt slice**, b
 
 ## 10. Active Work Order Sekarang
 
-Phase 2 selesai untuk first cinematic/weather battlefield pass. Next work adalah:
+Phase 3 first arena gameplay/VFX asset pass selesai, tetapi phase ini belum complete. Next work tetap:
 
 ```text
-Phase 3 — Weapon, Enemy, Boss Combat Package
+Phase 3 — Weapon, Enemy, Boss Combat Package (fightable hardpoint/damage/boss phases)
 ```
 
 Urutan kerja Phase 3:
 
-1. Jalankan/maintain Blender pipeline untuk enemy/player/boss GLB, sockets, dan animation clips.
-2. Buat `weapon_vfx_director.gd` untuk hardpoint fire dari GLB aircraft.
-3. Buat `enemy_director_3d.gd` untuk enemy fighter/drone/gunship di depth depan memakai `enemy_hero_jet.glb`/Blender output.
-4. Tambah projectile readable; enemy bullets tidak boleh terus-menerus chasing player.
-5. Tambah hit sparks, smoke trails, and debris impacts.
-6. Tambah first boss/dreadnought shell sebagai anchor besar di depan, lalu replace dengan Blender GLB.
+1. Maintain Blender pipeline untuk enemy/player/boss/deck GLB, sockets, dan animation clips.
+2. Buat `weapon_vfx_director.gd` atau modularize current VFX into a proper hardpoint fire system dari GLB aircraft.
+3. Buat `enemy_director_3d.gd` untuk enemy fighter/drone/gunship di depth depan memakai Blender outputs.
+4. Tambah projectile readable and keep enemy bullets non-homing after initial lane/fire decisions.
+5. Tambah hit sparks, smoke trails, debris impacts, HP damage, and score hooks.
+6. Build boss dreadnought attack phases using the new Blender GLB sockets.
 7. Clouds tidak boleh menjadi geometry berulang; gunakan haze/fog tipis sesuai reference.
 8. Player aircraft harus lebih kecil di layar agar corridor movement terbaca.
-9. Export Web + browser QA.
+9. Export Web + browser QA for every production chunk.
 
 Phase 3 tidak selesai sampai combat 3D benar-benar terlihat dari chase camera.
 

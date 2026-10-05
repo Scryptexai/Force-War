@@ -2,7 +2,7 @@
 
 Force War sekarang **dikunci ulang arahnya** menjadi game **3D forward air-combat** untuk Godot 4.6.2 stable dan Web export. Arah lama berupa vertical/top-down aircraft canvas, prologue mobil/konvoi, dan gameplay berbasis PNG/static sprite **tidak lagi menjadi target desain**.
 
-> Status jujur: commit saat ini masih membawa build lama sebagai baseline teknis/Web export. Dokumen ini adalah redesign lock sebelum implementasi berikutnya. Gameplay final yang diinginkan harus mengganti build lama dengan pesawat GLB 3D, kamera chase dari belakang-sedikit-atas, dan arena perang yang bergerak maju ke depan.
+> Status jujur: build saat ini sudah menjalankan slice forward-air 3D di browser: player GLB, kamera chase belakang-sedikit-atas, arena perang badai, enemy GLB placeholder Blender, boss dreadnought GLB, dan projectile/VFX sprites. Ini belum full commercial game; weapon hardpoint logic, enemy damage, boss phases, progression, dan cleanup legacy masih harus dilanjutkan.
 
 ## Visual Lock
 
@@ -42,6 +42,7 @@ docs/REBUILD_ROADMAP_AND_MILESTONES.md    # Big phase rebuild roadmap + progress
 docs/PHASE_0_DIRECTION_LOCK_REPORT.md     # Phase 0 completion report and Phase 1 entry gate
 docs/PHASE_1_CORE_FORWARD_FLIGHT_REPORT.md     # Phase 1 GLB/chase-camera forward flight completion report
 docs/PHASE_2_CINEMATIC_ARENA_WEATHER_REPORT.md     # Phase 2 layered storm battlefield and weather gameplay report
+docs/PHASE_3_ARENA_GAMEPLAY_VFX_REPORT.md      # Phase 3 first combat/VFX/boss asset pass report
 docs/BLENDER_ANIMATION_PIPELINE.md       # Required Blender GLB/socket/animation workflow for proper visual production
 docs/CODE_REBUILD_MAP.md                  # Phase 1 prep map: keep/rewrite/delete + cut points
 docs/REPO_CLEANUP_AUDIT.md                # Audit setup lama dan daftar bersih-bersih repo
@@ -59,7 +60,8 @@ docs/WEB_BUILD_FLOW.md                    # Web export/root server flow yang tet
 project.godot                         # Konfigurasi Godot 4.6.2, viewport 720x1280
 scenes/Main.tscn                      # Main scene baseline saat ini; akan dirombak ke 3D chase air scene
 scripts/main.gd                       # Baseline gameplay lama; wajib dibedah pada pass implementasi berikutnya
-assets/models/                        # Target utama asset gameplay baru: GLB pesawat, enemy, boss, arena chunks
+assets/models/                        # Asset gameplay baru: GLB pesawat, enemy, boss, arena/deck chunks
+assets/vfx/                           # Authored projectile/explosion/smoke/shield/reticle sprites for 3D chase combat
 assets/rendered/                      # Hanya untuk logo/loading/UI reference; tidak boleh menjadi player aircraft gameplay final
 gameplay_visual_lock_build.jpg        # Visual target reference, bukan gameplay texture
 tools/export_web.sh                   # Export Web Godot 4.6.2 ke root repo

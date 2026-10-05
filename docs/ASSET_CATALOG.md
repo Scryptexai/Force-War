@@ -45,7 +45,7 @@ Minimum shared requirements:
 
 | Target file | Role |
 | --- | --- |
-| `assets/models/boss_dreadnought_leviathan.glb` | Screen-depth air fortress/dreadnought with central cannon |
+| `assets/models/boss_dreadnought_leviathan.glb` | Screen-depth air fortress/dreadnought with central cannon — **active Blender-authored boss GLB** |
 | `assets/models/boss_turret_cannon.glb` | Reusable turret hardpoint |
 | `assets/models/boss_missile_pod.glb` | Missile barrage hardpoint |
 | `assets/models/boss_weather_core.glb` | Lightning/weather weakpoint core |
@@ -70,8 +70,10 @@ Boss must be a 3D object ahead of player, not a top overlay image.
 | `assets/models/enemy_hero_jet.glb` | User-uploaded hero/fighter GLB moved into model catalog | Source for Blender-prepared enemy placeholder |
 | `assets/models/enemy_hero_jet_blender_ready.glb` | Blender-generated animated enemy placeholder with sockets plus attack-pass, muzzle-flash, and engine-pulse clips | Active enemy model in forward-air runtime |
 | `assets/models/support_jet.glb` | Existing low-poly jet | Can be used as temporary wingman/reference, not final player model |
-| `assets/models/air_arena_tile.glb` | Existing low-poly terrain/water/runway tile | Can be studied/reworked into forward arena chunks; current vertical/tile setup is not final |
-| `assets/models/air_cloud_cluster.glb` | Existing low-poly cloud cluster | Can be reused as temporary cloud chunk if placed in forward 3D depth |
+| `assets/models/air_arena_tile.glb` | Existing low-poly terrain/water/runway tile | Legacy/reference only; active forward deck now uses authored texture/GLB modules |
+| `assets/models/arena_battle_deck_cluster.glb` | Blender-authored deck/turret/radar module with beacon animation and sockets | Active below-flight arena detail replacing many unclear runtime boxes |
+| `assets/models/boss_dreadnought_leviathan.glb` | Blender-authored dreadnought boss, 447 KB, with `BossDreadnought_IdleHover` and `BossCore_ChargePulse` | Active boss arena asset in `ForwardArenaDirector` |
+| `assets/models/air_cloud_cluster.glb` | Existing low-poly cloud cluster | Kept as reference only; active arena disables continuous cloud geometry per user correction |
 | `assets/models/player_car.glb` | Legacy ground chase car | Deprecated; remove after code rewrite |
 | `assets/models/enemy_car.glb` | Legacy ground chase car | Deprecated; remove after code rewrite |
 | `assets/models/convoy_car.glb` | Legacy convoy car | Deprecated; remove after code rewrite |
@@ -109,6 +111,20 @@ PNG must not be used for:
 | `assets/rendered/convoy_*.png` | Deprecated; remove after code rewrite |
 | `assets/rendered/support_*.png` | UI icon/reference only; gameplay pods should become 3D/particles if visible in mission |
 
+### Active VFX Sprite Inventory
+
+These PNGs are authored gameplay VFX sprites used as textured quads inside the 3D chase scene, not as replacement aircraft/boss models:
+
+| File | Active role |
+| --- | --- |
+| `assets/vfx/hero_cyan_shot.png` | Player cyan cannon lanes, pulses, and distant friendly tracers |
+| `assets/vfx/enemy_orange_shot.png` | Enemy/boss orange-red bolts and laser-lane telegraphs |
+| `assets/vfx/explosion_fireball.png` | Ground fire pockets and explosion bursts |
+| `assets/vfx/smoke_plume.png` | Missile/smoke trails and smoke columns |
+| `assets/vfx/shield_bubble.png` | Wingman/support shield bubbles |
+| `assets/vfx/reticle_lock.png` | Clean authored HUD reticle replacing code-drawn clutter |
+| `assets/vfx/arena_deck_panel.png` | Textured arena deck/sea panels below the flight path |
+
 ## 5. SVG Policy
 
 SVG files are legacy editable references/icons. They are not final gameplay assets.
@@ -125,18 +141,18 @@ SVG files are legacy editable references/icons. They are not final gameplay asse
 
 Gameplay VFX can be procedural/particle-based, but must be authored for 3D chase camera.
 
-Required VFX modules:
+Required/active VFX modules:
 
-- player afterburner flame and vapor trail;
-- cyan main cannon stream;
-- wing cannon bolt trail;
-- micro missile rocket + smoke trail;
-- overcharge lightning laser;
-- blue hex/electric shield bubble around GLB;
-- red/orange enemy bullets;
-- boss cannon charge beam;
-- 3D explosion burst with smoke/debris;
-- rain sheets, lightning flash, cloud concealment.
+- player afterburner flame and vapor trail — first pass active on player GLB;
+- cyan main cannon stream — active with `hero_cyan_shot.png`, hardpoint socket logic still pending;
+- wing cannon bolt trail — visual lane pass active, full weapon system pending;
+- micro missile rocket + smoke trail — smoke sprite pass active, missile model/logic pending;
+- overcharge lightning laser — weather overcharge state active, dedicated laser pass pending;
+- blue hex/electric shield bubble around GLB — sprite shield pass active;
+- red/orange enemy bullets — active with `enemy_orange_shot.png`, non-homing lane behavior;
+- boss cannon charge beam — boss lane telegraph active, phase logic pending;
+- explosion burst with smoke/debris — sprite pass active;
+- rain sheets, lightning flash, cloud concealment — weather logic active, visible cloud geometry disabled for current reference.
 
 ## 7. Cleanup Rule
 

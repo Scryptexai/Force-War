@@ -6,7 +6,15 @@ class_name ForwardArenaDirector
 
 const CLOUD_BANK_PATH = "res://assets/models/air_cloud_cluster.glb"
 const ARENA_CHUNK_PATH = "res://assets/models/air_arena_tile.glb"
+const ARENA_DECK_CLUSTER_PATH = "res://assets/models/arena_battle_deck_cluster.glb"
 const SUPPORT_JET_PATH = "res://assets/models/support_jet.glb"
+const BOSS_DREADNOUGHT_PATH = "res://assets/models/boss_dreadnought_leviathan.glb"
+const HERO_SHOT_TEXTURE_PATH = "res://assets/vfx/hero_cyan_shot.png"
+const ENEMY_SHOT_TEXTURE_PATH = "res://assets/vfx/enemy_orange_shot.png"
+const EXPLOSION_TEXTURE_PATH = "res://assets/vfx/explosion_fireball.png"
+const SMOKE_TEXTURE_PATH = "res://assets/vfx/smoke_plume.png"
+const SHIELD_TEXTURE_PATH = "res://assets/vfx/shield_bubble.png"
+const ARENA_DECK_TEXTURE_PATH = "res://assets/vfx/arena_deck_panel.png"
 const ENEMY_HERO_JET_READY_PATH = "res://assets/models/enemy_hero_jet_blender_ready.glb"
 const ENEMY_HERO_JET_PATH = "res://assets/models/enemy_hero_jet.glb"
 const DEPTH_LAYER_COUNT = 5
@@ -54,9 +62,17 @@ var lightning_nodes: Array = []
 
 var cloud_scene: PackedScene
 var arena_scene: PackedScene
+var arena_deck_cluster_scene: PackedScene
 var support_scene: PackedScene
+var boss_dreadnought_scene: PackedScene
 var enemy_hero_jet_scene: PackedScene
 var enemy_hero_jet_blender_ready = false
+var hero_shot_texture: Texture2D
+var enemy_shot_texture: Texture2D
+var explosion_texture: Texture2D
+var smoke_texture: Texture2D
+var shield_texture: Texture2D
+var arena_deck_texture: Texture2D
 
 var storm_cloud_mat: StandardMaterial3D
 var deep_cloud_mat: StandardMaterial3D
@@ -77,6 +93,7 @@ var player_beam_mat: StandardMaterial3D
 var missile_smoke_mat: StandardMaterial3D
 var shield_mat: StandardMaterial3D
 var explosion_mat: StandardMaterial3D
+var arena_deck_mat: StandardMaterial3D
 
 
 func setup() -> void:
@@ -164,7 +181,11 @@ func get_weather_effect() -> Dictionary:
 		"enemyHeroJetModel": enemy_hero_jet_scene != null,
 		"enemyHeroJetSource": "blender_ready_glb" if enemy_hero_jet_blender_ready else "uploaded_source_glb",
 		"enemyHeroJetAnimation": "EnemyJet_AttackPass_Loop" if enemy_hero_jet_blender_ready else "runtime_motion_only",
-		"shotAnimation": "player_cyan_pulses_enemy_red_lanes",
+		"bossArenaAsset": "boss_dreadnought_leviathan_glb" if boss_dreadnought_scene != null else "runtime_fallback",
+		"arenaAssetDeckCluster": arena_deck_cluster_scene != null,
+		"projectileAssetSprites": hero_shot_texture != null and enemy_shot_texture != null,
+		"cleanArenaOverlay": true,
+		"shotAnimation": "asset_sprite_hero_enemy_lanes",
 		"playerScaleMode": "reduced_mobile_readable",
 		"cloudGeometry": false,
 		"hazardPushX": hazard_push.x,
@@ -187,9 +208,21 @@ func _load_scene_assets() -> void:
 	var arena_resource = load(ARENA_CHUNK_PATH)
 	if arena_resource is PackedScene:
 		arena_scene = arena_resource
+	var arena_deck_cluster_resource = load(ARENA_DECK_CLUSTER_PATH)
+	if arena_deck_cluster_resource is PackedScene:
+		arena_deck_cluster_scene = arena_deck_cluster_resource
 	var support_resource = load(SUPPORT_JET_PATH)
 	if support_resource is PackedScene:
 		support_scene = support_resource
+	var boss_resource = load(BOSS_DREADNOUGHT_PATH)
+	if boss_resource is PackedScene:
+		boss_dreadnought_scene = boss_resource
+	hero_shot_texture = load(HERO_SHOT_TEXTURE_PATH)
+	enemy_shot_texture = load(ENEMY_SHOT_TEXTURE_PATH)
+	explosion_texture = load(EXPLOSION_TEXTURE_PATH)
+	smoke_texture = load(SMOKE_TEXTURE_PATH)
+	shield_texture = load(SHIELD_TEXTURE_PATH)
+	arena_deck_texture = load(ARENA_DECK_TEXTURE_PATH)
 	var enemy_resource = load(ENEMY_HERO_JET_READY_PATH)
 	if enemy_resource is PackedScene:
 		enemy_hero_jet_scene = enemy_resource
@@ -221,6 +254,7 @@ func _create_materials() -> void:
 	missile_smoke_mat = _make_material(Color(0.70, 0.76, 0.82, 0.46), Color(0.08, 0.10, 0.12, 1.0), 0.0, 0.46)
 	shield_mat = _make_material(Color(0.18, 0.75, 1.0, 0.20), Color(0.12, 0.68, 1.0, 1.0), 0.0, 0.20)
 	explosion_mat = _make_material(Color(1.0, 0.52, 0.08, 0.90), Color(1.0, 0.22, 0.02, 1.0), 0.0, 0.90)
+	arena_deck_mat = _make_textured_material(arena_deck_texture, Color(0.25, 0.55, 0.72, 0.95), Color(0.02, 0.11, 0.18, 1.0), 0.95, false, false)
 
 
 func _create_far_sky_layer() -> void:
@@ -252,15 +286,25 @@ func _create_warzone_layer() -> void:
 		chunk.name = "ForwardWarzoneChunk_%02d" % i
 		chunk.position = Vector3(0.0, -9.0, -24.0 - i * 22.0)
 		chunk.set_meta("speed_mul", 0.88)
-		chunk.add_child(_box_mesh("OceanOrFloodedCityPlateLeft", Vector3(-8.5, 0.0, 0.0), Vector3(8.5, 0.045, 13.0), ocean_mat))
-		chunk.add_child(_box_mesh("OceanOrFloodedCityPlateRight", Vector3(8.5, 0.0, 0.0), Vector3(8.5, 0.045, 13.0), ocean_mat))
-		for b in range(9):
-			var bx = rng.randf_range(-11.0, -5.0) if b % 2 == 0 else rng.randf_range(5.0, 11.0)
-			var bz = rng.randf_range(-5.6, 5.6)
-			var by = rng.randf_range(0.35, 1.8)
-			chunk.add_child(_box_mesh("CityBlock_%02d" % b, Vector3(bx, by * 0.5, bz), Vector3(rng.randf_range(0.45, 1.25), by, rng.randf_range(0.45, 1.4)), city_mat))
+		chunk.add_child(_plane_mesh("ArenaDeckPanelLeft", Vector3(-8.5, 0.0, 0.0), Vector2(8.5, 13.0), arena_deck_mat))
+		chunk.add_child(_plane_mesh("ArenaDeckPanelRight", Vector3(8.5, 0.0, 0.0), Vector2(8.5, 13.0), arena_deck_mat))
+		for b in range(4):
+			var bx = rng.randf_range(-10.3, -5.5) if b % 2 == 0 else rng.randf_range(5.5, 10.3)
+			var bz = rng.randf_range(-5.2, 5.2)
+			if arena_deck_cluster_scene:
+				var deck_cluster = arena_deck_cluster_scene.instantiate()
+				deck_cluster.name = "ArenaBattleDeckClusterGLB_%02d" % b
+				deck_cluster.position = Vector3(bx, 0.08, bz)
+				var cluster_scale = rng.randf_range(0.72, 1.02)
+				deck_cluster.scale = Vector3(cluster_scale, cluster_scale, cluster_scale)
+				deck_cluster.rotation_degrees = Vector3(0.0, rng.randf_range(-10.0, 10.0), 0.0)
+				chunk.add_child(deck_cluster)
+				_play_first_animation(deck_cluster)
+			else:
+				var by = rng.randf_range(0.35, 1.1)
+				chunk.add_child(_box_mesh("FallbackDeckModule_%02d" % b, Vector3(bx, by * 0.5, bz), Vector3(rng.randf_range(0.45, 0.95), by, rng.randf_range(0.45, 1.0)), city_mat))
 		for f in range(4):
-			var fire = _box_mesh("GroundFirePocket_%02d" % f, Vector3(rng.randf_range(-10.0, -4.8) if f % 2 == 0 else rng.randf_range(4.8, 10.0), 0.52, rng.randf_range(-5.6, 5.6)), Vector3(0.35, rng.randf_range(0.7, 1.45), 0.35), fire_mat)
+			var fire = _vfx_quad("GroundFirePocket_%02d" % f, Vector3(rng.randf_range(-10.0, -4.8) if f % 2 == 0 else rng.randf_range(4.8, 10.0), 0.80, rng.randf_range(-5.6, 5.6)), Vector2(rng.randf_range(1.0, 1.7), rng.randf_range(1.0, 1.9)), explosion_texture, Color(1.0, 0.55, 0.18, 0.82), 1.9)
 			chunk.add_child(fire)
 			fire_pockets.append(fire)
 		for s in range(3):
@@ -315,7 +359,8 @@ func _create_distant_battle_layer() -> void:
 		air_traffic.append(traffic)
 	for i in range(18):
 		var mat = tracer_cyan_mat if i % 3 == 0 else tracer_red_mat
-		var tracer = _box_mesh("DistantTracer_%02d" % i, Vector3.ZERO, Vector3(0.045, 0.045, rng.randf_range(2.2, 6.4)), mat)
+		var tracer_texture = hero_shot_texture if i % 3 == 0 else enemy_shot_texture
+		var tracer = _vfx_quad("DistantTracer_%02d" % i, Vector3.ZERO, Vector2(0.18, rng.randf_range(2.2, 5.2)), tracer_texture, Color.WHITE, 1.3)
 		tracer.position = Vector3(rng.randf_range(-18.0, 18.0), rng.randf_range(1.0, 10.5), -24.0 - rng.randf_range(0.0, 145.0))
 		tracer.rotation_degrees = Vector3(rng.randf_range(-12.0, 12.0), rng.randf_range(-28.0, 28.0), rng.randf_range(-18.0, 18.0))
 		tracer.set_meta("speed_mul", rng.randf_range(0.62, 0.95))
@@ -331,29 +376,38 @@ func _create_visual_lock_composition_layer() -> void:
 	boss_anchor.name = "DreadnoughtLeviathanBossAnchor"
 	boss_anchor.position = Vector3(0.0, 12.5, -96.0)
 	boss_anchor.set_meta("base_z", -96.0)
-	boss_anchor.add_child(_box_mesh("LeviathanMainHull", Vector3(0.0, 0.0, 0.0), Vector3(24.0, 2.4, 8.2), boss_hull_mat))
-	boss_anchor.add_child(_box_mesh("LeviathanUpperDeck", Vector3(0.0, 1.65, -0.3), Vector3(17.0, 0.95, 5.9), boss_armor_mat))
-	boss_anchor.add_child(_box_mesh("LeviathanBowPlate", Vector3(0.0, -0.15, 5.1), Vector3(11.5, 1.3, 0.9), boss_armor_mat))
-	boss_anchor.add_child(_box_mesh("LeftFlightSponson", Vector3(-12.7, -0.15, 0.6), Vector3(3.8, 0.65, 5.8), boss_hull_mat))
-	boss_anchor.add_child(_box_mesh("RightFlightSponson", Vector3(12.7, -0.15, 0.6), Vector3(3.8, 0.65, 5.8), boss_hull_mat))
-	for i in range(7):
-		var tx = -7.8 + i * 2.6
-		var tower = _box_mesh("CommandTower_%02d" % i, Vector3(tx, 2.8 + rng.randf_range(0.0, 1.0), rng.randf_range(-2.8, 2.5)), Vector3(0.75, rng.randf_range(2.2, 4.8), 0.75), boss_armor_mat)
-		boss_anchor.add_child(tower)
-		var light = _box_mesh("TowerBlueBeacon_%02d" % i, tower.position + Vector3(0.0, tower.mesh.size.y * 0.55 + 0.10, 0.0), Vector3(0.20, 0.12, 0.20), player_beam_mat)
-		boss_anchor.add_child(light)
-	for i in range(11):
-		var sx = -7.5 + i * 1.5
-		boss_anchor.add_child(_box_mesh("LeviathanBlueWindow_%02d" % i, Vector3(sx, -0.45, 5.68), Vector3(0.45, 0.16, 0.08), player_beam_mat))
-		if i % 2 == 0:
-			boss_anchor.add_child(_box_mesh("LeviathanRedPort_%02d" % i, Vector3(sx + 0.7, 0.20, 5.75), Vector3(0.34, 0.14, 0.08), tracer_red_mat))
-	boss_core = _sphere_mesh("LeviathanCoreCannon", Vector3(0.0, -0.20, 5.92), 0.92, boss_core_mat)
-	boss_anchor.add_child(boss_core)
+	if boss_dreadnought_scene:
+		var boss_model = boss_dreadnought_scene.instantiate()
+		boss_model.name = "BossDreadnoughtLeviathanGLB"
+		boss_model.scale = Vector3(1.0, 1.0, 1.0)
+		boss_model.rotation_degrees = Vector3(0.0, 0.0, 0.0)
+		boss_anchor.add_child(boss_model)
+		_play_first_animation(boss_model)
+		boss_core = null
+	else:
+		boss_anchor.add_child(_box_mesh("LeviathanMainHull", Vector3(0.0, 0.0, 0.0), Vector3(24.0, 2.4, 8.2), boss_hull_mat))
+		boss_anchor.add_child(_box_mesh("LeviathanUpperDeck", Vector3(0.0, 1.65, -0.3), Vector3(17.0, 0.95, 5.9), boss_armor_mat))
+		boss_anchor.add_child(_box_mesh("LeviathanBowPlate", Vector3(0.0, -0.15, 5.1), Vector3(11.5, 1.3, 0.9), boss_armor_mat))
+		boss_anchor.add_child(_box_mesh("LeftFlightSponson", Vector3(-12.7, -0.15, 0.6), Vector3(3.8, 0.65, 5.8), boss_hull_mat))
+		boss_anchor.add_child(_box_mesh("RightFlightSponson", Vector3(12.7, -0.15, 0.6), Vector3(3.8, 0.65, 5.8), boss_hull_mat))
+		for i in range(7):
+			var tx = -7.8 + i * 2.6
+			var tower = _box_mesh("CommandTower_%02d" % i, Vector3(tx, 2.8 + rng.randf_range(0.0, 1.0), rng.randf_range(-2.8, 2.5)), Vector3(0.75, rng.randf_range(2.2, 4.8), 0.75), boss_armor_mat)
+			boss_anchor.add_child(tower)
+			var light = _box_mesh("TowerBlueBeacon_%02d" % i, tower.position + Vector3(0.0, tower.mesh.size.y * 0.55 + 0.10, 0.0), Vector3(0.20, 0.12, 0.20), player_beam_mat)
+			boss_anchor.add_child(light)
+		for i in range(11):
+			var sx = -7.5 + i * 1.5
+			boss_anchor.add_child(_box_mesh("LeviathanBlueWindow_%02d" % i, Vector3(sx, -0.45, 5.68), Vector3(0.45, 0.16, 0.08), player_beam_mat))
+			if i % 2 == 0:
+				boss_anchor.add_child(_box_mesh("LeviathanRedPort_%02d" % i, Vector3(sx + 0.7, 0.20, 5.75), Vector3(0.34, 0.14, 0.08), tracer_red_mat))
+		boss_core = _sphere_mesh("LeviathanCoreCannon", Vector3(0.0, -0.20, 5.92), 0.92, boss_core_mat)
+		boss_anchor.add_child(boss_core)
 	add_child(boss_anchor)
 
 	for i in range(5):
 		var x = -4.4 + i * 2.2
-		var beam = _box_mesh("BossLaserLance_%02d" % i, Vector3(x, 5.8 - abs(float(i) - 2.0) * 0.30, -54.0 + i * 1.4), Vector3(0.07, 0.07, 46.0), tracer_red_mat)
+		var beam = _vfx_quad("BossLaserLance_%02d" % i, Vector3(x, 5.8 - abs(float(i) - 2.0) * 0.30, -54.0 + i * 1.4), Vector2(0.42, 9.8), enemy_shot_texture, Color(1.0, 0.42, 0.12, 0.88), 1.8)
 		beam.rotation_degrees = Vector3(0.0, -x * 1.6, x * 2.0)
 		beam.set_meta("base_x", x)
 		add_child(beam)
@@ -362,7 +416,7 @@ func _create_visual_lock_composition_layer() -> void:
 	var lanes = [-3.4, -2.15, -0.9, 0.9, 2.15, 3.4]
 	for i in range(36):
 		var lane = lanes[i % lanes.size()]
-		var bullet = _box_mesh("ReadableEnemyBolt_%02d" % i, Vector3(lane, rng.randf_range(1.6, 5.4), -34.0 - i * 3.8), Vector3(0.16, 0.16, 1.28), tracer_red_mat)
+		var bullet = _vfx_quad("ReadableEnemyBolt_%02d" % i, Vector3(lane, rng.randf_range(1.6, 5.4), -34.0 - i * 3.8), Vector2(0.36, 1.55), enemy_shot_texture, Color(1.0, 0.58, 0.24, 0.95), 1.9)
 		bullet.set_meta("lane", lane)
 		bullet.set_meta("speed_mul", rng.randf_range(1.20, 1.55))
 		add_child(bullet)
@@ -370,14 +424,14 @@ func _create_visual_lock_composition_layer() -> void:
 
 	for i in range(2):
 		var beam_x = -0.42 if i == 0 else 0.42
-		var player_beam = _box_mesh("PlayerCyanFireLane_%02d" % i, Vector3(beam_x, 1.75, -38.0), Vector3(0.075, 0.075, 72.0), player_beam_mat)
+		var player_beam = _vfx_quad("PlayerCyanFireLane_%02d" % i, Vector3(beam_x, 1.75, -38.0), Vector2(0.32, 12.0), hero_shot_texture, Color(0.55, 0.95, 1.0, 0.70), 1.8)
 		player_beam.set_meta("beam_x", beam_x)
 		add_child(player_beam)
 		player_beams.append(player_beam)
 
 	for i in range(18):
 		var lane_x = -0.58 if i % 2 == 0 else 0.58
-		var pulse = _box_mesh("PlayerCyanShotPulse_%02d" % i, Vector3(lane_x, 1.75, -9.0 - float(i) * 4.8), Vector3(0.18, 0.18, 1.85), player_beam_mat)
+		var pulse = _vfx_quad("PlayerCyanShotPulse_%02d" % i, Vector3(lane_x, 1.75, -9.0 - float(i) * 4.8), Vector2(0.42, 1.85), hero_shot_texture, Color(0.72, 1.0, 1.0, 0.96), 2.1)
 		pulse.set_meta("lane_x", lane_x)
 		pulse.set_meta("phase", float(i) * 0.13)
 		add_child(pulse)
@@ -404,14 +458,14 @@ func _create_visual_lock_composition_layer() -> void:
 		enemy_attack_jets.append(enemy)
 
 	for i in range(16):
-		var trail = _box_mesh("MissileSmokeTrail_%02d" % i, Vector3(rng.randf_range(-11.0, 11.0), rng.randf_range(-0.7, 3.5), -14.0 - rng.randf_range(0.0, 94.0)), Vector3(0.24, 0.24, rng.randf_range(3.0, 8.5)), missile_smoke_mat)
+		var trail = _vfx_quad("MissileSmokeTrail_%02d" % i, Vector3(rng.randf_range(-11.0, 11.0), rng.randf_range(-0.7, 3.5), -14.0 - rng.randf_range(0.0, 94.0)), Vector2(rng.randf_range(1.0, 1.8), rng.randf_range(2.0, 4.8)), smoke_texture, Color(0.82, 0.88, 0.92, 0.46), 0.45)
 		trail.rotation_degrees = Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(-26.0, 26.0), rng.randf_range(-18.0, 18.0))
 		trail.set_meta("speed_mul", rng.randf_range(0.72, 1.05))
 		add_child(trail)
 		missile_trails.append(trail)
 
 	for i in range(5):
-		var explosion = _sphere_mesh("WarzoneExplosionBurst_%02d" % i, Vector3(rng.randf_range(-9.5, 9.5), rng.randf_range(-2.4, 1.4), -24.0 - rng.randf_range(0.0, 86.0)), rng.randf_range(0.65, 1.35), explosion_mat)
+		var explosion = _vfx_quad("WarzoneExplosionBurst_%02d" % i, Vector3(rng.randf_range(-9.5, 9.5), rng.randf_range(-2.4, 1.4), -24.0 - rng.randf_range(0.0, 86.0)), Vector2(rng.randf_range(1.3, 2.8), rng.randf_range(1.3, 2.8)), explosion_texture, Color(1.0, 0.65, 0.26, 0.88), 2.0)
 		explosion.set_meta("base_radius", explosion.scale.x)
 		explosion.set_meta("speed_mul", rng.randf_range(0.78, 1.05))
 		add_child(explosion)
@@ -419,7 +473,7 @@ func _create_visual_lock_composition_layer() -> void:
 
 	for i in range(2):
 		var shield_x = -8.8 if i == 0 else 8.6
-		var shield = _sphere_mesh("WingmanShieldBubble_%02d" % i, Vector3(shield_x, 2.0 + i * 0.45, -34.0 - i * 18.0), 1.75, shield_mat)
+		var shield = _vfx_quad("WingmanShieldBubble_%02d" % i, Vector3(shield_x, 2.0 + i * 0.45, -34.0 - i * 18.0), Vector2(3.5, 3.5), shield_texture, Color(0.64, 0.95, 1.0, 0.62), 1.4)
 		shield.set_meta("speed_mul", 0.66 + i * 0.06)
 		add_child(shield)
 		shield_bubbles.append(shield)
@@ -696,10 +750,56 @@ func _smoke_column(node_name: String, pos: Vector3) -> Node3D:
 	root.name = node_name
 	root.position = pos
 	for i in range(5):
-		var puff = _box_mesh("SmokePuff_%02d" % i, Vector3(rng.randf_range(-0.28, 0.28), i * 0.62, rng.randf_range(-0.25, 0.25)), Vector3(0.65 + i * 0.22, 0.55 + i * 0.12, 0.65 + i * 0.20), smoke_mat)
+		var puff_size = 1.0 + i * 0.34
+		var puff = _vfx_quad("SmokePuff_%02d" % i, Vector3(rng.randf_range(-0.28, 0.28), i * 0.62, rng.randf_range(-0.25, 0.25)), Vector2(puff_size, puff_size), smoke_texture, Color(0.74, 0.78, 0.82, 0.30), 0.25)
 		puff.rotation_degrees = Vector3(rng.randf_range(-12.0, 12.0), rng.randf_range(0.0, 360.0), rng.randf_range(-12.0, 12.0))
 		root.add_child(puff)
 	return root
+
+
+
+func _plane_mesh(node_name: String, pos: Vector3, size: Vector2, material: Material) -> MeshInstance3D:
+	var mesh = PlaneMesh.new()
+	mesh.size = size
+	var mi = MeshInstance3D.new()
+	mi.name = node_name
+	mi.mesh = mesh
+	mi.position = pos
+	mi.material_override = material
+	return mi
+
+
+func _vfx_quad(node_name: String, pos: Vector3, size: Vector2, texture: Texture2D, tint: Color = Color.WHITE, emission_energy: float = 1.0) -> MeshInstance3D:
+	if texture == null:
+		return _box_mesh(node_name + "FallbackBox", pos, Vector3(max(0.08, size.x), max(0.08, size.x), max(0.08, size.y)), player_beam_mat)
+	var mesh = QuadMesh.new()
+	mesh.size = size
+	var mi = MeshInstance3D.new()
+	mi.name = node_name
+	mi.mesh = mesh
+	mi.position = pos
+	mi.material_override = _make_textured_material(texture, tint, Color(tint.r, tint.g, tint.b, 1.0), tint.a, true, true, emission_energy)
+	return mi
+
+
+func _make_textured_material(texture: Texture2D, albedo: Color, emission: Color = Color.BLACK, alpha: float = 1.0, billboard: bool = false, unshaded: bool = false, emission_energy: float = 1.0) -> StandardMaterial3D:
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color(albedo.r, albedo.g, albedo.b, alpha)
+	if texture != null:
+		mat.albedo_texture = texture
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.no_depth_test = false
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	if billboard:
+		mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	if unshaded:
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.emission_enabled = true
+	if texture != null:
+		mat.emission_texture = texture
+	mat.emission = emission
+	mat.emission_energy_multiplier = emission_energy
+	return mat
 
 
 func _sphere_mesh(node_name: String, pos: Vector3, radius: float, material: Material) -> MeshInstance3D:

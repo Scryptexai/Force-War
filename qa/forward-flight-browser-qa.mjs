@@ -112,12 +112,16 @@ async function main() {
       if (result.state?.bossAnchor !== true) fail(`boss anchor missing: ${JSON.stringify(result.state)}`);
       if (result.state?.visualLockComposition !== 'dreadnought_forward_battle') fail(`visual lock composition missing: ${result.state?.visualLockComposition}`);
       if (result.state?.enemyHeroJetModel !== true) fail(`uploaded enemy hero jet GLB was not active: ${JSON.stringify(result.state)}`);
-      if (result.state?.shotAnimation !== 'player_cyan_pulses_enemy_red_lanes') fail(`shot animation bridge missing: ${result.state?.shotAnimation}`);
+      if (result.state?.shotAnimation !== 'asset_sprite_hero_enemy_lanes') fail(`asset sprite shot animation bridge missing: ${result.state?.shotAnimation}`);
       if (result.state?.enemyHeroJetSource !== 'blender_ready_glb') fail(`Blender-generated enemy GLB not active: ${result.state?.enemyHeroJetSource}`);
       if (result.state?.enemyHeroJetAnimation !== 'EnemyJet_AttackPass_Loop') fail(`Blender animation clip not active: ${result.state?.enemyHeroJetAnimation}`);
       if (result.state?.cloudGeometry !== false) fail(`cloud geometry should be disabled, got ${result.state?.cloudGeometry}`);
+      if (result.state?.bossArenaAsset !== 'boss_dreadnought_leviathan_glb') fail(`Blender boss arena asset not active: ${result.state?.bossArenaAsset}`);
+      if (result.state?.arenaAssetDeckCluster !== true) fail(`Blender arena deck cluster asset not active: ${result.state?.arenaAssetDeckCluster}`);
+      if (result.state?.projectileAssetSprites !== true) fail(`projectile asset sprites not active: ${result.state?.projectileAssetSprites}`);
+      if (result.state?.cleanArenaOverlay !== true) fail(`clean arena overlay bridge missing: ${result.state?.cleanArenaOverlay}`);
       if (result.state?.playerScaleMode !== 'reduced_mobile_readable') fail(`player scale mode missing: ${result.state?.playerScaleMode}`);
-      console.log(`Forward/weather browser QA ok: mode=${result.state.missionMode} camera=${result.state.cameraMode} model=${result.state.playerModel} arena=${result.state.arenaPhase} composition=${result.state.visualLockComposition} enemyHeroJet=${result.state.enemyHeroJetModel} source=${result.state.enemyHeroJetSource} anim=${result.state.enemyHeroJetAnimation} shots=${result.state.shotAnimation} clouds=${result.state.cloudGeometry} layers=${result.state.depthLayerCount} wind=${Number(result.state.windDrift).toFixed(2)} visibility=${Number(result.state.rainVisibility).toFixed(2)} progress=${Number(result.state.progress).toFixed(3)} canvas=${result.canvas.width}x${result.canvas.height}`);
+      console.log(`Forward/weather browser QA ok: mode=${result.state.missionMode} camera=${result.state.cameraMode} model=${result.state.playerModel} arena=${result.state.arenaPhase} composition=${result.state.visualLockComposition} enemyHeroJet=${result.state.enemyHeroJetModel} source=${result.state.enemyHeroJetSource} anim=${result.state.enemyHeroJetAnimation} shots=${result.state.shotAnimation} boss=${result.state.bossArenaAsset} deckCluster=${result.state.arenaAssetDeckCluster} sprites=${result.state.projectileAssetSprites} cleanOverlay=${result.state.cleanArenaOverlay} clouds=${result.state.cloudGeometry} layers=${result.state.depthLayerCount} wind=${Number(result.state.windDrift).toFixed(2)} visibility=${Number(result.state.rainVisibility).toFixed(2)} progress=${Number(result.state.progress).toFixed(3)} canvas=${result.canvas.width}x${result.canvas.height}`);
     } finally {
       await browser.close();
     }
