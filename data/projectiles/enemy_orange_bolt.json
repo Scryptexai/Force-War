@@ -17,5 +17,10 @@
   "render_pool_count": 48,
   "collision_mode": "future_logical_radius",
   "renderer": "multimesh_visual_pool",
-  "logic_pool_count": 140
+  "logic_pool_count": 140,
+  "boss_patterns": [
+    "shield_lane_sweep_pool_v1",
+    "turret_crossfire_pool_v1",
+    "core_laser_burst_pool_v1"
+  ]
 }

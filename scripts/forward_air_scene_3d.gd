@@ -307,6 +307,10 @@ func _update_projectile_logic(delta: float, effect: Dictionary) -> void:
 	if damage > 0.0:
 		hp = max(0, hp - int(ceil(damage)))
 		hazard_damage_buffer = max(hazard_damage_buffer, 0.18)
+	if projectile_manager.has_method("consume_boss_damage_events") and arena_director and arena_director.has_method("apply_player_projectile_hits"):
+		var boss_hits: Array = projectile_manager.consume_boss_damage_events()
+		if not boss_hits.is_empty():
+			arena_director.apply_player_projectile_hits(boss_hits)
 
 
 func _update_weather_damage(delta: float, effect: Dictionary) -> void:

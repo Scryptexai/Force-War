@@ -89,6 +89,8 @@ async function main() {
 
       await page.waitForFunction(() => window.ForceWarBridge?.state?.missionMode === 'forward_air_combat', null, { timeout: 30000 });
       await page.waitForFunction(() => window.ForceWarBridge?.state?.cameraMode === 'chase_behind_above', null, { timeout: 10000 });
+      await page.waitForFunction(() => window.ForceWarBridge?.state?.bossPatternScheduler === true, null, { timeout: 10000 });
+      await page.waitForFunction(() => Number(window.ForceWarBridge?.state?.playerProjectileHits || 0) > 0, null, { timeout: 15000 });
       const result = await page.evaluate(() => {
         const canvas = document.querySelector('canvas');
         return {
@@ -127,11 +129,21 @@ async function main() {
       if (result.state?.logicalProjectileManager !== true) fail(`logical projectile manager not active: ${result.state?.logicalProjectileManager}`);
       if (result.state?.projectileDataDriven !== true) fail(`projectile data-driven contract not active: ${result.state?.projectileDataDriven}`);
       if (Number(result.state?.logicalProjectilePool || 0) < 100) fail(`expected logical projectile pool >=100, got ${result.state?.logicalProjectilePool}`);
+      if (Number(result.state?.playerProjectilePool || 0) < 48) fail(`expected player projectile pool >=48, got ${result.state?.playerProjectilePool}`);
+      if (result.state?.playerProjectileHitModel !== 'pooled_logical_boss_parts') fail(`player projectile hit model missing: ${result.state?.playerProjectileHitModel}`);
+      if (Number(result.state?.playerProjectileHits || 0) < 1) fail(`expected player projectiles to hit boss, got ${result.state?.playerProjectileHits}`);
       if (result.state?.bossPhaseController !== true) fail(`boss phase controller not active: ${result.state?.bossPhaseController}`);
       if (result.state?.bossDamageModel !== 'parts_shield_wings_turrets_core') fail(`boss damage model missing: ${result.state?.bossDamageModel}`);
+      if (result.state?.bossWeakPointModel !== 'shield_then_wings_turrets_then_core') fail(`boss weak-point model missing: ${result.state?.bossWeakPointModel}`);
+      if (result.state?.bossPatternScheduler !== true) fail(`boss pattern scheduler missing: ${result.state?.bossPatternScheduler}`);
+      if (result.state?.bossDataDriven !== true) fail(`boss data-driven contract missing: ${result.state?.bossDataDriven}`);
+      if (!result.state?.bossAttackPattern) fail('boss attack pattern missing');
+      if (!result.state?.bossTargetablePart) fail('boss targetable part missing');
+      if (Number(result.state?.bossProjectileHitCount || 0) < 1) fail(`boss did not receive logical projectile hits: ${result.state?.bossProjectileHitCount}`);
+      if (Number(result.state?.bossHpRatio || 1) >= 1) fail(`boss hp ratio did not change after logical hits: ${result.state?.bossHpRatio}`);
       if (result.state?.cleanArenaOverlay !== true) fail(`clean arena overlay bridge missing: ${result.state?.cleanArenaOverlay}`);
       if (result.state?.playerScaleMode !== 'reduced_mobile_readable') fail(`player scale mode missing: ${result.state?.playerScaleMode}`);
-      console.log(`Forward/weather browser QA ok: mode=${result.state.missionMode} camera=${result.state.cameraMode} model=${result.state.playerModel} arena=${result.state.arenaPhase} composition=${result.state.visualLockComposition} enemyHeroJet=${result.state.enemyHeroJetModel} source=${result.state.enemyHeroJetSource} anim=${result.state.enemyHeroJetAnimation} shots=${result.state.shotAnimation} boss=${result.state.bossArenaAsset} deckCluster=${result.state.arenaAssetDeckCluster} matte=${result.state.cinematicMatteAsset} oceanTexture=${result.state.stormOceanTextureAsset} texturedAssets=${result.state.texturedBlenderAssets} projectilePool=${result.state.projectileVisualPool}/${result.state.projectilePoolCount} logical=${result.state.logicalProjectileManager}/${result.state.logicalProjectilePool} bossPhase=${result.state.bossPhase}/${result.state.bossDamageModel} sprites=${result.state.projectileAssetSprites} cleanOverlay=${result.state.cleanArenaOverlay} clouds=${result.state.cloudGeometry} layers=${result.state.depthLayerCount} wind=${Number(result.state.windDrift).toFixed(2)} visibility=${Number(result.state.rainVisibility).toFixed(2)} progress=${Number(result.state.progress).toFixed(3)} canvas=${result.canvas.width}x${result.canvas.height}`);
+      console.log(`Forward/weather browser QA ok: mode=${result.state.missionMode} camera=${result.state.cameraMode} model=${result.state.playerModel} arena=${result.state.arenaPhase} composition=${result.state.visualLockComposition} enemyHeroJet=${result.state.enemyHeroJetModel} source=${result.state.enemyHeroJetSource} anim=${result.state.enemyHeroJetAnimation} shots=${result.state.shotAnimation} boss=${result.state.bossArenaAsset} deckCluster=${result.state.arenaAssetDeckCluster} matte=${result.state.cinematicMatteAsset} oceanTexture=${result.state.stormOceanTextureAsset} texturedAssets=${result.state.texturedBlenderAssets} projectilePool=${result.state.projectileVisualPool}/${result.state.projectilePoolCount} logical=${result.state.logicalProjectileManager}/${result.state.logicalProjectilePool} playerPool=${result.state.playerProjectilePool} hits=${result.state.playerProjectileHits} bossPhase=${result.state.bossPhase}/${result.state.bossDamageModel} pattern=${result.state.bossAttackPattern} target=${result.state.bossTargetablePart} sprites=${result.state.projectileAssetSprites} cleanOverlay=${result.state.cleanArenaOverlay} clouds=${result.state.cloudGeometry} layers=${result.state.depthLayerCount} wind=${Number(result.state.windDrift).toFixed(2)} visibility=${Number(result.state.rainVisibility).toFixed(2)} progress=${Number(result.state.progress).toFixed(3)} canvas=${result.canvas.width}x${result.canvas.height}`);
     } finally {
       await browser.close();
     }

@@ -15,5 +15,7 @@
   "render_pool_count": 36,
   "collision_mode": "future_logical_radius",
   "renderer": "multimesh_visual_pool",
-  "logic_pool_count": 80
+  "logic_pool_count": 80,
+  "fire_interval": 0.07,
+  "boss_hit_z": -96.0
 }

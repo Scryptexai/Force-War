@@ -27,9 +27,9 @@ The current browser build remains a preview/debug target. It is useful for contr
 | Textured boss/deck GLBs | First production pass active |
 | BattlefieldDirector concept | Existing `ForwardArenaDirector` acts as the active battlefield director |
 | Renderer-aware VFX | Started with pooled MultiMesh projectile visuals plus existing textured quads |
-| Projectile architecture | `ProjectileVisualPool3D` batches 84 bolt visuals using MultiMesh, and `ProjectileManager3D` now owns a 140-slot logical enemy bullet pool with no physics body per bullet |
-| Data-driven weapons/patterns | JSON projectile contracts added under `data/projectiles/`; runtime logical manager loads those definitions |
-| Boss phase/damage model | `BossPhaseController` active with shield, wings, turrets, and core health; HUD boss bar reads real boss ratio |
+| Projectile architecture | `ProjectileVisualPool3D` batches 84 bolt visuals using MultiMesh; `ProjectileManager3D` now owns pooled enemy and player projectile dictionaries with logical radius checks and boss hit events |
+| Data-driven weapons/patterns | JSON projectile/boss contracts under `data/`; runtime projectile manager and boss controller load them for pool sizes, fire cadence, parts, and attack patterns |
+| Boss phase/damage model | `BossPhaseController` active with shield, wings, turrets, core health, targetable weak part routing, and scheduled boss attack patterns; HUD boss bar reads real boss ratio |
 | Quality manager | Not implemented yet |
 | Android APK/AAB | Not implemented in this branch yet |
 
@@ -60,8 +60,8 @@ A feature is not considered production-ready until the repo contains:
 
 The next major chunk should implement the actual logical combat layer behind the current visual layer:
 
-- expand `ProjectileManager3D` into full player/enemy/missile/laser gameplay pools;
-- convert JSON projectile contracts into Resource-based editor tooling when the schema stabilizes;
-- add boss attack pattern scheduling for phase 2/3, not just health-state progression;
+- expand `ProjectileManager3D` from primary plasma/bolts into missile and laser pools;
+- convert JSON projectile/boss contracts into Resource-based editor tooling when the schema stabilizes;
+- add authored phase-specific VFX/audio telegraphs for turret crossfire and core laser bursts;
 - debug commands for bullet count, boss phase, and quality tier;
 - later: Android export and device profiling.

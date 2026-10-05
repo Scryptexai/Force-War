@@ -175,7 +175,7 @@ func update_arena(delta: float, player_corridor: Vector2, travel_speed: float) -
 	_update_boss_phase_logic(delta)
 	_update_storm_cells(delta, travel_speed, player_corridor)
 	_update_lightning_nodes()
-	return get_weather_effect()
+	return _weather_effect_with_boss_state(false)
 
 
 func get_weather_effect() -> Dictionary:
@@ -224,12 +224,28 @@ func get_weather_effect() -> Dictionary:
 
 
 func get_bridge_state() -> Dictionary:
+	return _weather_effect_with_boss_state(true)
+
+
+func apply_player_projectile_hits(hits: Array) -> void:
+	if boss_phase_controller == null or not boss_phase_controller.has_method("apply_projectile_damage"):
+		return
+	for hit in hits:
+		if not (hit is Dictionary):
+			continue
+		var part_name: String = str(hit.get("part", "shield"))
+		var damage: float = float(hit.get("damage", 0.0))
+		boss_phase_controller.apply_projectile_damage(part_name, damage)
+
+
+func _weather_effect_with_boss_state(strip_runtime_vectors: bool) -> Dictionary:
 	var effect = get_weather_effect()
 	if boss_phase_controller and boss_phase_controller.has_method("get_bridge_state"):
 		var boss_state = boss_phase_controller.get_bridge_state()
 		for key in boss_state.keys():
 			effect[key] = boss_state[key]
-	effect.erase("turbulence")
+	if strip_runtime_vectors:
+		effect.erase("turbulence")
 	return effect
 
 
@@ -597,6 +613,8 @@ func _projectile_pool_count() -> int:
 func _create_boss_phase_controller() -> void:
 	boss_phase_controller = BOSS_PHASE_CONTROLLER_SCRIPT.new()
 	add_child(boss_phase_controller)
+	if boss_phase_controller.has_method("setup"):
+		boss_phase_controller.setup()
 
 
 func _update_boss_phase_logic(delta: float) -> void:

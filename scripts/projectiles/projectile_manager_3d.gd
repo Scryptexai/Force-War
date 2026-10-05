@@ -4,7 +4,7 @@ class_name ProjectileManager3D
 # Logic-facing projectile manager for the forward-air vertical slice.
 # It deliberately does NOT create one physics body or one Node3D per bullet.
 # Visual density is handled by ProjectileVisualPool3D/MultiMesh; this manager owns
-# gameplay bullet data, cheap radius checks, damage events, and future pattern data.
+# gameplay bullet data, cheap radius checks, boss hit events, and pattern contracts.
 
 const ENEMY_PROJECTILE_DATA_PATH = "res://data/projectiles/enemy_orange_bolt.json"
 const PLAYER_PROJECTILE_DATA_PATH = "res://data/projectiles/player_cyan_plasma.json"
@@ -14,17 +14,28 @@ var rng := RandomNumberGenerator.new()
 var enemy_data: Dictionary = {}
 var player_data: Dictionary = {}
 var enemy_pool: Array = []
+var player_pool: Array = []
 var spawn_timer := 0.0
+var player_spawn_timer := 0.0
 var pattern_clock := 0.0
 var hit_cooldown := 0.0
 var recent_damage := 0.0
 var total_damage_to_player := 0.0
+var total_damage_to_boss := 0.0
 var player_hit_count := 0
+var boss_hit_count := 0
 var shots_spawned := 0
+var player_shots_spawned := 0
 var max_enemy_bullets := 140
+var max_player_bullets := 80
 var spawn_interval := 0.085
+var player_fire_interval := 0.070
 var lane_index := 0
+var player_lane_index := 0
 var logical_collision_radius_scale := 1.0
+var active_boss_projectile_pattern := "shield_lane_sweep_pool_v1"
+var recent_boss_hits: Array = []
+var last_boss_hit_part := "shield"
 
 
 func setup() -> void:
@@ -33,28 +44,41 @@ func setup() -> void:
 	enemy_data = _load_json(ENEMY_PROJECTILE_DATA_PATH)
 	player_data = _load_json(PLAYER_PROJECTILE_DATA_PATH)
 	max_enemy_bullets = int(max(80, enemy_data.get("logic_pool_count", 140)))
-	_reset_pool()
+	max_player_bullets = int(max(48, player_data.get("logic_pool_count", 80)))
+	player_fire_interval = float(player_data.get("fire_interval", 0.070))
+	_reset_pools()
 
 
 func start_mission(stage_data: Dictionary) -> void:
 	active = true
 	pattern_clock = 0.0
 	spawn_timer = 0.0
+	player_spawn_timer = 0.0
 	hit_cooldown = 0.0
 	recent_damage = 0.0
 	total_damage_to_player = 0.0
+	total_damage_to_boss = 0.0
 	player_hit_count = 0
+	boss_hit_count = 0
 	shots_spawned = 0
+	player_shots_spawned = 0
 	lane_index = 0
-	var threat := float(stage_data.get("threat", 1.0))
+	player_lane_index = 0
+	recent_boss_hits.clear()
+	last_boss_hit_part = "shield"
+	active_boss_projectile_pattern = "shield_lane_sweep_pool_v1"
+	var threat: float = float(stage_data.get("threat", 1.0))
 	spawn_interval = clamp(0.105 - threat * 0.014, 0.055, 0.105)
-	_reset_pool()
+	_reset_pools()
 
 
 func stop_mission() -> void:
 	active = false
 	for i in range(enemy_pool.size()):
 		enemy_pool[i]["active"] = false
+	for i in range(player_pool.size()):
+		player_pool[i]["active"] = false
+	recent_boss_hits.clear()
 
 
 func update_logic(delta: float, player_corridor: Vector2, weather_effect: Dictionary, boost_amount: float) -> float:
@@ -63,16 +87,27 @@ func update_logic(delta: float, player_corridor: Vector2, weather_effect: Dictio
 	pattern_clock += delta
 	hit_cooldown = max(0.0, hit_cooldown - delta)
 	recent_damage = 0.0
-	var wind := float(weather_effect.get("windDrift", 0.0))
-	var visibility := float(weather_effect.get("rainVisibility", 1.0))
-	var overcharged := bool(weather_effect.get("lightningOvercharge", false))
-	var spawn_budget_mul := 0.72 if visibility < 0.72 else 1.0
+	recent_boss_hits.clear()
+	var wind: float = float(weather_effect.get("windDrift", 0.0))
+	var visibility: float = float(weather_effect.get("rainVisibility", 1.0))
+	var overcharged: bool = bool(weather_effect.get("lightningOvercharge", false))
+	active_boss_projectile_pattern = str(weather_effect.get("bossAttackPattern", active_boss_projectile_pattern))
+	var spawn_budget_mul: float = 0.72 if visibility < 0.72 else 1.0
 	spawn_timer -= delta
 	while spawn_timer <= 0.0:
-		_spawn_enemy_bullet(wind)
-		spawn_timer += spawn_interval / max(0.65, spawn_budget_mul)
+		_spawn_enemy_bullet(wind, active_boss_projectile_pattern)
+		var pattern_fire_scale: float = _boss_pattern_fire_scale(active_boss_projectile_pattern)
+		spawn_timer += spawn_interval / max(0.55, spawn_budget_mul * pattern_fire_scale)
+	_update_player_fire(delta, player_corridor, weather_effect, wind, overcharged)
 	_update_enemy_bullets(delta, player_corridor, wind, boost_amount, overcharged)
+	_update_player_bullets(delta, weather_effect, wind, overcharged)
 	return recent_damage
+
+
+func consume_boss_damage_events() -> Array:
+	var events: Array = recent_boss_hits.duplicate(true)
+	recent_boss_hits.clear()
+	return events
 
 
 func get_bridge_state() -> Dictionary:
@@ -80,16 +115,24 @@ func get_bridge_state() -> Dictionary:
 		"logicalProjectileManager": true,
 		"projectileCollisionMode": "pooled_logical_radius_no_physics_body",
 		"logicalProjectilePool": enemy_pool.size(),
-		"activeLogicalProjectiles": _active_count(),
+		"playerProjectilePool": player_pool.size(),
+		"activeLogicalProjectiles": _active_enemy_count(),
+		"activePlayerProjectiles": _active_player_count(),
 		"projectileDataDriven": not enemy_data.is_empty() and not player_data.is_empty(),
-		"projectilePattern": "boss_lane_sweep_pool_v1",
+		"projectilePattern": active_boss_projectile_pattern,
+		"bossPatternDrivenProjectiles": true,
 		"projectileHitsTaken": player_hit_count,
 		"projectileDamageTaken": total_damage_to_player,
-		"projectileShotsSpawned": shots_spawned
+		"projectileShotsSpawned": shots_spawned,
+		"playerProjectileShotsSpawned": player_shots_spawned,
+		"playerProjectileHits": boss_hit_count,
+		"playerBossDamage": total_damage_to_boss,
+		"playerProjectileHitModel": "pooled_logical_boss_parts",
+		"lastBossHitPart": last_boss_hit_part
 	}
 
 
-func _reset_pool() -> void:
+func _reset_pools() -> void:
 	enemy_pool.clear()
 	for i in range(max_enemy_bullets):
 		enemy_pool.append({
@@ -100,57 +143,122 @@ func _reset_pool() -> void:
 			"radius": float(enemy_data.get("radius", 0.28)),
 			"damage": float(enemy_data.get("damage", 8.0)),
 			"lane": 0.0,
-			"phase": rng.randf_range(0.0, TAU)
+			"phase": rng.randf_range(0.0, TAU),
+			"pattern": "shield_lane_sweep_pool_v1"
+		})
+	player_pool.clear()
+	for i in range(max_player_bullets):
+		player_pool.append({
+			"active": false,
+			"pos": Vector3.ZERO,
+			"vel": Vector3.ZERO,
+			"life": 0.0,
+			"radius": float(player_data.get("radius", 0.34)),
+			"damage": float(player_data.get("damage", 18.0)),
+			"lane": 0.0,
+			"part": "shield"
 		})
 
 
-func _spawn_enemy_bullet(wind: float) -> void:
-	var index := _first_inactive_index()
+func _spawn_enemy_bullet(wind: float, attack_pattern: String) -> void:
+	var index: int = _first_inactive_enemy_index()
 	if index < 0:
 		return
 	var lanes: Array = enemy_data.get("lanes", [-4.1, -2.55, -1.05, 1.05, 2.55, 4.1])
 	if lanes.is_empty():
 		lanes = [-2.5, 2.5]
-	var lane := float(lanes[lane_index % lanes.size()])
+	var lane: float = float(lanes[lane_index % lanes.size()])
 	lane_index += 1
-	var speed := float(enemy_data.get("speed", 46.0)) * rng.randf_range(0.86, 1.18)
-	var y := rng.randf_range(1.7, 5.6)
-	var z := -112.0 - rng.randf_range(0.0, 18.0)
-	var side_sweep := sin(pattern_clock * 0.8 + float(lane_index) * 0.53) * 0.45
+	var speed: float = float(enemy_data.get("speed", 46.0)) * rng.randf_range(0.86, 1.18)
+	var y: float = rng.randf_range(1.7, 5.6)
+	var z: float = -112.0 - rng.randf_range(0.0, 18.0)
+	var side_sweep: float = sin(pattern_clock * 0.8 + float(lane_index) * 0.53) * 0.45
+	var x_velocity: float = wind * 0.18
+	if attack_pattern == "turret_crossfire_pool_v1":
+		lane = -4.6 if lane_index % 2 == 0 else 4.6
+		x_velocity = -sign(lane) * 1.10 + wind * 0.12
+		y = rng.randf_range(1.2, 4.8)
+		speed *= 1.10
+	elif attack_pattern == "core_laser_burst_pool_v1":
+		lane = sin(float(lane_index) * 1.74) * 2.8
+		x_velocity = wind * 0.09
+		y = rng.randf_range(1.6, 3.8)
+		speed *= 1.22
 	var bullet: Dictionary = enemy_pool[index]
 	bullet["active"] = true
 	bullet["pos"] = Vector3(lane + side_sweep, y, z)
-	bullet["vel"] = Vector3(wind * 0.18, 0.0, speed)
+	bullet["vel"] = Vector3(x_velocity, 0.0, speed)
 	bullet["life"] = float(enemy_data.get("lifetime", 3.1))
 	bullet["radius"] = float(enemy_data.get("radius", 0.28)) * logical_collision_radius_scale
 	bullet["damage"] = float(enemy_data.get("damage", 8.0))
 	bullet["lane"] = lane
 	bullet["phase"] = rng.randf_range(0.0, TAU)
+	bullet["pattern"] = attack_pattern
 	enemy_pool[index] = bullet
 	shots_spawned += 1
 
 
+func _update_player_fire(delta: float, player_corridor: Vector2, weather_effect: Dictionary, wind: float, overcharged: bool) -> void:
+	var visibility: float = float(weather_effect.get("rainVisibility", 1.0))
+	var rain_penalty: float = 1.10 if visibility < 0.72 else 1.0
+	var overcharge_bonus: float = 0.72 if overcharged else 1.0
+	player_spawn_timer -= delta
+	while player_spawn_timer <= 0.0:
+		_spawn_player_bullet(player_corridor, weather_effect, wind, overcharged)
+		player_spawn_timer += player_fire_interval * rain_penalty * overcharge_bonus
+
+
+func _spawn_player_bullet(player_corridor: Vector2, weather_effect: Dictionary, wind: float, overcharged: bool) -> void:
+	var index: int = _first_inactive_player_index()
+	if index < 0:
+		return
+	var lanes: Array = player_data.get("lanes", [-0.98, -0.32, 0.32, 0.98])
+	if lanes.is_empty():
+		lanes = [0.0]
+	var lane: float = float(lanes[player_lane_index % lanes.size()])
+	player_lane_index += 1
+	var speed: float = float(player_data.get("speed", 88.0)) * (1.12 if overcharged else 1.0)
+	var part: String = _choose_boss_hit_part(Vector3(player_corridor.x + lane * 0.55, 1.55 + player_corridor.y * 0.32, -5.5), weather_effect)
+	var bullet: Dictionary = player_pool[index]
+	bullet["active"] = true
+	bullet["pos"] = Vector3(player_corridor.x + lane * 0.55, 1.55 + player_corridor.y * 0.32, -5.5)
+	bullet["vel"] = Vector3(wind * 0.16, 0.0, -speed)
+	bullet["life"] = float(player_data.get("lifetime", 1.65))
+	bullet["radius"] = float(player_data.get("radius", 0.34))
+	bullet["damage"] = float(player_data.get("damage", 18.0)) * (1.45 if overcharged else 1.0)
+	bullet["lane"] = lane
+	bullet["part"] = part
+	player_pool[index] = bullet
+	player_shots_spawned += 1
+
+
 func _update_enemy_bullets(delta: float, player_corridor: Vector2, wind: float, boost_amount: float, overcharged: bool) -> void:
-	var player_hit_pos := Vector2(player_corridor.x, 1.5 + player_corridor.y)
-	var z_hit_window := 3.2 + boost_amount * 0.8
+	var player_hit_pos: Vector2 = Vector2(player_corridor.x, 1.5 + player_corridor.y)
+	var z_hit_window: float = 3.2 + boost_amount * 0.8
 	for i in range(enemy_pool.size()):
 		var bullet: Dictionary = enemy_pool[i]
 		if not bool(bullet.get("active", false)):
 			continue
 		var pos: Vector3 = bullet["pos"]
 		var vel: Vector3 = bullet["vel"]
-		var phase := float(bullet.get("phase", 0.0))
-		vel.x = wind * 0.22 + sin(pattern_clock * 1.35 + phase) * 0.12
+		var phase: float = float(bullet.get("phase", 0.0))
+		var pattern: String = str(bullet.get("pattern", "shield_lane_sweep_pool_v1"))
+		if pattern == "turret_crossfire_pool_v1":
+			vel.x = vel.x + sin(pattern_clock * 1.7 + phase) * 0.02
+		elif pattern == "core_laser_burst_pool_v1":
+			vel.x = wind * 0.12 + sin(pattern_clock * 2.1 + phase) * 0.06
+		else:
+			vel.x = wind * 0.22 + sin(pattern_clock * 1.35 + phase) * 0.12
 		pos += vel * delta
 		bullet["life"] = float(bullet.get("life", 0.0)) - delta
 		bullet["pos"] = pos
 		bullet["vel"] = vel
-		var expired := float(bullet["life"]) <= 0.0 or pos.z > 9.0
+		var expired: bool = float(bullet["life"]) <= 0.0 or pos.z > 9.0
 		if not expired and abs(pos.z) <= z_hit_window and hit_cooldown <= 0.0:
-			var dist_sq := Vector2(pos.x, pos.y).distance_squared_to(player_hit_pos)
-			var radius := float(bullet.get("radius", 0.28)) + 0.42
+			var dist_sq: float = Vector2(pos.x, pos.y).distance_squared_to(player_hit_pos)
+			var radius: float = float(bullet.get("radius", 0.28)) + 0.42
 			if dist_sq <= radius * radius:
-				var damage := float(bullet.get("damage", 8.0)) * (0.72 if overcharged else 1.0)
+				var damage: float = float(bullet.get("damage", 8.0)) * (0.72 if overcharged else 1.0)
 				recent_damage += damage
 				total_damage_to_player += damage
 				player_hit_count += 1
@@ -161,16 +269,95 @@ func _update_enemy_bullets(delta: float, player_corridor: Vector2, wind: float, 
 		enemy_pool[i] = bullet
 
 
-func _first_inactive_index() -> int:
+func _update_player_bullets(delta: float, weather_effect: Dictionary, wind: float, overcharged: bool) -> void:
+	var boss_hit_z: float = float(player_data.get("boss_hit_z", -96.0))
+	for i in range(player_pool.size()):
+		var bullet: Dictionary = player_pool[i]
+		if not bool(bullet.get("active", false)):
+			continue
+		var pos: Vector3 = bullet["pos"]
+		var vel: Vector3 = bullet["vel"]
+		vel.x = lerp(vel.x, wind * 0.18, min(1.0, delta * 1.8))
+		pos += vel * delta
+		bullet["life"] = float(bullet.get("life", 0.0)) - delta
+		bullet["pos"] = pos
+		bullet["vel"] = vel
+		var expired: bool = float(bullet["life"]) <= 0.0 or pos.z < -126.0
+		if not expired and pos.z <= boss_hit_z:
+			var part: String = _choose_boss_hit_part(pos, weather_effect)
+			var hit_window_x: float = 5.8 if part == "shield" else 4.2
+			var hit_window_y: float = 4.5
+			if abs(pos.x) <= hit_window_x and abs(pos.y - 3.0) <= hit_window_y:
+				var damage: float = float(bullet.get("damage", 18.0))
+				_register_boss_hit(part, damage, pos)
+				expired = true
+		if expired:
+			bullet["active"] = false
+		player_pool[i] = bullet
+
+
+func _register_boss_hit(part: String, damage: float, hit_pos: Vector3) -> void:
+	boss_hit_count += 1
+	total_damage_to_boss += damage
+	last_boss_hit_part = part
+	recent_boss_hits.append({
+		"part": part,
+		"damage": damage,
+		"x": hit_pos.x,
+		"y": hit_pos.y,
+		"z": hit_pos.z
+	})
+
+
+func _choose_boss_hit_part(pos: Vector3, weather_effect: Dictionary) -> String:
+	var phase: int = int(weather_effect.get("bossPhase", 1))
+	var targetable: String = str(weather_effect.get("bossTargetablePart", "shield"))
+	if phase <= 1:
+		return "shield"
+	if phase >= 3:
+		return "core"
+	if targetable != "" and targetable != "shield":
+		return targetable
+	if pos.x < -0.45:
+		return "left_wing"
+	if pos.x > 0.45:
+		return "right_wing"
+	return "turrets"
+
+
+func _boss_pattern_fire_scale(pattern: String) -> float:
+	if pattern == "turret_crossfire_pool_v1":
+		return 1.28
+	if pattern == "core_laser_burst_pool_v1":
+		return 1.45
+	return 1.0
+
+
+func _first_inactive_enemy_index() -> int:
 	for i in range(enemy_pool.size()):
 		if not bool(enemy_pool[i].get("active", false)):
 			return i
 	return -1
 
 
-func _active_count() -> int:
+func _first_inactive_player_index() -> int:
+	for i in range(player_pool.size()):
+		if not bool(player_pool[i].get("active", false)):
+			return i
+	return -1
+
+
+func _active_enemy_count() -> int:
 	var count := 0
 	for bullet in enemy_pool:
+		if bool(bullet.get("active", false)):
+			count += 1
+	return count
+
+
+func _active_player_count() -> int:
+	var count := 0
+	for bullet in player_pool:
 		if bool(bullet.get("active", false)):
 			count += 1
 	return count

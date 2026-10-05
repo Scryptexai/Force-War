@@ -48,7 +48,7 @@ This audit was added after the visual QA correction that the arena still looked 
 - `cloudGeometry === false`
 - `canvas === 720x1280`
 
-Automated QA is still not enough by itself. Browser screenshot review remains required before claiming visual quality. The current projectile pool now has two layers: a renderer-facing MultiMesh visual pool and a `ProjectileManager3D` logical pool with cheap radius checks. Full player projectile hit logic, missiles, lasers, and scheduled boss bullet patterns are still the next gameplay chunk.
+Automated QA is still not enough by itself. Browser screenshot review remains required before claiming visual quality. The current projectile pool now has two layers: a renderer-facing MultiMesh visual pool and a `ProjectileManager3D` logical pool with cheap radius checks. Player plasma now registers pooled logical hits against boss parts, and `BossPhaseController` exposes data-driven attack-pattern scheduling. Missiles, lasers, authored telegraphs, and Android device profiling remain future work.
 
 ## Latest verified build facts
 
