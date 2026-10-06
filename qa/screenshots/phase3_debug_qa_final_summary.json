@@ -1,7 +1,7 @@
 {
   "passed": true,
   "qa": "phase3_debug_browser_v1",
-  "generatedAt": "2026-10-06T13:59:59.546Z",
+  "generatedAt": "2026-10-06T15:13:41.030Z",
   "canvas": {
     "width": 720,
     "height": 1280
@@ -10,16 +10,27 @@
   "state": "/home/user/Force-War/qa/screenshots/phase3_debug_qa_final_state.json",
   "metrics": {
     "phase3DebugStatus": "boss_weakpoint_muzzle_fire_debug_locked",
+    "phase3BossCombatChunk": "destructible_hardpoint_phase_transition",
+    "bossPhase": 3,
+    "bossPhaseName": "PHASE_3_CORE_EXPOSED",
+    "bossPhaseTransitionCount": 2,
+    "bossTargetablePart": "core",
+    "bossDestroyedParts": 2,
+    "bossLatestDestroyedPart": "turrets",
+    "bossDestroyedPartVFXCount": 2,
+    "bossWeakpointDamageEvents": 73,
+    "bossExposedCoreDamageMultiplier": 1.2,
+    "bossCoreRatio": 0.810341463414635,
     "bossMuzzleSocketBinding": "glb_boss_muzzle_socket_runtime",
     "bossMuzzleSocketCount": 3,
-    "bossMuzzleSpreadX": 8.39808440208435,
-    "bossSocketFireEvents": 30,
+    "bossMuzzleSpreadX": 8.39607334136963,
+    "bossSocketFireEvents": 62,
     "logicalBossProjectileOrigin": "glb_boss_muzzle_socket",
-    "logicalBossMuzzleSocketSpawns": 21,
-    "bossImpactEvents": 20,
-    "playerProjectileHits": 20,
-    "bossHpRatio": 0.952631578947368,
+    "logicalBossMuzzleSocketSpawns": 62,
+    "bossImpactEvents": 73,
+    "playerProjectileHits": 73,
+    "bossHpRatio": 0.468578947368421,
     "eventsSeen": 3,
-    "screenshotBytes": 631530
+    "screenshotBytes": 685768
   }
 }

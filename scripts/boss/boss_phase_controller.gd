@@ -35,6 +35,13 @@ var projectile_damage_total := 0.0
 var projectile_hit_count := 0
 var last_damage_amount := 0.0
 var hit_flash_timer := 0.0
+var weakpoint_damage_multiplier := 3.8
+var exposed_core_damage_multiplier := 1.2
+var weakpoint_damage_events := 0
+var phase_transition_count := 0
+var part_destruction_event_count := 0
+var latest_destroyed_part := ""
+var phase_transition_flash_timer := 0.0
 
 
 func setup() -> void:
@@ -65,6 +72,11 @@ func start_mission(stage_data: Dictionary) -> void:
 	projectile_hit_count = 0
 	last_damage_amount = 0.0
 	hit_flash_timer = 0.0
+	weakpoint_damage_events = 0
+	phase_transition_count = 0
+	part_destruction_event_count = 0
+	latest_destroyed_part = ""
+	phase_transition_flash_timer = 0.0
 	_recalculate_total_hp()
 	_update_phase()
 	_select_next_attack_pattern(true)
@@ -80,6 +92,7 @@ func update_boss(delta: float, overcharged: bool, player_pressure: float) -> voi
 	pattern_clock += delta
 	pattern_timer = max(0.0, pattern_timer - delta)
 	hit_flash_timer = max(0.0, hit_flash_timer - delta)
+	phase_transition_flash_timer = max(0.0, phase_transition_flash_timer - delta)
 	fire_pressure = lerp(fire_pressure, player_pressure * (1.12 if overcharged else 1.0), min(1.0, delta * 2.5))
 	_update_phase()
 	_update_targetable_part()
@@ -93,6 +106,9 @@ func apply_projectile_damage(part_name: String, amount: float) -> float:
 		return 0.0
 	var target: String = _resolve_damage_target(part_name)
 	var damage: float = amount
+	if target == current_target_part:
+		damage *= exposed_core_damage_multiplier if target == "core" else weakpoint_damage_multiplier
+		weakpoint_damage_events += 1
 	if target == "shield" and part_name != "shield" and _part_ratio("shield") > 0.0:
 		damage *= 0.52
 	var before_ratio: float = get_hp_ratio()
@@ -117,10 +133,22 @@ func get_bridge_state() -> Dictionary:
 		"bossHpRatio": get_hp_ratio(),
 		"bossShieldRatio": _part_ratio("shield"),
 		"bossCoreRatio": _part_ratio("core"),
+		"bossTurretRatio": _part_ratio("turrets"),
+		"bossLeftWingRatio": _part_ratio("left_wing"),
+		"bossRightWingRatio": _part_ratio("right_wing"),
 		"bossDestroyedParts": destroyed_parts.size(),
+		"bossDestroyedPartList": destroyed_parts.duplicate(true),
+		"bossLatestDestroyedPart": latest_destroyed_part,
 		"bossPartCount": parts.size(),
+		"bossPartDestructionEvents": part_destruction_event_count,
+		"bossPhaseTransitionCount": phase_transition_count,
+		"bossPhaseTransitionVFX": phase_transition_flash_timer > 0.0,
+		"bossPhaseTransitionLocked": phase_transition_count > 0 and destroyed_parts.has("shield"),
 		"bossDamageModel": "parts_shield_wings_turrets_core",
 		"bossWeakPointModel": "shield_then_wings_turrets_then_core",
+		"bossWeakpointDamageMultiplier": weakpoint_damage_multiplier,
+		"bossExposedCoreDamageMultiplier": exposed_core_damage_multiplier,
+		"bossWeakpointDamageEvents": weakpoint_damage_events,
 		"bossTargetablePart": current_target_part,
 		"bossFirePressure": fire_pressure,
 		"bossPatternScheduler": true,
@@ -131,7 +159,8 @@ func get_bridge_state() -> Dictionary:
 		"bossProjectileDamageTaken": projectile_damage_total,
 		"bossProjectileHitCount": projectile_hit_count,
 		"bossLastProjectileDamage": last_damage_amount,
-		"bossHitFlash": hit_flash_timer > 0.0
+		"bossHitFlash": hit_flash_timer > 0.0,
+		"phase3BossCombatChunk": "destructible_hardpoint_phase_transition"
 	}
 
 
@@ -188,9 +217,13 @@ func _apply_part_damage(part_name: String, amount: float) -> void:
 	parts[part_name] = part
 	if float(part["hp"]) <= 0.0 and not destroyed_parts.has(part_name):
 		destroyed_parts.append(part_name)
+		latest_destroyed_part = part_name
+		part_destruction_event_count += 1
+		phase_transition_flash_timer = max(phase_transition_flash_timer, 0.74)
 
 
 func _update_phase() -> void:
+	var previous_phase := phase
 	if _part_ratio("core") <= 0.0:
 		phase = 5
 		phase_name = "DEFEATED"
@@ -203,6 +236,10 @@ func _update_phase() -> void:
 	else:
 		phase = 1
 		phase_name = "PHASE_1_SHIELD"
+	if active and phase != previous_phase:
+		phase_transition_count += 1
+		phase_transition_flash_timer = max(phase_transition_flash_timer, 1.05)
+		pattern_timer = 0.0
 
 
 func _update_targetable_part() -> void:

@@ -88,6 +88,7 @@ function assertPhase3State(state) {
   expect(state?.shotDirectionMode === 'forward_depth_negative_z', `player shot direction regression: ${state?.shotDirectionMode}`);
   expect(state?.shotVisualOrientation === 'forward_aligned_xz_not_billboard_vertical', `shot visual orientation regression: ${state?.shotVisualOrientation}`);
   expect(state?.legacyVerticalShotColumns === false, `legacy vertical shot columns returned: ${state?.legacyVerticalShotColumns}`);
+  expect(numberValue(state?.legacyNearCameraCyanPulseNodes) === 0, `legacy near-camera cyan pulse nodes should be disabled: ${state?.legacyNearCameraCyanPulseNodes}`);
   expect(state?.rainGeometryMode === 'haze_only_no_vertical_columns', `rain geometry mode can read as vertical columns: ${state?.rainGeometryMode}`);
   expect(numberValue(state?.nearRainSheetCount) === 0, `near rain sheets should be disabled for clean Phase 3 debug capture: ${state?.nearRainSheetCount}`);
   expect(state?.cloudGeometry === false, `cloud geometry should stay disabled in forward reference composition: ${state?.cloudGeometry}`);
@@ -98,6 +99,7 @@ function assertPhase3State(state) {
   expect(state?.phase3DebugStatus === 'boss_weakpoint_muzzle_fire_debug_locked', `phase 3 debug status not locked: ${state?.phase3DebugStatus}`);
   expect(state?.phase3QAContract === 'phase3_debug_browser_v1', `phase 3 QA contract missing: ${state?.phase3QAContract}`);
   expect(state?.phase3VisualSafety === 'clean_hud_no_vertical_columns_no_cloud_geometry', `phase 3 visual safety missing: ${state?.phase3VisualSafety}`);
+  expect(state?.phase3BossCombatChunk === 'destructible_hardpoint_phase_transition', `phase 3 boss combat chunk missing: ${state?.phase3BossCombatChunk}`);
 
   expect(state?.bossArenaAsset === 'boss_dreadnought_leviathan_glb', `boss GLB asset missing: ${state?.bossArenaAsset}`);
   expect(state?.bossWeakpointSocketBinding === 'glb_boss_socket_runtime', `boss weakpoint socket binding missing: ${state?.bossWeakpointSocketBinding}`);
@@ -109,6 +111,27 @@ function assertPhase3State(state) {
   expect(numberValue(state?.bossImpactVFXPool) >= 8, `boss impact pool too small: ${state?.bossImpactVFXPool}`);
   expect(numberValue(state?.bossImpactEvents) >= 6, `boss impact events too low: ${state?.bossImpactEvents}`);
   expect(state?.bossImpactVFXActive === true, `boss impact VFX not active in capture window: ${state?.bossImpactVFXActive}`);
+  expect(numberValue(state?.bossWeakpointDamageMultiplier) > 1.0, `weakpoint damage multiplier missing: ${state?.bossWeakpointDamageMultiplier}`);
+  expect(numberValue(state?.bossExposedCoreDamageMultiplier) > 1.0, `exposed core damage multiplier missing: ${state?.bossExposedCoreDamageMultiplier}`);
+  expect(numberValue(state?.bossExposedCoreDamageMultiplier) < numberValue(state?.bossWeakpointDamageMultiplier), `core damage should be paced slower than shield/turret break: ${state?.bossExposedCoreDamageMultiplier}/${state?.bossWeakpointDamageMultiplier}`);
+  expect(numberValue(state?.bossWeakpointDamageEvents) >= 8, `weakpoint damage events too low: ${state?.bossWeakpointDamageEvents}`);
+  expect(numberValue(state?.bossPhase) === 3, `boss should be captured in core-exposed phase, got: ${state?.bossPhase}/${state?.bossPhaseName}`);
+  expect(numberValue(state?.bossCoreRatio) > 0.05, `boss core should be exposed but not instantly defeated in proof capture: ${state?.bossCoreRatio}`);
+  expect(numberValue(state?.bossPhaseTransitionCount) >= 2, `boss phase transition events too low: ${state?.bossPhaseTransitionCount}`);
+  expect(state?.bossPhaseTransitionLocked === true, `boss phase transition lock missing: ${state?.bossPhaseTransitionLocked}`);
+  expect(numberValue(state?.bossPartDestructionEvents) >= 2, `boss part destruction events too low: ${state?.bossPartDestructionEvents}`);
+  expect(numberValue(state?.bossPartDestructionEventsSeen) >= 2, `arena did not observe boss part destruction chain: ${state?.bossPartDestructionEventsSeen}`);
+  expect(numberValue(state?.bossPhaseTransitionEventsSeen) >= 2, `arena did not observe phase transition chain: ${state?.bossPhaseTransitionEventsSeen}`);
+  expect(numberValue(state?.bossShieldRatio) <= 0.01, `boss shield was not destroyed: ${state?.bossShieldRatio}`);
+  expect(numberValue(state?.bossTurretRatio) <= 0.01, `boss turret hardpoint was not destroyed: ${state?.bossTurretRatio}`);
+  expect(state?.bossLatestDestroyedPart, `latest destroyed boss part missing: ${state?.bossLatestDestroyedPart}`);
+  const destroyedParts = Array.isArray(state?.bossDestroyedPartList) ? state.bossDestroyedPartList : [];
+  expect(destroyedParts.includes('shield'), `shield destruction missing from destroyed part list: ${JSON.stringify(destroyedParts)}`);
+  expect(destroyedParts.includes('turrets'), `turret destruction missing from destroyed part list: ${JSON.stringify(destroyedParts)}`);
+  expect(state?.bossPartDamageVFX === 'socket_part_damage_markers', `boss part damage VFX mode missing: ${state?.bossPartDamageVFX}`);
+  expect(state?.bossDestroyedPartVFXActive === true, `destroyed part VFX inactive: ${state?.bossDestroyedPartVFXActive}`);
+  expect(numberValue(state?.bossDestroyedPartVFXCount) >= 2, `destroyed part VFX count too low: ${state?.bossDestroyedPartVFXCount}`);
+  expect(state?.bossTargetablePart === 'core', `boss target did not move to exposed core: ${state?.bossTargetablePart}`);
 
   expect(state?.bossMuzzleSocketBinding === 'glb_boss_muzzle_socket_runtime', `boss muzzle socket binding missing: ${state?.bossMuzzleSocketBinding}`);
   expect(state?.bossGLBMuzzleSocketsFound === true, `boss muzzle sockets not found: ${state?.bossGLBMuzzleSocketsFound}`);
@@ -181,7 +204,13 @@ async function main() {
       await page.waitForFunction(() => window.ForceWarBridge?.state?.phase3ProjectileDebugStatus === 'boss_socket_forward_fire_non_homing', null, { timeout: 15000 });
       await page.waitForFunction(() => Number(window.ForceWarBridge?.state?.bossImpactEvents || 0) >= 6, null, { timeout: 15000 });
       await page.waitForFunction(() => Number(window.ForceWarBridge?.state?.logicalBossMuzzleSocketSpawns || 0) >= 8, null, { timeout: 15000 });
-      await page.waitForTimeout(900);
+      await page.waitForFunction(() => Number(window.ForceWarBridge?.state?.bossPhase || 1) >= 3, null, { timeout: 45000 });
+      await page.waitForFunction(() => Number(window.ForceWarBridge?.state?.bossPhaseTransitionCount || 0) >= 2, null, { timeout: 10000 });
+      await page.waitForFunction(() => Number(window.ForceWarBridge?.state?.bossPartDestructionEvents || 0) >= 2, null, { timeout: 10000 });
+      await page.waitForFunction(() => window.ForceWarBridge?.state?.bossTargetablePart === 'core', null, { timeout: 10000 });
+      await page.waitForFunction(() => window.ForceWarBridge?.state?.bossDestroyedPartVFXActive === true, null, { timeout: 10000 });
+      await page.waitForFunction(() => Number(window.ForceWarBridge?.state?.bossCoreRatio || 0) > 0.05, null, { timeout: 10000 });
+      await page.waitForTimeout(80);
 
       const result = await page.evaluate(() => {
         const canvas = document.querySelector('canvas');
@@ -210,6 +239,17 @@ async function main() {
         state: statePath,
         metrics: {
           phase3DebugStatus: result.state.phase3DebugStatus,
+          phase3BossCombatChunk: result.state.phase3BossCombatChunk,
+          bossPhase: result.state.bossPhase,
+          bossPhaseName: result.state.bossPhaseName,
+          bossPhaseTransitionCount: result.state.bossPhaseTransitionCount,
+          bossTargetablePart: result.state.bossTargetablePart,
+          bossDestroyedParts: result.state.bossDestroyedParts,
+          bossLatestDestroyedPart: result.state.bossLatestDestroyedPart,
+          bossDestroyedPartVFXCount: result.state.bossDestroyedPartVFXCount,
+          bossWeakpointDamageEvents: result.state.bossWeakpointDamageEvents,
+          bossExposedCoreDamageMultiplier: result.state.bossExposedCoreDamageMultiplier,
+          bossCoreRatio: result.state.bossCoreRatio,
           bossMuzzleSocketBinding: result.state.bossMuzzleSocketBinding,
           bossMuzzleSocketCount: result.state.bossMuzzleSocketCount,
           bossMuzzleSpreadX: result.state.bossMuzzleSpreadX,
@@ -225,7 +265,7 @@ async function main() {
       };
       writeFileSync(statePath, `${JSON.stringify(result.state, null, 2)}\n`);
       writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
-      console.log(`Phase 3 debug QA ok: screenshot=${screenshotPath} state=${statePath} bossFire=${result.state.bossMuzzleSocketBinding}/${result.state.bossSocketFireEvents} logical=${result.state.logicalBossProjectileOrigin}/${result.state.logicalBossMuzzleSocketSpawns} impacts=${result.state.bossImpactEvents} hits=${result.state.playerProjectileHits} canvas=${result.canvas.width}x${result.canvas.height}`);
+      console.log(`Phase 3 debug QA ok: screenshot=${screenshotPath} state=${statePath} phase=${result.state.bossPhase}/${result.state.bossPhaseName} target=${result.state.bossTargetablePart} destroyed=${result.state.bossDestroyedParts}/${result.state.bossLatestDestroyedPart} bossFire=${result.state.bossMuzzleSocketBinding}/${result.state.bossSocketFireEvents} logical=${result.state.logicalBossProjectileOrigin}/${result.state.logicalBossMuzzleSocketSpawns} impacts=${result.state.bossImpactEvents} hits=${result.state.playerProjectileHits} canvas=${result.canvas.width}x${result.canvas.height}`);
     } finally {
       await browser.close();
     }

@@ -134,7 +134,11 @@ func set_spawn_origins(hardpoint_state: Dictionary) -> void:
 		if hardpoint_state.has(key):
 			var value = hardpoint_state[key]
 			if value is Vector3:
-				spawn_origins.append(value)
+				var origin: Vector3 = value
+				# Keep the socket binding but begin the batched travel bolt a few meters
+				# forward of the exact muzzle flash, otherwise a quad can pass directly
+				# under the chase camera and screenshot as a giant cyan sheet.
+				spawn_origins.append(origin + Vector3(0.0, 0.0, -4.8))
 	if spawn_origins.is_empty():
 		spawn_from_hardpoints = false
 

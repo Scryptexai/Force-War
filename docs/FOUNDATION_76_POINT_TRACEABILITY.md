@@ -47,11 +47,11 @@ Status yang dipakai:
 | 17 | Player GLB user tidak boleh dibongkar/remade jadi visual buruk | Asset | STARTER | Starter memakai `enemy_hero_jet_blender_ready.glb` sebagai derivative runtime dari original `enemy_hero_jet.glb`; perlu visual review |
 | 18 | Scaling player harus mobile-readable | Mobile | PARTIAL | Scale dikoreksi; perlu screenshot review |
 | 19 | Aircraft harus punya muzzle/hardpoint contract | Weapons | PARTIAL | Tahap 2 binds actual GLB sockets `Muzzle_Left`/`Muzzle_Right`; fallback sockets remain only as safety |
-| 20 | Shot harus lahir dari hardpoint aircraft | Weapons | PARTIAL | Visual pulse, visual-pool respawn, and logical player shots now consume `glb_socket_runtime` / `glb_muzzle_socket`; final VFX polish pending |
-| 21 | Shot arah ke depan/horizon/boss | Weapons | PARTIAL | Forward-depth XZ shot quads aktif; screenshot gate tetap wajib |
+| 20 | Shot harus lahir dari hardpoint aircraft | Weapons | VERIFIED | Phase 2/3 QA locks visual and logical player shots to `glb_socket_runtime` / `glb_muzzle_socket`; near-camera legacy pulse nodes are disabled |
+| 21 | Shot arah ke depan/horizon/boss | Weapons | VERIFIED | QA locks `shotDirectionMode=forward_depth_negative_z`, `playerMuzzleForwardZLocked=true`, and phase screenshots confirm depth fire |
 | 22 | Shot tidak boleh terbaca sebagai kolom ke atas | Weapons | VERIFIED | Phase 3 QA locks forward XZ projectiles plus `rainGeometryMode=haze_only_no_vertical_columns` / `nearRainSheetCount=0` |
 | 23 | Projectile visual align dengan logic projectile | Weapons | PARTIAL | Pool logic/visual masih perlu hard sync penuh |
-| 24 | Enemy bullets tidak continuous homing/chasing | Combat | PARTIAL | Pattern fixed/scheduled; visual review perlu |
+| 24 | Enemy bullets tidak continuous homing/chasing | Combat | VERIFIED | Phase 3 QA locks `bossProjectileTracking=false` and `bossProjectileAimingModel=non_homing_forward_depth_lanes` |
 | 25 | Bullet-hell tidak pakai Node3D/physics body per bullet | Performance | VERIFIED | Logical dictionaries + MultiMesh visual pool |
 | 26 | Projectile pooling wajib | Performance | VERIFIED | Enemy/player logical pool + visual MultiMesh aktif |
 | 27 | Radius collision logical untuk bullet hell | Combat | VERIFIED | `projectileCollisionMode=pooled_logical_radius_no_physics_body` |
@@ -59,8 +59,8 @@ Status yang dipakai:
 | 29 | Player projectile bisa hit boss secara real logic | Combat | VERIFIED | QA waits `playerProjectileHits > 0` dan HP boss turun |
 | 30 | Boss bukan HP dekoratif | Boss | VERIFIED | `BossPhaseController` aktif |
 | 31 | Boss punya shield/wings/turrets/core | Boss | VERIFIED | Bridge damage model parts |
-| 32 | Boss punya phase transition | Boss | PARTIAL | Phase logic ada; visual phase belum cukup jelas |
-| 33 | Boss weakpoint target routing | Boss | PARTIAL | Tahap 3 adds GLB socket-bound weakpoint reticle and pooled hit-feedback bridge; full boss phase art still pending |
+| 32 | Boss punya phase transition | Boss | VERIFIED | Current Phase 3 QA reaches shield break -> turret break -> `PHASE_3_CORE_EXPOSED` with `bossPhaseTransitionCount>=2` |
+| 33 | Boss weakpoint target routing | Boss | VERIFIED | Phase 3 QA verifies target routing `shield -> turrets -> core`, socket-bound reticle, and weakpoint damage events |
 | 34 | Boss attack pattern scheduler | Boss | VERIFIED | Bridge `bossPatternScheduler=true` |
 | 35 | Boss hardpoint/turret visual harus terbaca | Boss | VERIFIED | Current Phase 3 QA verifies `Boss_Muzzle_Core/Left/Right`, forward socket fire VFX, logical socket spawns, and non-homing boss fire; final destructible turret art remains future polish |
 | 36 | BattlefieldDirector untuk background war | Arena | PARTIAL | `ForwardArenaDirector` ada; visual quality masih blocker |
@@ -71,8 +71,8 @@ Status yang dipakai:
 | 41 | Loading page branded Force War | UI | PARTIAL | Existing branding ada; visual QA ulang perlu |
 | 42 | Loading slideshow background sesuai theme | UI | PARTIAL | Ada assets; belum dievaluasi ulang setelah reset |
 | 43 | Logo/wordmark dipakai | UI | PARTIAL | Ada asset/logo; review perlu |
-| 44 | HUD mobile harus clear dan tidak messy | UI | PARTIAL | HUD minimal; weakpoint/phase UI pending |
-| 45 | No unclear overlay objects in arena | Visual | BLOCKER | Perlu cleanup screenshot pass |
+| 44 | HUD mobile harus clear dan tidak messy | UI | PARTIAL | HUD stays compact and shows boss phase; deeper visual/UI art polish still pending |
+| 45 | No unclear overlay objects in arena | Visual | PARTIAL | Phase 3 removes near-camera rain sheets and legacy cyan pulse columns; screenshot gate is cleaner but final arena art pass remains |
 | 46 | Clouds tidak boleh muncul continuous | Weather/Visual | PARTIAL | `cloudGeometry=false`; haze/fog masih perlu tuning |
 | 47 | Thin fog/haze boleh, continuous clouds tidak | Weather/Visual | PARTIAL | Arena memakai haze/matte; review perlu |
 | 48 | Weather harus gameplay, bukan background | Weather | PARTIAL | Wind/rain/lightning affect state; loadout strategy pending |
@@ -139,3 +139,7 @@ Tahap 3 now starts with boss gameplay VFX instead of adding unrelated features: 
 ## Tahap 3 boss muzzle hardpoint fire update
 
 Tahap 3 now also binds boss fire to Dreadnought GLB muzzle sockets (`Boss_Muzzle_Left`, `Boss_Muzzle_Core`, `Boss_Muzzle_Right`). The boss fire is deliberately non-homing and forward-lane based, with visible orange socket lanes plus logical projectile spawns reporting `logicalBossProjectileOrigin=glb_boss_muzzle_socket`. Browser QA now fails if the boss muzzle sockets, socket fire VFX, non-homing bridge, or logical socket spawns are missing.
+
+## Tahap 3 destructible boss phase chunk
+
+Tahap 3 now includes a browser-verified destructible boss progression slice: weakpoint damage accelerates shield/turret break, the boss advances from shield phase to turret phase and then `PHASE_3_CORE_EXPOSED`, the reticle target routes `shield -> turrets -> core`, and destroyed-part VFX markers are active. QA now fails unless `phase3BossCombatChunk=destructible_hardpoint_phase_transition`, `bossPhase=3`, `bossPhaseTransitionCount>=2`, `bossDestroyedPartList` contains `shield` and `turrets`, `bossTargetablePart=core`, and the boss fire remains non-homing/socket-bound.

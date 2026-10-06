@@ -116,3 +116,38 @@ Future production work should focus on art/gameplay expansion, not more checklis
 - phase-specific boss destruction and scoring rewards;
 - renderer-aware rain/weather VFX that do not resemble vertical shot columns;
 - broader mobile performance benchmark scenes.
+
+## 2026-10-06 update — destructible hardpoint / phase-transition QA
+
+The dedicated Phase 3 QA now also waits for real boss progression, not only first-hit feedback:
+
+- shield destruction;
+- transition into phase 2;
+- turret hardpoint destruction;
+- transition into `PHASE_3_CORE_EXPOSED`;
+- target routing to `core`;
+- destroyed-part VFX count of at least two;
+- continued non-homing socket-bound boss fire.
+
+Latest final summary:
+
+```text
+phase3BossCombatChunk=destructible_hardpoint_phase_transition
+bossPhase=3
+bossPhaseName=PHASE_3_CORE_EXPOSED
+bossPhaseTransitionCount=2
+bossTargetablePart=core
+bossDestroyedParts=2
+bossLatestDestroyedPart=turrets
+bossDestroyedPartVFXCount=2
+bossWeakpointDamageEvents=73
+bossExposedCoreDamageMultiplier=1.2
+bossCoreRatio=0.810341463414635
+bossSocketFireEvents=62
+logicalBossMuzzleSocketSpawns=62
+bossImpactEvents=73
+playerProjectileHits=73
+screenshotBytes=685768
+```
+
+The latest proof screenshot is `qa/screenshots/phase3_debug_qa_final.png`.

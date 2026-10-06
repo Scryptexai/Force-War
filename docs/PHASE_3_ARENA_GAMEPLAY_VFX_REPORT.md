@@ -143,3 +143,35 @@ playerProjectileHits=20
 The near-camera rain-sheet geometry is disabled for this debug lock (`rainGeometryMode=haze_only_no_vertical_columns`, `nearRainSheetCount=0`) because the previous capture could read as vertical blue columns. Rain remains a gameplay variable through visibility and wind/drift state.
 
 Validation passed with Godot 4.6.2 stable, root Web export, `vercel-build`, `qa:forward`, dedicated `qa:phase3`, and `qa:web`. This closes Phase 3 debug/QA for the current boss combat slice; final turret art, destructible hardpoints, safe-gap balancing, and full boss pacing remain future production work.
+
+## 2026-10-06 continuation — destructible hardpoint phase transition
+
+The next Phase 3 production chunk turns the boss from a single shield target into a browser-verifiable multi-step encounter:
+
+- weakpoint hits now apply a tuned multiplier to shield/turret parts so the vertical slice can actually reach later phases during QA;
+- after shield destruction, target routing moves to turrets and switches the attack pattern to `turret_crossfire_pool_v1`;
+- after turret destruction, the boss enters `PHASE_3_CORE_EXPOSED` and routes the reticle to the core;
+- destroyed parts spawn socket-positioned damage/smoke markers via `bossPartDamageVFX=socket_part_damage_markers`;
+- the exposed core uses a lower pacing multiplier so the QA screenshot captures phase 3 before the boss instantly dies;
+- legacy near-camera cyan pulse nodes are disabled (`legacyNearCameraCyanPulseNodes=0`) after screenshot review showed they could still create giant vertical-looking sheets.
+
+Final state proof for this chunk is stored in `qa/screenshots/phase3_debug_qa_final_state.json` and summary in `qa/screenshots/phase3_debug_qa_final_summary.json`. Latest browser QA metrics included:
+
+```text
+phase3BossCombatChunk=destructible_hardpoint_phase_transition
+bossPhase=3
+bossPhaseName=PHASE_3_CORE_EXPOSED
+bossPhaseTransitionCount=2
+bossTargetablePart=core
+bossDestroyedParts=2
+bossLatestDestroyedPart=turrets
+bossDestroyedPartVFXCount=2
+bossWeakpointDamageEvents=73
+bossCoreRatio=0.810341463414635
+bossSocketFireEvents=62
+logicalBossMuzzleSocketSpawns=62
+bossImpactEvents=73
+playerProjectileHits=73
+```
+
+Validation passed with Godot 4.6.2 stable, root Web export, `vercel-build`, `qa:forward`, updated `qa:phase3`, `qa:web`, and screenshot/manual inspection.

@@ -86,6 +86,13 @@ var boss_socket_fire_events_seen := 0
 var boss_socket_fire_active_count := 0
 var boss_socket_fire_mode := "pending"
 var boss_socket_fire_non_homing := true
+var boss_part_damage_nodes: Dictionary = {}
+var boss_destroyed_part_visual_count := 0
+var boss_phase_transition_events_seen := 0
+var boss_last_phase_transition_count := 0
+var boss_part_destruction_events_seen := 0
+var boss_last_part_destruction_count := 0
+var boss_part_damage_vfx_mode := "pending"
 var storm_cells: Array = []
 var lightning_nodes: Array = []
 var cinematic_matte_plane: MeshInstance3D
@@ -253,6 +260,11 @@ func get_weather_effect() -> Dictionary:
 		"bossSocketFireEvents": boss_socket_fire_events_seen,
 		"bossHardpointFireNonHoming": boss_socket_fire_non_homing,
 		"bossMuzzleOrigins": _boss_muzzle_world_positions(),
+		"bossPartDamageVFX": boss_part_damage_vfx_mode,
+		"bossDestroyedPartVFXActive": boss_destroyed_part_visual_count > 0,
+		"bossDestroyedPartVFXCount": boss_destroyed_part_visual_count,
+		"bossPhaseTransitionEventsSeen": boss_phase_transition_events_seen,
+		"bossPartDestructionEventsSeen": boss_part_destruction_events_seen,
 		"bossImpactVFXPool": boss_impact_pool.size(),
 		"bossImpactEvents": boss_impact_events_seen,
 		"bossImpactVFXActive": _active_boss_impact_count() > 0,
@@ -282,6 +294,7 @@ func get_weather_effect() -> Dictionary:
 		"foundationVisualMode": foundation_visual_mode,
 		"backgroundClutterMode": background_clutter_mode,
 		"legacyVerticalShotColumns": false,
+		"legacyNearCameraCyanPulseNodes": player_shot_pulses.size(),
 		"playerScaleMode": "reduced_mobile_readable",
 		"cloudGeometry": false,
 		"hazardPushX": hazard_push.x,
@@ -590,7 +603,11 @@ func _create_visual_lock_composition_layer() -> void:
 		add_child(player_beam)
 		player_beams.append(player_beam)
 
-	for i in range(30):
+	# Legacy near-camera cyan pulse quads are disabled for Phase 3. Exact socket
+	# muzzle flashes remain in ForwardAirScene and pooled projectile visuals start
+	# several meters ahead of the GLB hardpoints; this avoids giant cyan sheets when
+	# a mobile screenshot catches a quad too close to the chase camera.
+	for i in range(0):
 		var lane_x = -0.62 + float(i % 3) * 0.62
 		var pulse = _vfx_forward_projectile_quad("PlayerCyanForwardShotPulse_%02d" % i, Vector3(lane_x, 1.78, -5.5 - float(i) * 3.35), Vector2(0.52, 3.25), hero_shot_texture, Color(0.74, 1.0, 1.0, 1.0), 3.6)
 		pulse.set_meta("lane_x", lane_x)
@@ -700,6 +717,18 @@ func _create_boss_gameplay_vfx_layer() -> void:
 			fire_mat.no_depth_test = true
 		add_child(fire_lane)
 		boss_socket_fire_nodes.append(fire_lane)
+	boss_part_damage_nodes.clear()
+	for part_name in ["shield", "turrets", "left_wing", "right_wing", "core"]:
+		var damage_marker := _vfx_quad("BossDestroyedPartSmoke_%s" % part_name, Vector3.ZERO, Vector2(1.8, 1.8), smoke_texture if smoke_texture != null else explosion_texture, Color(0.95, 0.52, 0.18, 0.58), 1.45)
+		damage_marker.visible = false
+		damage_marker.set_meta("part", part_name)
+		damage_marker.set_meta("phase", rng.randf_range(0.0, TAU))
+		var marker_mat := damage_marker.material_override as StandardMaterial3D
+		if marker_mat != null:
+			marker_mat.no_depth_test = false
+		add_child(damage_marker)
+		boss_part_damage_nodes[part_name] = damage_marker
+	boss_part_damage_vfx_mode = "socket_part_damage_markers"
 	boss_socket_fire_mode = "glb_boss_muzzle_forward_lanes" if boss_glb_muzzle_sockets_found else "runtime_fallback"
 
 
@@ -709,14 +738,24 @@ func _reset_boss_gameplay_vfx() -> void:
 	boss_impact_visuals_active = 0
 	boss_socket_fire_events_seen = 0
 	boss_socket_fire_active_count = 0
+	boss_destroyed_part_visual_count = 0
+	boss_phase_transition_events_seen = 0
+	boss_last_phase_transition_count = 0
+	boss_part_destruction_events_seen = 0
+	boss_last_part_destruction_count = 0
 	boss_visual_target_part = "shield"
 	boss_damage_feedback_mode = "pooled_sprite_impacts_target_reticle" if boss_weakpoint_marker != null else boss_damage_feedback_mode
+	boss_part_damage_vfx_mode = "socket_part_damage_markers" if not boss_part_damage_nodes.is_empty() else "pending"
 	if boss_weakpoint_marker != null:
 		boss_weakpoint_marker.visible = false
 	for impact in boss_impact_pool:
 		if impact is MeshInstance3D:
 			impact.visible = false
 			impact.set_meta("life", 0.0)
+	for key in boss_part_damage_nodes.keys():
+		var marker = boss_part_damage_nodes[key]
+		if marker is MeshInstance3D:
+			marker.visible = false
 
 
 func _spawn_boss_impact_visual(hit: Dictionary, part_name: String) -> void:
@@ -746,9 +785,19 @@ func _spawn_boss_impact_visual(hit: Dictionary, part_name: String) -> void:
 
 
 func _update_boss_gameplay_vfx(delta: float) -> void:
+	var boss_state: Dictionary = {}
 	if boss_phase_controller != null and boss_phase_controller.has_method("get_bridge_state"):
-		var boss_state: Dictionary = boss_phase_controller.get_bridge_state()
+		boss_state = boss_phase_controller.get_bridge_state()
 		boss_visual_target_part = str(boss_state.get("bossTargetablePart", boss_visual_target_part))
+		var phase_transition_count: int = int(boss_state.get("bossPhaseTransitionCount", 0))
+		if phase_transition_count > boss_last_phase_transition_count:
+			boss_phase_transition_events_seen += phase_transition_count - boss_last_phase_transition_count
+			boss_last_phase_transition_count = phase_transition_count
+		var part_destruction_count: int = int(boss_state.get("bossPartDestructionEvents", 0))
+		if part_destruction_count > boss_last_part_destruction_count:
+			boss_part_destruction_events_seen += part_destruction_count - boss_last_part_destruction_count
+			boss_last_part_destruction_count = part_destruction_count
+	_update_boss_part_damage_vfx(delta, boss_state)
 	if boss_weakpoint_marker != null:
 		boss_weakpoint_marker.visible = active
 		if active:
@@ -779,6 +828,41 @@ func _update_boss_gameplay_vfx(delta: float) -> void:
 		if mat != null:
 			mat.albedo_color = Color(1.0, 0.70 + fade * 0.18, 0.18, fade * 0.90)
 			mat.emission_energy_multiplier = 1.4 + fade * 3.2
+
+
+func _update_boss_part_damage_vfx(delta: float, boss_state: Dictionary) -> void:
+	boss_part_damage_vfx_mode = "socket_part_damage_markers" if not boss_part_damage_nodes.is_empty() else "pending"
+	var destroyed: Array = boss_state.get("bossDestroyedPartList", [])
+	var phase_flash: bool = bool(boss_state.get("bossPhaseTransitionVFX", false))
+	boss_destroyed_part_visual_count = 0
+	for key in boss_part_damage_nodes.keys():
+		var marker := boss_part_damage_nodes[key] as MeshInstance3D
+		if marker == null:
+			continue
+		var part_name := str(key)
+		var is_destroyed := destroyed.has(part_name)
+		marker.visible = active and is_destroyed
+		if not marker.visible:
+			continue
+		boss_destroyed_part_visual_count += 1
+		var phase_offset: float = float(marker.get_meta("phase", 0.0))
+		var pulse: float = 0.5 + 0.5 * sin(forward_time * 4.8 + phase_offset)
+		var phase_boost: float = 0.34 if phase_flash else 0.0
+		marker.global_position = _boss_destroyed_part_world_position(part_name) + Vector3(sin(forward_time * 1.4 + phase_offset) * 0.16, pulse * 0.28, 0.25 + pulse * 0.22)
+		marker.rotation_degrees = Vector3(76.0 + pulse * 4.0, 0.0, sin(forward_time * 1.9 + phase_offset) * 8.0)
+		marker.scale = Vector3.ONE * (1.0 + pulse * 0.30 + phase_boost)
+		var mat := marker.material_override as StandardMaterial3D
+		if mat != null:
+			mat.albedo_color = Color(1.0, 0.42 + pulse * 0.20, 0.16, 0.48 + pulse * 0.22 + phase_boost)
+			mat.emission_energy_multiplier = 1.1 + pulse * 1.2 + phase_boost * 2.0
+
+
+func _boss_destroyed_part_world_position(part_name: String) -> Vector3:
+	if part_name == "turrets":
+		var origins := _boss_muzzle_world_positions()
+		if origins.size() >= 3:
+			return (origins[0] + origins[1] + origins[2]) / 3.0 + Vector3(0.0, 0.55, 0.6)
+	return _boss_weakpoint_world_position(part_name)
 
 
 func _boss_weakpoint_world_position(part_name: String) -> Vector3:
