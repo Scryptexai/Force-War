@@ -62,7 +62,7 @@ Status yang dipakai:
 | 32 | Boss punya phase transition | Boss | PARTIAL | Phase logic ada; visual phase belum cukup jelas |
 | 33 | Boss weakpoint target routing | Boss | PARTIAL | Tahap 3 adds GLB socket-bound weakpoint reticle and pooled hit-feedback bridge; full boss phase art still pending |
 | 34 | Boss attack pattern scheduler | Boss | VERIFIED | Bridge `bossPatternScheduler=true` |
-| 35 | Boss hardpoint/turret visual harus terbaca | Boss | PENDING | Visual pass berikutnya setelah foundation shot/player benar |
+| 35 | Boss hardpoint/turret visual harus terbaca | Boss | PARTIAL | Tahap 3 binds `Boss_Muzzle_Core/Left/Right` sockets to non-homing forward fire lanes and logical boss projectile origins |
 | 36 | BattlefieldDirector untuk background war | Arena | PARTIAL | `ForwardArenaDirector` ada; visual quality masih blocker |
 | 37 | Background tidak boleh static/acak code-looking | Arena | STARTER | Clutter visual pass mengurangi beams/explosions/tracers; full background art rebuild masih blocker lanjutan |
 | 38 | Background harus asset-backed/GLB/photos/textures proper | Arena | PARTIAL | GLB deck/boss ada; clutter procedural perlu audit |
@@ -135,3 +135,7 @@ During the visible socket-fire pass, the socket bridge exposed the muzzle center
 ## Tahap 3 boss weakpoint/hit-feedback update
 
 Tahap 3 now starts with boss gameplay VFX instead of adding unrelated features: the Dreadnought GLB is searched for `Boss_WeakPoint_Core` plus boss muzzle sockets, a clean reticle follows the active weakpoint, and pooled explosion-sprite impacts spawn from real player projectile hit events. Browser QA now fails unless `phase3GameplayVFXPass=boss_weakpoint_hit_feedback`, `bossWeakpointSocketBinding=glb_boss_socket_runtime`, `bossGLBWeakpointSocketFound=true`, and `bossImpactEvents` is greater than zero.
+
+## Tahap 3 boss muzzle hardpoint fire update
+
+Tahap 3 now also binds boss fire to Dreadnought GLB muzzle sockets (`Boss_Muzzle_Left`, `Boss_Muzzle_Core`, `Boss_Muzzle_Right`). The boss fire is deliberately non-homing and forward-lane based, with visible orange socket lanes plus logical projectile spawns reporting `logicalBossProjectileOrigin=glb_boss_muzzle_socket`. Browser QA now fails if the boss muzzle sockets, socket fire VFX, non-homing bridge, or logical socket spawns are missing.

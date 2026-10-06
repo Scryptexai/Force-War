@@ -39,6 +39,9 @@ var last_boss_hit_part := "shield"
 var player_weapon_hardpoints: Dictionary = {}
 var player_hardpoint_binding := "pending"
 var player_shot_spawn_origin := "runtime_fallback_socket"
+var boss_projectile_origin_mode := "runtime_lane"
+var boss_muzzle_socket_logic_spawns := 0
+var boss_muzzle_socket_origin_count := 0
 
 
 func setup() -> void:
@@ -65,6 +68,9 @@ func start_mission(stage_data: Dictionary) -> void:
 	boss_hit_count = 0
 	shots_spawned = 0
 	player_shots_spawned = 0
+	boss_projectile_origin_mode = "runtime_lane"
+	boss_muzzle_socket_logic_spawns = 0
+	boss_muzzle_socket_origin_count = 0
 	lane_index = 0
 	player_lane_index = 0
 	recent_boss_hits.clear()
@@ -104,7 +110,7 @@ func update_logic(delta: float, player_corridor: Vector2, weather_effect: Dictio
 	var spawn_budget_mul: float = 0.72 if visibility < 0.72 else 1.0
 	spawn_timer -= delta
 	while spawn_timer <= 0.0:
-		_spawn_enemy_bullet(wind, active_boss_projectile_pattern)
+		_spawn_enemy_bullet(wind, active_boss_projectile_pattern, weather_effect)
 		var pattern_fire_scale: float = _boss_pattern_fire_scale(active_boss_projectile_pattern)
 		spawn_timer += spawn_interval / max(0.55, spawn_budget_mul * pattern_fire_scale)
 	_update_player_fire(delta, player_corridor, weather_effect, wind, overcharged)
@@ -130,6 +136,10 @@ func get_bridge_state() -> Dictionary:
 		"projectileDataDriven": not enemy_data.is_empty() and not player_data.is_empty(),
 		"projectilePattern": active_boss_projectile_pattern,
 		"bossPatternDrivenProjectiles": true,
+		"logicalBossProjectileOrigin": boss_projectile_origin_mode,
+		"logicalBossMuzzleSocketSpawns": boss_muzzle_socket_logic_spawns,
+		"logicalBossMuzzleSocketCount": boss_muzzle_socket_origin_count,
+		"bossHardpointFireNonHoming": true,
 		"projectileHitsTaken": player_hit_count,
 		"projectileDamageTaken": total_damage_to_player,
 		"projectileShotsSpawned": shots_spawned,
@@ -171,34 +181,53 @@ func _reset_pools() -> void:
 		})
 
 
-func _spawn_enemy_bullet(wind: float, attack_pattern: String) -> void:
+func _spawn_enemy_bullet(wind: float, attack_pattern: String, weather_effect: Dictionary) -> void:
 	var index: int = _first_inactive_enemy_index()
 	if index < 0:
 		return
 	var lanes: Array = enemy_data.get("lanes", [-4.1, -2.55, -1.05, 1.05, 2.55, 4.1])
 	if lanes.is_empty():
 		lanes = [-2.5, 2.5]
-	var lane: float = float(lanes[lane_index % lanes.size()])
+	var sequence := lane_index
+	var lane: float = float(lanes[sequence % lanes.size()])
 	lane_index += 1
 	var speed: float = float(enemy_data.get("speed", 46.0)) * rng.randf_range(0.86, 1.18)
 	var y: float = rng.randf_range(1.7, 5.6)
 	var z: float = -112.0 - rng.randf_range(0.0, 18.0)
+	var socket_origins: Array = weather_effect.get("bossMuzzleOrigins", [])
+	boss_muzzle_socket_origin_count = socket_origins.size()
+	var socket_spawn := false
+	if str(weather_effect.get("bossMuzzleSocketBinding", "")) == "glb_boss_muzzle_socket_runtime" and not socket_origins.is_empty():
+		var origin_value = socket_origins[sequence % socket_origins.size()]
+		if origin_value is Vector3:
+			var origin: Vector3 = origin_value
+			lane = origin.x
+			y = origin.y
+			z = origin.z + 1.8
+			socket_spawn = true
 	var side_sweep: float = sin(pattern_clock * 0.8 + float(lane_index) * 0.53) * 0.45
 	var x_velocity: float = wind * 0.18
 	if attack_pattern == "turret_crossfire_pool_v1":
-		lane = -4.6 if lane_index % 2 == 0 else 4.6
+		if not socket_spawn:
+			lane = -4.6 if lane_index % 2 == 0 else 4.6
+			y = rng.randf_range(1.2, 4.8)
 		x_velocity = -sign(lane) * 1.10 + wind * 0.12
-		y = rng.randf_range(1.2, 4.8)
 		speed *= 1.10
 	elif attack_pattern == "core_laser_burst_pool_v1":
-		lane = sin(float(lane_index) * 1.74) * 2.8
+		if not socket_spawn:
+			lane = sin(float(lane_index) * 1.74) * 2.8
+			y = rng.randf_range(1.6, 3.8)
 		x_velocity = wind * 0.09
-		y = rng.randf_range(1.6, 3.8)
 		speed *= 1.22
+	if socket_spawn:
+		boss_projectile_origin_mode = "glb_boss_muzzle_socket"
+		boss_muzzle_socket_logic_spawns += 1
+	else:
+		boss_projectile_origin_mode = "runtime_lane"
 	var bullet: Dictionary = enemy_pool[index]
 	bullet["active"] = true
 	bullet["pos"] = Vector3(lane + side_sweep, y, z)
-	bullet["vel"] = Vector3(x_velocity, 0.0, speed)
+	bullet["vel"] = Vector3(x_velocity, -3.6 if socket_spawn else 0.0, speed)
 	bullet["life"] = float(enemy_data.get("lifetime", 3.1))
 	bullet["radius"] = float(enemy_data.get("radius", 0.28)) * logical_collision_radius_scale
 	bullet["damage"] = float(enemy_data.get("damage", 8.0))

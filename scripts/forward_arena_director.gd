@@ -78,7 +78,14 @@ var boss_muzzle_core_socket: Node3D
 var boss_muzzle_left_socket: Node3D
 var boss_muzzle_right_socket: Node3D
 var boss_socket_binding := "runtime_fallback"
+var boss_muzzle_socket_binding := "runtime_fallback"
 var boss_glb_weakpoint_socket_found := false
+var boss_glb_muzzle_sockets_found := false
+var boss_socket_fire_nodes: Array = []
+var boss_socket_fire_events_seen := 0
+var boss_socket_fire_active_count := 0
+var boss_socket_fire_mode := "pending"
+var boss_socket_fire_non_homing := true
 var storm_cells: Array = []
 var lightning_nodes: Array = []
 var cinematic_matte_plane: MeshInstance3D
@@ -227,6 +234,15 @@ func get_weather_effect() -> Dictionary:
 		"bossWeakpointVisualTarget": boss_visual_target_part,
 		"bossWeakpointSocketBinding": boss_socket_binding,
 		"bossGLBWeakpointSocketFound": boss_glb_weakpoint_socket_found,
+		"bossMuzzleSocketBinding": boss_muzzle_socket_binding,
+		"bossGLBMuzzleSocketsFound": boss_glb_muzzle_sockets_found,
+		"bossMuzzleSocketCount": _boss_muzzle_world_positions().size(),
+		"bossSocketFireVFX": boss_socket_fire_mode,
+		"bossSocketFireVFXActive": boss_socket_fire_active_count > 0,
+		"bossSocketFireVFXCount": boss_socket_fire_nodes.size(),
+		"bossSocketFireEvents": boss_socket_fire_events_seen,
+		"bossHardpointFireNonHoming": boss_socket_fire_non_homing,
+		"bossMuzzleOrigins": _boss_muzzle_world_positions(),
 		"bossImpactVFXPool": boss_impact_pool.size(),
 		"bossImpactEvents": boss_impact_events_seen,
 		"bossImpactVFXActive": _active_boss_impact_count() > 0,
@@ -295,6 +311,7 @@ func _weather_effect_with_boss_state(strip_runtime_vectors: bool) -> Dictionary:
 			effect[key] = boss_state[key]
 	if strip_runtime_vectors:
 		effect.erase("turbulence")
+		effect.erase("bossMuzzleOrigins")
 	return effect
 
 
@@ -617,7 +634,9 @@ func _bind_boss_glb_sockets(root: Node) -> void:
 	boss_muzzle_left_socket = _find_node3d(root, "Boss_Muzzle_Left")
 	boss_muzzle_right_socket = _find_node3d(root, "Boss_Muzzle_Right")
 	boss_glb_weakpoint_socket_found = boss_weakpoint_socket != null
+	boss_glb_muzzle_sockets_found = boss_muzzle_core_socket != null and boss_muzzle_left_socket != null and boss_muzzle_right_socket != null
 	boss_socket_binding = "glb_boss_socket_runtime" if boss_glb_weakpoint_socket_found else "runtime_fallback"
+	boss_muzzle_socket_binding = "glb_boss_muzzle_socket_runtime" if boss_glb_muzzle_sockets_found else "runtime_fallback"
 
 
 func _find_node3d(root: Node, node_name: String) -> Node3D:
@@ -656,12 +675,26 @@ func _create_boss_gameplay_vfx_layer() -> void:
 			impact_mat.no_depth_test = true
 		add_child(impact)
 		boss_impact_pool.append(impact)
+	boss_socket_fire_nodes.clear()
+	for i in range(3):
+		var fire_lane := _vfx_forward_projectile_quad("BossGLBMuzzleForwardFire_%02d" % i, Vector3.ZERO, Vector2(0.34, 9.4), enemy_shot_texture, Color(1.0, 0.46, 0.16, 0.68), 2.4)
+		fire_lane.visible = false
+		fire_lane.set_meta("socket_index", i)
+		fire_lane.set_meta("phase", float(i) * 0.37)
+		var fire_mat := fire_lane.material_override as StandardMaterial3D
+		if fire_mat != null:
+			fire_mat.no_depth_test = true
+		add_child(fire_lane)
+		boss_socket_fire_nodes.append(fire_lane)
+	boss_socket_fire_mode = "glb_boss_muzzle_forward_lanes" if boss_glb_muzzle_sockets_found else "runtime_fallback"
 
 
 func _reset_boss_gameplay_vfx() -> void:
 	boss_impact_events_seen = 0
 	boss_impact_pool_cursor = 0
 	boss_impact_visuals_active = 0
+	boss_socket_fire_events_seen = 0
+	boss_socket_fire_active_count = 0
 	boss_visual_target_part = "shield"
 	boss_damage_feedback_mode = "pooled_sprite_impacts_target_reticle" if boss_weakpoint_marker != null else boss_damage_feedback_mode
 	if boss_weakpoint_marker != null:
@@ -708,6 +741,7 @@ func _update_boss_gameplay_vfx(delta: float) -> void:
 			boss_weakpoint_marker.global_position = _boss_weakpoint_world_position(boss_visual_target_part)
 			var marker_pulse: float = 1.0 + sin(forward_time * 5.6) * 0.08 + lightning_flash * 0.10
 			boss_weakpoint_marker.scale = Vector3.ONE * marker_pulse
+	_update_boss_socket_fire_vfx(delta)
 	boss_impact_visuals_active = 0
 	for impact in boss_impact_pool:
 		if not (impact is MeshInstance3D):
@@ -755,6 +789,47 @@ func _boss_weakpoint_world_position(part_name: String) -> Vector3:
 			offset = Vector3(0.0, -0.1, 5.9)
 		return boss_anchor.global_position + offset
 	return Vector3(0.0, 12.0, -90.0)
+
+
+func _update_boss_socket_fire_vfx(delta: float) -> void:
+	boss_socket_fire_mode = "glb_boss_muzzle_forward_lanes" if boss_glb_muzzle_sockets_found else "runtime_fallback"
+	var origins := _boss_muzzle_world_positions()
+	boss_socket_fire_active_count = 0
+	if origins.is_empty():
+		for node in boss_socket_fire_nodes:
+			if node is MeshInstance3D:
+				node.visible = false
+		return
+	for i in range(boss_socket_fire_nodes.size()):
+		var lane: MeshInstance3D = boss_socket_fire_nodes[i]
+		var origin: Vector3 = origins[i % origins.size()]
+		var phase := float(lane.get_meta("phase", 0.0))
+		var pulse: float = 0.5 + 0.5 * sin(forward_time * 9.4 + phase * TAU)
+		lane.visible = active
+		if not lane.visible:
+			continue
+		boss_socket_fire_active_count += 1
+		lane.global_position = origin + Vector3(sin(forward_time * 1.7 + phase) * 0.18, -0.08 - pulse * 0.12, 4.2 + pulse * 0.55)
+		lane.rotation_degrees = Vector3(90.0, 0.0, 0.0)
+		lane.scale = Vector3(0.72 + pulse * 0.20, 0.84 + pulse * 0.36 + lightning_flash * 0.16, 1.0)
+		var mat := lane.material_override as StandardMaterial3D
+		if mat != null:
+			mat.albedo_color = Color(1.0, 0.42 + pulse * 0.18, 0.12, 0.40 + pulse * 0.38)
+			mat.emission_energy_multiplier = 1.8 + pulse * 2.4 + lightning_flash * 0.8
+	if active and boss_socket_fire_active_count > 0:
+		boss_socket_fire_events_seen += 1
+
+
+func _boss_muzzle_world_positions() -> Array:
+	var positions: Array = []
+	for socket in [boss_muzzle_left_socket, boss_muzzle_core_socket, boss_muzzle_right_socket]:
+		if socket != null and socket.is_inside_tree():
+			positions.append(socket.global_transform.origin)
+	if positions.is_empty() and boss_anchor != null and boss_anchor.is_inside_tree():
+		positions.append(boss_anchor.global_position + Vector3(-4.2, 0.0, 5.4))
+		positions.append(boss_anchor.global_position + Vector3(0.0, 0.3, 5.8))
+		positions.append(boss_anchor.global_position + Vector3(4.2, 0.0, 5.4))
+	return positions
 
 
 func _active_boss_impact_count() -> int:

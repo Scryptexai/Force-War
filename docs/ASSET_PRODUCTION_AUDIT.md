@@ -84,3 +84,7 @@ The visible hardpoint pass found that the prepared GLB muzzle sockets were landi
 ## Tahap 3 boss gameplay VFX update
 
 Tahap 3 adds a boss weakpoint and hit-feedback layer using existing authored VFX textures (`reticle_lock.png` and `explosion_fireball.png`) plus named sockets from `boss_dreadnought_leviathan.glb`. The runtime bridge now reports `phase3GameplayVFXPass=boss_weakpoint_hit_feedback`, `bossDamageFeedbackMode=pooled_sprite_impacts_target_reticle`, `bossWeakpointSocketBinding=glb_boss_socket_runtime`, and pooled impact counts/events for browser verification.
+
+## Tahap 3 boss muzzle hardpoint fire update
+
+The boss attack read now uses named sockets from `assets/models/boss_dreadnought_leviathan.glb`: `Boss_Muzzle_Left`, `Boss_Muzzle_Core`, and `Boss_Muzzle_Right`. Visual fire lanes are socket-positioned and non-homing; the logical projectile manager consumes the same socket positions through the arena weather/effect state. QA checks `bossMuzzleSocketBinding=glb_boss_muzzle_socket_runtime`, `bossSocketFireVFX=glb_boss_muzzle_forward_lanes`, and `logicalBossProjectileOrigin=glb_boss_muzzle_socket`.

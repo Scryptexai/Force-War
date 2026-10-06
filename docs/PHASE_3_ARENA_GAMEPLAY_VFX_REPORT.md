@@ -93,3 +93,15 @@ After the Phase 2 GLB muzzle/socket foundation, Phase 3 resumes with boss gamepl
 - exports bridge fields for QA: `phase3GameplayVFXPass`, `bossWeakpointSocketBinding`, `bossGLBWeakpointSocketFound`, `bossImpactVFXPool`, `bossImpactEvents`, and `bossImpactVFXActive`.
 
 This still is not the final Phase 3 boss package; turret hardpoint fire, phase-specific destruction art, scoring, and final boss encounter pacing remain pending.
+
+## 2026-10-06 continuation — boss muzzle hardpoint fire
+
+The next Phase 3 chunk moves boss outgoing fire from generic lane-only spawning toward GLB hardpoint spawning:
+
+- discovers `Boss_Muzzle_Left`, `Boss_Muzzle_Core`, and `Boss_Muzzle_Right` in the Dreadnought GLB instance;
+- renders three thin orange forward fire lanes from those socket positions;
+- passes socket positions into the logical projectile manager so boss bullets report `logicalBossProjectileOrigin=glb_boss_muzzle_socket`;
+- keeps the fire non-homing and pattern/lane based, avoiding the rejected continuous chasing behavior;
+- exports QA fields for socket count, VFX activity, socket fire events, and logical socket spawns.
+
+This remains a gameplay-readability pass; final turret meshes, destruction animation per part, and balanced safe-gap patterns are still future Phase 3 work.
