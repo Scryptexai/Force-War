@@ -123,3 +123,11 @@ Tahap 1 setelah starter menambahkan runtime alignment `uploaded_glb_local_negati
 ## Tahap 2 GLB socket binding update
 
 Phase 0 gate is considered complete enough to proceed because the requirement matrix and blockers are now tracked. Tahap 2 starts by binding player shot visuals and logical player projectile spawn to actual named sockets from the Blender-prepared uploaded GLB (`Muzzle_Left`, `Muzzle_Right`, `Engine_Core`) instead of only runtime-estimated hardpoints. QA now fails if `playerWeaponHardpointBinding` is not `glb_socket_runtime`, if `playerShotSpawnOrigin` is not `glb_muzzle_socket`, or if `logicalPlayerShotOrigin` is not `glb_muzzle_socket`.
+
+## Tahap 2 visible socket fire update
+
+The socket-binding foundation now includes a browser-checked visible fire layer, not only data contracts: two muzzle flash quads and two short forward tracer shards are positioned from the GLB `Muzzle_Left`/`Muzzle_Right` sockets every frame. The intent is to make the important shot/fire animation readable from the aircraft while preserving the forward-depth, non-vertical shot rule.
+
+## Tahap 2 muzzle-forward yaw correction
+
+During the visible socket-fire pass, the socket bridge exposed the muzzle center on the camera-side of the player. Tahap 2 corrects the uploaded GLB runtime yaw so the GLB muzzle sockets are actually in front of the aircraft on world negative-Z, then locks this with `playerMuzzleForwardZLocked=true` in browser QA. This prevents the earlier shot-origin fix from becoming a misleading data-only pass.

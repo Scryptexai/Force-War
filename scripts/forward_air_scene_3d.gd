@@ -10,6 +10,7 @@ const PLAYER_ORIGINAL_SOURCE_PATH = "res://assets/models/enemy_hero_jet.glb"
 const PLAYER_FALLBACK_MODEL_PATH = "res://assets/models/player_stormhawk.glb"
 const PLAYER_MODEL_SCENE = preload("res://assets/models/enemy_hero_jet_blender_ready.glb")
 const PLAYER_FALLBACK_MODEL_SCENE = preload("res://assets/models/player_stormhawk.glb")
+const HERO_SHOT_TEXTURE = preload("res://assets/vfx/hero_cyan_shot.png")
 const FORWARD_DIR = Vector3(0.0, 0.0, -1.0)
 const ARENA_DIRECTOR_SCRIPT = preload("res://scripts/forward_arena_director.gd")
 const PROJECTILE_MANAGER_SCRIPT = preload("res://scripts/projectiles/projectile_manager_3d.gd")
@@ -37,6 +38,11 @@ var muzzle_right: Node3D
 var engine_socket: Node3D
 var afterburner_left: MeshInstance3D
 var afterburner_right: MeshInstance3D
+var socket_muzzle_flash_nodes: Array = []
+var socket_muzzle_tracer_nodes: Array = []
+var socket_muzzle_vfx_active := false
+var socket_muzzle_vfx_ready := false
+var socket_muzzle_vfx_mode := "none"
 var arena_director: Node3D
 var projectile_manager: Node
 
@@ -114,6 +120,7 @@ func stop_mission() -> void:
 		arena_director.stop_mission()
 	if projectile_manager and projectile_manager.has_method("stop_mission"):
 		projectile_manager.stop_mission()
+	_set_socket_muzzle_vfx_visible(false)
 	if camera:
 		camera.current = false
 
@@ -133,6 +140,7 @@ func update_forward(delta: float, input_state: Dictionary) -> void:
 	_update_corridor_position(delta, input_state, weather_effect)
 	_update_player_pose(delta, input_state, weather_effect)
 	_sync_player_weapon_hardpoints_to_arena()
+	_update_socket_muzzle_vfx(delta)
 	_update_projectile_logic(delta, weather_effect)
 	_update_weather_damage(delta, weather_effect)
 	_update_forward_markers(delta)
@@ -154,6 +162,11 @@ func get_bridge_state() -> Dictionary:
 		"playerGLBWeaponSocketsFound": glb_weapon_sockets_found,
 		"playerShotSpawnOrigin": "glb_muzzle_socket" if glb_weapon_sockets_found else "runtime_fallback_socket",
 		"playerMuzzleCenterZ": _muzzle_world_position(muzzle_center).z,
+		"playerMuzzleForwardZLocked": _muzzle_world_position(muzzle_center).z < 0.0,
+		"socketMuzzleVFX": socket_muzzle_vfx_mode,
+		"socketMuzzleVFXActive": socket_muzzle_vfx_active,
+		"socketMuzzleVFXCount": socket_muzzle_flash_nodes.size() + socket_muzzle_tracer_nodes.size(),
+		"playerShotVisibleFromSocket": socket_muzzle_vfx_active,
 		"playerForwardAxis": "negative_z",
 		"stageName": current_stage_name,
 		"progress": mission_progress,
@@ -229,6 +242,7 @@ func _create_player_rig() -> void:
 	add_child(player_rig)
 	_load_player_model()
 	_create_afterburners()
+	_create_socket_muzzle_vfx()
 
 
 func _load_player_model() -> void:
@@ -241,8 +255,8 @@ func _load_player_model() -> void:
 		# source path remains tracked separately; Web keeps the prepared derivative to avoid
 		# reintroducing the slow oversized PCK.
 		player_model.scale = Vector3(0.44, 0.44, 0.44)
-		player_model.rotation_degrees = Vector3(90.0, 0.0, 0.0)
-		player_model_alignment = "uploaded_glb_local_negative_y_to_world_negative_z"
+		player_model.rotation_degrees = Vector3(90.0, 180.0, 0.0)
+		player_model_alignment = "uploaded_glb_socket_muzzle_forward_world_negative_z"
 		player_model_source = PLAYER_MODEL_PATH
 		player_model_original_source = PLAYER_ORIGINAL_SOURCE_PATH
 		player_model_authenticity = "uploaded_glb_blender_prepared_runtime_instance"
@@ -338,6 +352,56 @@ func _create_afterburners() -> void:
 	player_rig.add_child(afterburner_right)
 
 
+func _create_socket_muzzle_vfx() -> void:
+	# Tahap 2 continuation: visible muzzle flash and short forward tracer shards are
+	# driven from the same GLB socket positions as gameplay shots. This keeps the
+	# important fire animation factual without adding old vertical beam clutter.
+	socket_muzzle_flash_nodes.clear()
+	socket_muzzle_tracer_nodes.clear()
+	for i in range(2):
+		var flash := _socket_shot_quad("GLBSocketMuzzleFlash_%02d" % i, Vector2(0.42, 0.78), Color(0.70, 1.0, 1.0, 0.96), 4.2)
+		var tracer := _socket_shot_quad("GLBSocketForwardTracer_%02d" % i, Vector2(0.30, 5.2), Color(0.48, 0.96, 1.0, 0.72), 3.4)
+		flash.visible = false
+		tracer.visible = false
+		add_child(flash)
+		add_child(tracer)
+		socket_muzzle_flash_nodes.append(flash)
+		socket_muzzle_tracer_nodes.append(tracer)
+	socket_muzzle_vfx_ready = socket_muzzle_flash_nodes.size() == 2 and socket_muzzle_tracer_nodes.size() == 2
+	socket_muzzle_vfx_mode = "glb_socket_cyan_forward_burst" if glb_weapon_sockets_found else "fallback_disabled"
+
+
+func _socket_shot_quad(node_name: String, size: Vector2, tint: Color, emission_energy: float) -> MeshInstance3D:
+	var mesh := QuadMesh.new()
+	mesh.size = size
+	var mi := MeshInstance3D.new()
+	mi.name = node_name
+	mi.mesh = mesh
+	mi.rotation_degrees = Vector3(90.0, 0.0, 0.0)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint
+	mat.albedo_texture = HERO_SHOT_TEXTURE
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.emission_enabled = true
+	mat.emission = Color(tint.r, tint.g, tint.b, 1.0)
+	mat.emission_texture = HERO_SHOT_TEXTURE
+	mat.emission_energy_multiplier = emission_energy
+	mi.material_override = mat
+	return mi
+
+
+func _set_socket_muzzle_vfx_visible(enabled: bool) -> void:
+	socket_muzzle_vfx_active = false if not enabled else socket_muzzle_vfx_active
+	for node in socket_muzzle_flash_nodes:
+		if node is MeshInstance3D:
+			node.visible = enabled
+	for node in socket_muzzle_tracer_nodes:
+		if node is MeshInstance3D:
+			node.visible = enabled
+
+
 func _create_forward_depth_markers() -> void:
 	var lane_mat = _make_material(Color(0.1, 0.9, 1.0, 0.10), Color(0.1, 0.65, 1.0, 1.0), 0.0, 0.10)
 	for i in range(0):
@@ -423,6 +487,34 @@ func _muzzle_world_position(socket: Node3D) -> Vector3:
 	if socket != null and socket.is_inside_tree():
 		return socket.global_transform.origin
 	return player_rig.global_transform.origin if player_rig != null and player_rig.is_inside_tree() else Vector3.ZERO
+
+
+func _update_socket_muzzle_vfx(delta: float) -> void:
+	var sockets: Array = [muzzle_left, muzzle_right]
+	socket_muzzle_vfx_mode = "glb_socket_cyan_forward_burst" if glb_weapon_sockets_found else "fallback_disabled"
+	socket_muzzle_vfx_active = active and glb_weapon_sockets_found and socket_muzzle_vfx_ready
+	if not socket_muzzle_vfx_active:
+		_set_socket_muzzle_vfx_visible(false)
+		return
+	for i in range(socket_muzzle_flash_nodes.size()):
+		var flash: MeshInstance3D = socket_muzzle_flash_nodes[i]
+		var tracer: MeshInstance3D = socket_muzzle_tracer_nodes[i]
+		var socket := sockets[i] as Node3D
+		if socket == null:
+			flash.visible = false
+			tracer.visible = false
+			continue
+		var origin := _muzzle_world_position(socket)
+		var pulse := 0.5 + 0.5 * sin(forward_time * 34.0 + float(i) * PI)
+		var overcharge_boost := 0.24 if bool(weather_effect.get("lightningOvercharge", false)) else 0.0
+		flash.visible = true
+		tracer.visible = true
+		flash.global_position = origin + FORWARD_DIR * (0.22 + pulse * 0.08)
+		tracer.global_position = origin + FORWARD_DIR * (1.85 + pulse * 0.24)
+		flash.rotation_degrees = Vector3(90.0, 0.0, 0.0)
+		tracer.rotation_degrees = Vector3(90.0, 0.0, 0.0)
+		flash.scale = Vector3.ONE * (0.72 + pulse * 0.46 + overcharge_boost)
+		tracer.scale = Vector3(0.82 + pulse * 0.08, 0.92 + pulse * 0.22 + overcharge_boost, 1.0)
 
 
 func _update_projectile_logic(delta: float, effect: Dictionary) -> void:

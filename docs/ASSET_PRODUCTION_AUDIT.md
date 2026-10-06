@@ -72,3 +72,11 @@ Tahap 1 correction now aligns the Blender-prepared uploaded player GLB from loca
 ## Tahap 2 socket binding note
 
 The player shot origin is now bound to named sockets from `assets/models/enemy_hero_jet_blender_ready.glb`: `Muzzle_Left`, `Muzzle_Right`, and `Engine_Core`. Runtime fallback sockets remain only as safety if the GLB socket lookup fails. The arena shot pulses, player projectile visual pool spawn resets, and logical player projectile manager now consume the same hardpoint state. Browser QA now checks `playerWeaponHardpointBinding=glb_socket_runtime`, `playerGLBWeaponSocketsFound=true`, `playerShotSpawnOrigin=glb_muzzle_socket`, and `logicalPlayerShotOrigin=glb_muzzle_socket`.
+
+## Tahap 2 visible hardpoint fire update
+
+The next Tahap 2 pass adds visible cyan muzzle flashes and short forward tracer shards driven directly by the same GLB socket world positions as gameplay shots. The bridge reports `socketMuzzleVFX=glb_socket_cyan_forward_burst`, `socketMuzzleVFXActive=true`, and `playerShotVisibleFromSocket=true`; browser QA now fails if the socket-bound fire VFX is not active.
+
+## Tahap 2 yaw/forward-axis correction
+
+The visible hardpoint pass found that the prepared GLB muzzle sockets were landing camera-side after the prior Phase 1 rotation. Tahap 2 now yaws the uploaded GLB runtime instance 180 degrees after the X-axis import correction so the named `Muzzle_Left`/`Muzzle_Right` sockets sit ahead of the aircraft in world negative-Z. QA checks `playerModelAlignment=uploaded_glb_socket_muzzle_forward_world_negative_z` and fails if `playerMuzzleCenterZ` is not forward of the player rig.
