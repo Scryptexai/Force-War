@@ -105,3 +105,13 @@ The next Phase 3 chunk moves boss outgoing fire from generic lane-only spawning 
 - exports QA fields for socket count, VFX activity, socket fire events, and logical socket spawns.
 
 This remains a gameplay-readability pass; final turret meshes, destruction animation per part, and balanced safe-gap patterns are still future Phase 3 work.
+
+Validation for this continuation passed on Godot 4.6.2 stable:
+
+- `--check-only` passed for `forward_air_scene_3d.gd`, `forward_arena_director.gd`, `projectile_manager_3d.gd`, and `projectile_visual_pool_3d.gd`;
+- `git diff --check` passed;
+- `./tools/export_web.sh` passed with root Web export files updated (`index.pck` 13,632,528 bytes);
+- `npm run vercel-build`, `npm run qa:forward`, and `npm run qa:web` passed;
+- manual browser capture was saved to `qa/screenshots/phase3_boss_muzzle_hardpoint_fire.png` with state proof in `qa/screenshots/phase3_boss_muzzle_hardpoint_fire_state.json`.
+
+Captured state included `bossMuzzleSocketBinding=glb_boss_muzzle_socket_runtime`, `bossMuzzleSocketCount=3`, `bossSocketFireEvents=51`, `logicalBossProjectileOrigin=glb_boss_muzzle_socket`, `logicalBossMuzzleSocketSpawns=43`, and `bossHardpointFireNonHoming=true`.
