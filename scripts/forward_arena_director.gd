@@ -220,6 +220,8 @@ func get_weather_effect() -> Dictionary:
 		"cloudCover": cloud_cover,
 		"cloudOcclusion": cloud_occlusion,
 		"rainVisibility": rain_visibility,
+		"rainGeometryMode": "haze_only_no_vertical_columns",
+		"nearRainSheetCount": rain_sheets.size(),
 		"lightningFlash": lightning_flash,
 		"lightningOvercharge": overcharge_timer > 0.0,
 		"overchargeSeconds": overcharge_timer,
@@ -229,15 +231,23 @@ func get_weather_effect() -> Dictionary:
 		"bossPhaseController": boss_phase_controller != null,
 		"visualLockComposition": "dreadnought_forward_battle",
 		"phase3GameplayVFXPass": "boss_weakpoint_hit_feedback",
+		"phase3DebugStatus": _phase3_debug_status(),
+		"phase3QAContract": "phase3_debug_browser_v1",
+		"phase3VisualSafety": "clean_hud_no_vertical_columns_no_cloud_geometry",
 		"bossDamageFeedbackMode": boss_damage_feedback_mode,
+		"bossImpactFeedbackSource": "logical_player_projectile_hits",
 		"bossWeakpointVisual": boss_weakpoint_marker != null,
 		"bossWeakpointVisualTarget": boss_visual_target_part,
+		"bossWeakpointWorldZ": _boss_weakpoint_world_position(boss_visual_target_part).z,
 		"bossWeakpointSocketBinding": boss_socket_binding,
 		"bossGLBWeakpointSocketFound": boss_glb_weakpoint_socket_found,
 		"bossMuzzleSocketBinding": boss_muzzle_socket_binding,
 		"bossGLBMuzzleSocketsFound": boss_glb_muzzle_sockets_found,
 		"bossMuzzleSocketCount": _boss_muzzle_world_positions().size(),
+		"bossMuzzleSocketNames": _boss_muzzle_socket_names(),
+		"bossMuzzleSpreadX": _boss_muzzle_spread_x(),
 		"bossSocketFireVFX": boss_socket_fire_mode,
+		"bossSocketFireDepthMode": "forward_lanes_positive_z_to_player",
 		"bossSocketFireVFXActive": boss_socket_fire_active_count > 0,
 		"bossSocketFireVFXCount": boss_socket_fire_nodes.size(),
 		"bossSocketFireEvents": boss_socket_fire_events_seen,
@@ -463,7 +473,11 @@ func _create_warzone_layer() -> void:
 
 
 func _create_near_weather_layer() -> void:
-	for i in range(7):
+	# Phase 3 debug lock: rain still affects visibility/gameplay through
+	# rainVisibility, but the old tall near-camera blue sheets read like rejected
+	# vertical shot columns in mobile screenshots. Keep the weather as haze/fog and
+	# disable continuous vertical rain geometry for this forward-combat view.
+	for i in range(0):
 		var sheet = _box_mesh("RainSheet_%02d" % i, Vector3.ZERO, Vector3(rng.randf_range(0.025, 0.055), rng.randf_range(3.6, 8.4), rng.randf_range(0.025, 0.055)), rain_mat)
 		sheet.position = Vector3(rng.randf_range(-8.5, 8.5), rng.randf_range(0.5, 6.0), -5.0 - rng.randf_range(0.0, 78.0))
 		sheet.rotation_degrees = Vector3(rng.randf_range(-18.0, -8.0), 0.0, rng.randf_range(-15.0, 15.0))
@@ -830,6 +844,37 @@ func _boss_muzzle_world_positions() -> Array:
 		positions.append(boss_anchor.global_position + Vector3(0.0, 0.3, 5.8))
 		positions.append(boss_anchor.global_position + Vector3(4.2, 0.0, 5.4))
 	return positions
+
+
+func _boss_muzzle_socket_names() -> Array:
+	var names: Array = []
+	if boss_muzzle_left_socket != null:
+		names.append("Boss_Muzzle_Left")
+	if boss_muzzle_core_socket != null:
+		names.append("Boss_Muzzle_Core")
+	if boss_muzzle_right_socket != null:
+		names.append("Boss_Muzzle_Right")
+	return names
+
+
+func _boss_muzzle_spread_x() -> float:
+	var origins: Array = _boss_muzzle_world_positions()
+	if origins.size() < 2:
+		return 0.0
+	var min_x := 99999.0
+	var max_x := -99999.0
+	for origin_value in origins:
+		if origin_value is Vector3:
+			var origin: Vector3 = origin_value
+			min_x = min(min_x, origin.x)
+			max_x = max(max_x, origin.x)
+	return max(0.0, max_x - min_x)
+
+
+func _phase3_debug_status() -> String:
+	if boss_glb_weakpoint_socket_found and boss_glb_muzzle_sockets_found and boss_weakpoint_marker != null and boss_socket_fire_active_count > 0 and boss_impact_events_seen > 0:
+		return "boss_weakpoint_muzzle_fire_debug_locked"
+	return "phase3_debug_waiting_for_runtime_events"
 
 
 func _active_boss_impact_count() -> int:

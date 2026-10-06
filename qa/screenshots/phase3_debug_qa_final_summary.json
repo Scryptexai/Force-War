@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "qa": "phase3_debug_browser_v1",
+  "generatedAt": "2026-10-06T13:59:59.546Z",
+  "canvas": {
+    "width": 720,
+    "height": 1280
+  },
+  "screenshot": "/home/user/Force-War/qa/screenshots/phase3_debug_qa_final.png",
+  "state": "/home/user/Force-War/qa/screenshots/phase3_debug_qa_final_state.json",
+  "metrics": {
+    "phase3DebugStatus": "boss_weakpoint_muzzle_fire_debug_locked",
+    "bossMuzzleSocketBinding": "glb_boss_muzzle_socket_runtime",
+    "bossMuzzleSocketCount": 3,
+    "bossMuzzleSpreadX": 8.39808440208435,
+    "bossSocketFireEvents": 30,
+    "logicalBossProjectileOrigin": "glb_boss_muzzle_socket",
+    "logicalBossMuzzleSocketSpawns": 21,
+    "bossImpactEvents": 20,
+    "playerProjectileHits": 20,
+    "bossHpRatio": 0.952631578947368,
+    "eventsSeen": 3,
+    "screenshotBytes": 631530
+  }
+}

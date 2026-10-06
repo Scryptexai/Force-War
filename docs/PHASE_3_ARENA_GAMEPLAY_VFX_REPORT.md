@@ -115,3 +115,31 @@ Validation for this continuation passed on Godot 4.6.2 stable:
 - manual browser capture was saved to `qa/screenshots/phase3_boss_muzzle_hardpoint_fire.png` with state proof in `qa/screenshots/phase3_boss_muzzle_hardpoint_fire_state.json`.
 
 Captured state included `bossMuzzleSocketBinding=glb_boss_muzzle_socket_runtime`, `bossMuzzleSocketCount=3`, `bossSocketFireEvents=51`, `logicalBossProjectileOrigin=glb_boss_muzzle_socket`, `logicalBossMuzzleSocketSpawns=43`, and `bossHardpointFireNonHoming=true`.
+
+## 2026-10-06 completion — Phase 3 debug and QA gate
+
+The current Phase 3 boss combat/VFX slice is now debug-locked and browser-QA verified. Added a dedicated `npm run qa:phase3` harness that boots the root Web export, enters the forward-air mission on a 720x1280 mobile viewport, waits for boss weakpoint + muzzle fire + logical projectile events, captures a screenshot, and writes state/summary proof.
+
+New proof files:
+
+- `qa/screenshots/phase3_debug_qa_final.png`
+- `qa/screenshots/phase3_debug_qa_final_state.json`
+- `qa/screenshots/phase3_debug_qa_final_summary.json`
+
+Final Phase 3 debug state included:
+
+```text
+phase3DebugStatus=boss_weakpoint_muzzle_fire_debug_locked
+phase3QAContract=phase3_debug_browser_v1
+phase3VisualSafety=clean_hud_no_vertical_columns_no_cloud_geometry
+bossMuzzleSocketNames=Boss_Muzzle_Left,Boss_Muzzle_Core,Boss_Muzzle_Right
+bossMuzzleSpreadX=8.39808440208435
+bossSocketFireEvents=30
+logicalBossMuzzleSocketSpawns=21
+bossImpactEvents=20
+playerProjectileHits=20
+```
+
+The near-camera rain-sheet geometry is disabled for this debug lock (`rainGeometryMode=haze_only_no_vertical_columns`, `nearRainSheetCount=0`) because the previous capture could read as vertical blue columns. Rain remains a gameplay variable through visibility and wind/drift state.
+
+Validation passed with Godot 4.6.2 stable, root Web export, `vercel-build`, `qa:forward`, dedicated `qa:phase3`, and `qa:web`. This closes Phase 3 debug/QA for the current boss combat slice; final turret art, destructible hardpoints, safe-gap balancing, and full boss pacing remain future production work.

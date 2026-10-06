@@ -21,7 +21,7 @@ Status yang dipakai:
 | A | Shot player harus mengarah ke depan/depth, bukan ke atas/vertical screen | PARTIAL | Runtime lock `shotDirectionMode=forward_depth_negative_z`; screenshot tetap wajib untuk visual approval |
 | B | Player aircraft memakai GLB source yang valid/original, bukan rebuild low-quality | PARTIAL | Runtime player memakai Blender-prepared derivative dari uploaded GLB; original source path tetap dilacak |
 | C | Background buruk/code-generated harus dibersihkan sebelum art phase berikutnya | STARTER | Foundation clean mode mengurangi vertical beams/explosions/shield clutter; masih butuh full art pass |
-| D | QA otomatis tidak cukup; screenshot/manual visual gate wajib | PARTIAL | Capture browser disimpan/direview setiap visual claim |
+| D | QA otomatis tidak cukup; screenshot/manual visual gate wajib | VERIFIED | Phase 3 debug gate saves browser screenshot/state proof and manual capture was inspected |
 | E | Tidak tambah fitur gameplay besar sebelum A-C stabil | ACTIVE | Commit berikutnya harus fokus correction pass |
 
 ## 76-point traceability matrix
@@ -30,7 +30,7 @@ Status yang dipakai:
 |---:|---|---|---:|---|
 | 01 | Force War adalah mobile-first 3D forward-air shooter | Direction | PARTIAL | Mode forward-air aktif, tapi visual foundation masih dikoreksi |
 | 02 | Bukan convoy/car/top-down game | Direction | PARTIAL | Runtime launch forward-air; audit legacy tetap diperlukan |
-| 03 | Bukan vertical upward/Sky Force camera | Camera | PARTIAL | Camera chase aktif, shot visual harus dikunci agar tidak terbaca vertical |
+| 03 | Bukan vertical upward/Sky Force camera | Camera | VERIFIED | QA locks `cameraMode=chase_behind_above`, forward shot direction, and no vertical shot columns |
 | 04 | Camera di belakang dan sedikit di atas aircraft | Camera | PARTIAL | Bridge `cameraMode=chase_behind_above`; screenshot gate tetap wajib |
 | 05 | Gameplay bergerak ke depan/depth scene | Gameplay | PARTIAL | Forward progress aktif; projectile visual sedang dikoreksi ke -Z |
 | 06 | Game resolution 9:16 | Mobile | VERIFIED | QA browser assert 720x1280 |
@@ -49,7 +49,7 @@ Status yang dipakai:
 | 19 | Aircraft harus punya muzzle/hardpoint contract | Weapons | PARTIAL | Tahap 2 binds actual GLB sockets `Muzzle_Left`/`Muzzle_Right`; fallback sockets remain only as safety |
 | 20 | Shot harus lahir dari hardpoint aircraft | Weapons | PARTIAL | Visual pulse, visual-pool respawn, and logical player shots now consume `glb_socket_runtime` / `glb_muzzle_socket`; final VFX polish pending |
 | 21 | Shot arah ke depan/horizon/boss | Weapons | PARTIAL | Forward-depth XZ shot quads aktif; screenshot gate tetap wajib |
-| 22 | Shot tidak boleh terbaca sebagai kolom ke atas | Weapons | PARTIAL | Persistent vertical beam layer dimatikan dan forward XZ quads dipakai |
+| 22 | Shot tidak boleh terbaca sebagai kolom ke atas | Weapons | VERIFIED | Phase 3 QA locks forward XZ projectiles plus `rainGeometryMode=haze_only_no_vertical_columns` / `nearRainSheetCount=0` |
 | 23 | Projectile visual align dengan logic projectile | Weapons | PARTIAL | Pool logic/visual masih perlu hard sync penuh |
 | 24 | Enemy bullets tidak continuous homing/chasing | Combat | PARTIAL | Pattern fixed/scheduled; visual review perlu |
 | 25 | Bullet-hell tidak pakai Node3D/physics body per bullet | Performance | VERIFIED | Logical dictionaries + MultiMesh visual pool |
@@ -62,7 +62,7 @@ Status yang dipakai:
 | 32 | Boss punya phase transition | Boss | PARTIAL | Phase logic ada; visual phase belum cukup jelas |
 | 33 | Boss weakpoint target routing | Boss | PARTIAL | Tahap 3 adds GLB socket-bound weakpoint reticle and pooled hit-feedback bridge; full boss phase art still pending |
 | 34 | Boss attack pattern scheduler | Boss | VERIFIED | Bridge `bossPatternScheduler=true` |
-| 35 | Boss hardpoint/turret visual harus terbaca | Boss | PARTIAL | Tahap 3 binds `Boss_Muzzle_Core/Left/Right` sockets to non-homing forward fire lanes and logical boss projectile origins |
+| 35 | Boss hardpoint/turret visual harus terbaca | Boss | VERIFIED | Current Phase 3 QA verifies `Boss_Muzzle_Core/Left/Right`, forward socket fire VFX, logical socket spawns, and non-homing boss fire; final destructible turret art remains future polish |
 | 36 | BattlefieldDirector untuk background war | Arena | PARTIAL | `ForwardArenaDirector` ada; visual quality masih blocker |
 | 37 | Background tidak boleh static/acak code-looking | Arena | STARTER | Clutter visual pass mengurangi beams/explosions/tracers; full background art rebuild masih blocker lanjutan |
 | 38 | Background harus asset-backed/GLB/photos/textures proper | Arena | PARTIAL | GLB deck/boss ada; clutter procedural perlu audit |
@@ -87,7 +87,7 @@ Status yang dipakai:
 | 57 | Star Fox/Panzer-style forward reference lebih tepat | Design | PARTIAL | Camera/forward mode follows this; combat still needs polish |
 | 58 | Roadmap realistis, jangan overclaim 90% | Process | VERIFIED | Docs use partial/blocker status |
 | 59 | Phase besar, bukan micro R# | Process | ACTIVE | Current phase is foundation correction pass |
-| 60 | Screenshot/browser proof before claiming visual success | Process | ACTIVE | Starter requires capture after QA |
+| 60 | Screenshot/browser proof before claiming visual success | Process | VERIFIED | Phase 3 final debug proof stored at `qa/screenshots/phase3_debug_qa_final.png` plus state/summary JSON |
 | 61 | Use Chromium Playwright + @sparticuz/chromium for QA | QA | VERIFIED | `qa:forward` / `qa:web` use it |
 | 62 | Web export files in repo root | Deploy | VERIFIED | root `index.*` export |
 | 63 | Server setup in repo root for Vercel | Deploy | VERIFIED | `server.js`, `package.json` root |
@@ -103,7 +103,7 @@ Status yang dipakai:
 | 73 | GPUParticles/flipbooks for future VFX | VFX | PENDING | Current sprites/quads; particle pass pending |
 | 74 | LOD/visibility ranges | Performance | PENDING | Not implemented systematically |
 | 75 | Dynamic quality/performance budgets | Performance | PENDING | Not implemented |
-| 76 | Debug HUD/benchmark scenes for budgets and correctness | QA | PENDING | Browser bridge exists; dedicated benchmark/debug scene pending |
+| 76 | Debug HUD/benchmark scenes for budgets and correctness | QA | PARTIAL | Dedicated `npm run qa:phase3` browser debug harness exists; broader benchmark scene remains future work |
 
 ## Phase 1 starter scope now
 

@@ -128,6 +128,8 @@ async function main() {
       if (result.state?.foundationVisualMode !== true) fail(`foundation clean visual mode missing: ${result.state?.foundationVisualMode}`);
       if (result.state?.backgroundClutterMode !== 'foundation_clean') fail(`background clutter mode not clean: ${result.state?.backgroundClutterMode}`);
       if (result.state?.legacyVerticalShotColumns !== false) fail(`legacy vertical shot columns still enabled: ${result.state?.legacyVerticalShotColumns}`);
+      if (result.state?.rainGeometryMode !== 'haze_only_no_vertical_columns') fail(`rain geometry mode can read as vertical columns: ${result.state?.rainGeometryMode}`);
+      if (Number(result.state?.nearRainSheetCount || 0) !== 0) fail(`near rain sheets should stay disabled in forward visual lock: ${result.state?.nearRainSheetCount}`);
       if (result.state?.active !== true) fail(`forward scene was not active: ${JSON.stringify(result.state)}`);
       if (result.state?.arenaPhase !== 'storm_battlefield') fail(`expected storm_battlefield arena phase, got ${result.state?.arenaPhase}`);
       if (Number(result.state?.depthLayerCount || 0) < 4) fail(`expected at least 4 depth layers, got ${result.state?.depthLayerCount}`);
