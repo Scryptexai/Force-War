@@ -67,7 +67,8 @@ func setup(
 	material.albedo_texture = texture
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	# Foundation correction: no billboarding for gameplay bolts. The long axis is
+	# aligned through world depth so shots read as forward fire, not vertical UI streaks.
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	material.emission_enabled = true
 	material.emission = Color(tint.r, tint.g, tint.b, 1.0)
@@ -134,5 +135,5 @@ func _reset_instance(i: int, randomize_z: bool, min_speed: float, max_speed: flo
 
 
 func _write_transform(i: int, pos: Vector3) -> void:
-	var basis := Basis.IDENTITY.scaled(Vector3(bolt_size.x, bolt_size.y, 1.0))
+	var basis := Basis(Vector3.RIGHT, PI * 0.5).scaled(Vector3(bolt_size.x, bolt_size.y, 1.0))
 	multimesh.set_instance_transform(i, Transform3D(basis, pos))

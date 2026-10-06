@@ -68,6 +68,8 @@ var explosion_bursts: Array = []
 var storm_cells: Array = []
 var lightning_nodes: Array = []
 var cinematic_matte_plane: MeshInstance3D
+var last_player_corridor := Vector2.ZERO
+var shot_forward_axis := Vector3(0.0, 0.0, -1.0)
 
 var cloud_scene: PackedScene
 var arena_scene: PackedScene
@@ -161,6 +163,7 @@ func stop_mission() -> void:
 
 
 func update_arena(delta: float, player_corridor: Vector2, travel_speed: float) -> Dictionary:
+	last_player_corridor = player_corridor
 	if not active:
 		return get_weather_effect()
 	forward_time += delta
@@ -214,6 +217,10 @@ func get_weather_effect() -> Dictionary:
 		"projectileArchitecture": "pooled_multimesh_visuals_logical_collision_target",
 		"cleanArenaOverlay": true,
 		"shotAnimation": "asset_sprite_hero_enemy_lanes",
+		"shotDirectionMode": "forward_depth_negative_z",
+		"shotVisualOrientation": "forward_aligned_xz_not_billboard_vertical",
+		"playerShotFromHardpoint": true,
+		"foundationCorrectionPass": "phase_1_starter",
 		"playerScaleMode": "reduced_mobile_readable",
 		"cloudGeometry": false,
 		"hazardPushX": hazard_push.x,
@@ -504,14 +511,14 @@ func _create_visual_lock_composition_layer() -> void:
 
 	for i in range(3):
 		var beam_x = -0.78 + float(i) * 0.78
-		var player_beam = _vfx_quad("PlayerCyanFireLane_%02d" % i, Vector3(beam_x, 1.95, -34.0), Vector2(0.82, 18.0), hero_shot_texture, Color(0.58, 0.98, 1.0, 0.92), 3.2)
+		var player_beam = _vfx_forward_projectile_quad("PlayerCyanForwardFireLane_%02d" % i, Vector3(beam_x, 1.78, -34.0), Vector2(0.62, 18.0), hero_shot_texture, Color(0.58, 0.98, 1.0, 0.92), 3.2)
 		player_beam.set_meta("beam_x", beam_x)
 		add_child(player_beam)
 		player_beams.append(player_beam)
 
 	for i in range(30):
 		var lane_x = -0.78 + float(i % 3) * 0.78
-		var pulse = _vfx_quad("PlayerCyanShotPulse_%02d" % i, Vector3(lane_x, 1.95, -5.5 - float(i) * 3.35), Vector2(0.92, 3.25), hero_shot_texture, Color(0.74, 1.0, 1.0, 1.0), 3.6)
+		var pulse = _vfx_forward_projectile_quad("PlayerCyanForwardShotPulse_%02d" % i, Vector3(lane_x, 1.78, -5.5 - float(i) * 3.35), Vector2(0.52, 3.25), hero_shot_texture, Color(0.74, 1.0, 1.0, 1.0), 3.6)
 		pulse.set_meta("lane_x", lane_x)
 		pulse.set_meta("phase", float(i) * 0.13)
 		add_child(pulse)
@@ -682,7 +689,7 @@ func _reset_layers() -> void:
 		var side = -1.0 if i % 2 == 0 else 1.0
 		enemy_attack_jets[i].position = Vector3(side * rng.randf_range(4.8, 8.8), rng.randf_range(2.8, 7.2), -34.0 - float(i) * 12.5)
 	for i in range(player_shot_pulses.size()):
-		player_shot_pulses[i].position.z = -5.5 - float(i) * 3.35
+		player_shot_pulses[i].position = Vector3(last_player_corridor.x + float(player_shot_pulses[i].get_meta("lane_x", 0.0)) * 0.45, 1.55 + last_player_corridor.y * 0.35, -5.5 - float(i) * 3.35)
 	for bullet in cinematic_bullets:
 		bullet.position.z = -18.0 - rng.randf_range(0.0, 112.0)
 		bullet.position.y = rng.randf_range(1.1, 4.5)
@@ -810,12 +817,17 @@ func _update_visual_lock_composition(delta: float, travel_speed: float) -> void:
 			bullet.position.z = -112.0 - rng.randf_range(0.0, 28.0)
 			bullet.position.y = rng.randf_range(1.1, 4.5)
 	for beam in player_beams:
-		beam.position.x = float(beam.get_meta("beam_x", 0.0)) + sin(forward_time * 12.0) * 0.025
-		beam.scale.z = 1.0 + (0.22 if overcharge_timer > 0.0 else 0.0) + sin(forward_time * 14.0) * 0.02
+		var beam_lane: float = float(beam.get_meta("beam_x", 0.0))
+		beam.position.x = last_player_corridor.x + beam_lane * 0.45 + sin(forward_time * 12.0) * 0.025
+		beam.position.y = 1.55 + last_player_corridor.y * 0.35
+		beam.position.z = -34.0
+		beam.scale.y = 1.0 + (0.22 if overcharge_timer > 0.0 else 0.0) + sin(forward_time * 14.0) * 0.02
 	for pulse in player_shot_pulses:
 		pulse.position.z -= (72.0 + (18.0 if overcharge_timer > 0.0 else 0.0)) * delta
-		pulse.position.x = float(pulse.get_meta("lane_x", 0.0)) + sin(forward_time * 6.0 + float(pulse.get_meta("phase", 0.0))) * 0.04
-		pulse.scale.z = 1.0 + sin(forward_time * 18.0 + pulse.position.z) * 0.10
+		var pulse_lane: float = float(pulse.get_meta("lane_x", 0.0))
+		pulse.position.x = last_player_corridor.x + pulse_lane * 0.45 + sin(forward_time * 6.0 + float(pulse.get_meta("phase", 0.0))) * 0.04
+		pulse.position.y = 1.55 + last_player_corridor.y * 0.35
+		pulse.scale.y = 1.0 + sin(forward_time * 18.0 + pulse.position.z) * 0.10
 		if pulse.position.z < -112.0:
 			pulse.position.z = -5.5
 	if player_projectile_visual_pool != null and player_projectile_visual_pool.has_method("update_pool"):
@@ -929,6 +941,22 @@ func _plane_mesh(node_name: String, pos: Vector3, size: Vector2, material: Mater
 	mi.mesh = mesh
 	mi.position = pos
 	mi.material_override = material
+	return mi
+
+
+func _vfx_forward_projectile_quad(node_name: String, pos: Vector3, size: Vector2, texture: Texture2D, tint: Color = Color.WHITE, emission_energy: float = 1.0) -> MeshInstance3D:
+	if texture == null:
+		return _box_mesh(node_name + "FallbackForwardBolt", pos, Vector3(max(0.08, size.x), max(0.08, size.x), max(0.08, size.y)), player_beam_mat)
+	var mesh = QuadMesh.new()
+	mesh.size = size
+	var mi = MeshInstance3D.new()
+	mi.name = node_name
+	mi.mesh = mesh
+	mi.position = pos
+	# QuadMesh is XY by default. Rotate into XZ so its long axis runs in world -Z/+Z,
+	# making shots read as forward-depth fire instead of vertical screen columns.
+	mi.rotation_degrees = Vector3(90.0, 0.0, 0.0)
+	mi.material_override = _make_textured_material(texture, tint, Color(tint.r, tint.g, tint.b, 1.0), tint.a, false, true, emission_energy)
 	return mi
 
 

@@ -60,3 +60,7 @@ Automated QA is still not enough by itself. Browser screenshot review remains re
   - `index.pck` 13588376 bytes
 - `index.pck` remains below the 16 MB mobile boot guard.
 - Chromium capture after this pass showed textured storm-ocean floor, textured deck modules, visible plasma shot lanes, and forward-air GLB gameplay state with `texturedBlenderAssets=true`.
+
+## Foundation correction note — player GLB authenticity
+
+After user feedback that the generated `player_stormhawk.glb` was visually unacceptable as a replacement for the uploaded aircraft, the Phase 1 starter correction now points the runtime player model at `assets/models/enemy_hero_jet_blender_ready.glb`, the Blender-prepared derivative of the uploaded `assets/models/enemy_hero_jet.glb`. The generated Stormhawk remains only a fallback. Web keeps the prepared derivative to avoid reintroducing the oversized/slow PCK while preserving the uploaded GLB as the source contract. This is a correction starter, not a final art approval; scale/orientation and hardpoint sockets still need screenshot and Blender-source verification.

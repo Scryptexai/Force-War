@@ -2,7 +2,7 @@
 
 Force War sekarang **dikunci ulang arahnya** menjadi game **3D forward air-combat** untuk Godot 4.6.2 stable dan Web export. Arah lama berupa vertical/top-down aircraft canvas, prologue mobil/konvoi, dan gameplay berbasis PNG/static sprite **tidak lagi menjadi target desain**.
 
-> Status jujur: build saat ini sudah menjalankan slice forward-air 3D di browser dengan player GLB bertekstur, kamera chase belakang-sedikit-atas, arena storm-ocean bertekstur, enemy GLB placeholder Blender, boss dreadnought GLB bertekstur, deck module GLB bertekstur, dan projectile/VFX sprites berbasis image. Ini masih belum full commercial game; weapon hardpoint logic, enemy damage, boss phases, progression, lebih banyak environment set-piece, dan cleanup legacy masih harus dilanjutkan.
+> Status jujur: build saat ini menjalankan slice forward-air 3D di browser; foundation correction sedang mengunci ulang player GLB original, shot forward-depth, dan kamera chase belakang-sedikit-atas, arena storm-ocean bertekstur, enemy GLB placeholder Blender, boss dreadnought GLB bertekstur, deck module GLB bertekstur, dan projectile/VFX sprites berbasis image. Ini masih belum full commercial game; weapon hardpoint logic, enemy damage, boss phases, progression, lebih banyak environment set-piece, dan cleanup legacy masih harus dilanjutkan.
 
 ## Visual Lock
 

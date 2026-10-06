@@ -5,7 +5,11 @@ class_name ForwardAirScene3D
 # GLB aircraft, chase camera behind/slightly above, forward motion in 3D,
 # and a layered storm battlefield driven by ForwardArenaDirector.
 
-const PLAYER_MODEL_PATH = "res://assets/models/player_stormhawk.glb"
+const PLAYER_MODEL_PATH = "res://assets/models/enemy_hero_jet_blender_ready.glb"
+const PLAYER_ORIGINAL_SOURCE_PATH = "res://assets/models/enemy_hero_jet.glb"
+const PLAYER_FALLBACK_MODEL_PATH = "res://assets/models/player_stormhawk.glb"
+const PLAYER_MODEL_SCENE = preload("res://assets/models/enemy_hero_jet_blender_ready.glb")
+const PLAYER_FALLBACK_MODEL_SCENE = preload("res://assets/models/player_stormhawk.glb")
 const FORWARD_DIR = Vector3(0.0, 0.0, -1.0)
 const ARENA_DIRECTOR_SCRIPT = preload("res://scripts/forward_arena_director.gd")
 const PROJECTILE_MANAGER_SCRIPT = preload("res://scripts/projectiles/projectile_manager_3d.gd")
@@ -20,6 +24,12 @@ var sun_light: DirectionalLight3D
 var camera: Camera3D
 var player_rig: Node3D
 var player_model: Node3D
+var player_model_source := "unloaded"
+var player_model_authenticity := "unknown"
+var player_model_original_source := "unknown"
+var muzzle_center: Node3D
+var muzzle_left: Node3D
+var muzzle_right: Node3D
 var afterburner_left: MeshInstance3D
 var afterburner_right: MeshInstance3D
 var arena_director: Node3D
@@ -128,6 +138,10 @@ func get_bridge_state() -> Dictionary:
 		"missionMode": "forward_air_combat",
 		"cameraMode": camera_mode,
 		"playerModel": "glb",
+		"playerModelSource": player_model_source,
+		"playerModelAssetAuthenticity": player_model_authenticity,
+		"playerModelOriginalSource": player_model_original_source,
+		"playerForwardAxis": "negative_z",
 		"stageName": current_stage_name,
 		"progress": mission_progress,
 		"forwardSpeed": forward_speed,
@@ -205,17 +219,38 @@ func _create_player_rig() -> void:
 
 
 func _load_player_model() -> void:
-	var packed = load(PLAYER_MODEL_PATH)
+	var packed = PLAYER_MODEL_SCENE
 	if packed is PackedScene:
 		player_model = packed.instantiate()
-		player_model.name = "PlayerStormhawkGLB"
-		player_model.scale = Vector3(0.56, 0.56, 0.56)
+		player_model.name = "PlayerUploadedHeroJetBlenderPreparedGLB"
+		# Foundation correction: keep the uploaded aircraft identity by using the Blender-prepared
+		# derivative of the user GLB, not the generated Stormhawk replacement. The original
+		# source path remains tracked separately; Web keeps the prepared derivative to avoid
+		# reintroducing the slow oversized PCK.
+		player_model.scale = Vector3(0.58, 0.58, 0.58)
+		player_model_source = PLAYER_MODEL_PATH
+		player_model_original_source = PLAYER_ORIGINAL_SOURCE_PATH
+		player_model_authenticity = "uploaded_glb_blender_prepared_runtime_instance"
 		player_rig.add_child(player_model)
 	else:
-		player_model = Node3D.new()
-		player_model.name = "PlayerStormhawkFallbackMesh"
-		player_rig.add_child(player_model)
-		_create_fallback_aircraft(player_model)
+		var fallback_packed = PLAYER_FALLBACK_MODEL_SCENE
+		if fallback_packed is PackedScene:
+			player_model = fallback_packed.instantiate()
+			player_model.name = "PlayerStormhawkFallbackGLB"
+			player_model.scale = Vector3(0.56, 0.56, 0.56)
+			player_model_source = PLAYER_FALLBACK_MODEL_PATH
+			player_model_authenticity = "generated_fallback_glb"
+			player_model_original_source = PLAYER_ORIGINAL_SOURCE_PATH
+			player_rig.add_child(player_model)
+		else:
+			player_model = Node3D.new()
+			player_model.name = "PlayerStormhawkFallbackMesh"
+			player_model_source = "runtime_fallback_mesh"
+			player_model_authenticity = "fallback_only_not_accepted_for_final"
+			player_model_original_source = PLAYER_ORIGINAL_SOURCE_PATH
+			player_rig.add_child(player_model)
+			_create_fallback_aircraft(player_model)
+	_create_weapon_hardpoints()
 
 
 func _create_fallback_aircraft(parent: Node3D) -> void:
@@ -225,6 +260,24 @@ func _create_fallback_aircraft(parent: Node3D) -> void:
 	parent.add_child(_box_mesh("FallbackLeftWing", Vector3(-1.05, -0.04, 0.25), Vector3(0.98, 0.05, 0.36), metal))
 	parent.add_child(_box_mesh("FallbackRightWing", Vector3(1.05, -0.04, 0.25), Vector3(0.98, 0.05, 0.36), metal))
 	parent.add_child(_box_mesh("FallbackCanopy", Vector3(0.0, 0.24, -0.55), Vector3(0.22, 0.11, 0.34), cyan))
+
+
+func _create_weapon_hardpoints() -> void:
+	# Starter hardpoint contract. These sockets live on the player rig so shot VFX can
+	# originate from aircraft space instead of detached screen-space beams. Final
+	# Blender sockets should replace these coordinates once the source GLB is rigged.
+	muzzle_center = Node3D.new()
+	muzzle_center.name = "MuzzleForward_Center"
+	muzzle_center.position = Vector3(0.0, 0.02, -1.35)
+	player_rig.add_child(muzzle_center)
+	muzzle_left = Node3D.new()
+	muzzle_left.name = "MuzzleForward_Left"
+	muzzle_left.position = Vector3(-0.46, -0.02, -0.82)
+	player_rig.add_child(muzzle_left)
+	muzzle_right = Node3D.new()
+	muzzle_right.name = "MuzzleForward_Right"
+	muzzle_right.position = Vector3(0.46, -0.02, -0.82)
+	player_rig.add_child(muzzle_right)
 
 
 func _create_afterburners() -> void:
