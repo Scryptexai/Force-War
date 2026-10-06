@@ -64,3 +64,7 @@ Automated QA is still not enough by itself. Browser screenshot review remains re
 ## Foundation correction note — player GLB authenticity
 
 After user feedback that the generated `player_stormhawk.glb` was visually unacceptable as a replacement for the uploaded aircraft, the Phase 1 starter correction now points the runtime player model at `assets/models/enemy_hero_jet_blender_ready.glb`, the Blender-prepared derivative of the uploaded `assets/models/enemy_hero_jet.glb`. The generated Stormhawk remains only a fallback. Web keeps the prepared derivative to avoid reintroducing the oversized/slow PCK while preserving the uploaded GLB as the source contract. This is a correction starter, not a final art approval; scale/orientation and hardpoint sockets still need screenshot and Blender-source verification.
+
+## Foundation direction/cleanliness pass
+
+Tahap 1 correction now aligns the Blender-prepared uploaded player GLB from local negative-Y into the gameplay negative-Z forward axis, disables visible runtime fallback afterburner boxes, and reduces decorative vertical beams/explosion/shield clutter in the arena. QA now checks `playerModelAlignment`, `backgroundClutterMode=foundation_clean`, and `legacyVerticalShotColumns=false`. This remains a correction pass, not a final art-quality claim.

@@ -70,6 +70,8 @@ var lightning_nodes: Array = []
 var cinematic_matte_plane: MeshInstance3D
 var last_player_corridor := Vector2.ZERO
 var shot_forward_axis := Vector3(0.0, 0.0, -1.0)
+var foundation_visual_mode := true
+var background_clutter_mode := "foundation_clean"
 
 var cloud_scene: PackedScene
 var arena_scene: PackedScene
@@ -220,7 +222,10 @@ func get_weather_effect() -> Dictionary:
 		"shotDirectionMode": "forward_depth_negative_z",
 		"shotVisualOrientation": "forward_aligned_xz_not_billboard_vertical",
 		"playerShotFromHardpoint": true,
-		"foundationCorrectionPass": "phase_1_starter",
+		"foundationCorrectionPass": "phase_1_direction_and_cleanliness",
+		"foundationVisualMode": foundation_visual_mode,
+		"backgroundClutterMode": background_clutter_mode,
+		"legacyVerticalShotColumns": false,
 		"playerScaleMode": "reduced_mobile_readable",
 		"cloudGeometry": false,
 		"hazardPushX": hazard_push.x,
@@ -403,14 +408,14 @@ func _create_warzone_layer() -> void:
 
 
 func _create_near_weather_layer() -> void:
-	for i in range(16):
+	for i in range(7):
 		var sheet = _box_mesh("RainSheet_%02d" % i, Vector3.ZERO, Vector3(rng.randf_range(0.025, 0.055), rng.randf_range(3.6, 8.4), rng.randf_range(0.025, 0.055)), rain_mat)
 		sheet.position = Vector3(rng.randf_range(-8.5, 8.5), rng.randf_range(0.5, 6.0), -5.0 - rng.randf_range(0.0, 78.0))
 		sheet.rotation_degrees = Vector3(rng.randf_range(-18.0, -8.0), 0.0, rng.randf_range(-15.0, 15.0))
 		sheet.set_meta("speed_mul", rng.randf_range(1.18, 1.48))
 		add_child(sheet)
 		rain_sheets.append(sheet)
-	for i in range(12):
+	for i in range(4):
 		var debris = _box_mesh("NearDebrisStreak_%02d" % i, Vector3.ZERO, Vector3(rng.randf_range(0.06, 0.13), rng.randf_range(0.03, 0.08), rng.randf_range(0.8, 2.2)), debris_mat)
 		debris.position = Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(-1.8, 4.7), -8.0 - rng.randf_range(0.0, 95.0))
 		debris.rotation_degrees = Vector3(rng.randf_range(-4.0, 4.0), rng.randf_range(-12.0, 12.0), rng.randf_range(-24.0, 24.0))
@@ -420,7 +425,7 @@ func _create_near_weather_layer() -> void:
 
 
 func _create_distant_battle_layer() -> void:
-	for i in range(8):
+	for i in range(5):
 		var traffic = Node3D.new()
 		traffic.name = "DistantAirTraffic_%02d" % i
 		traffic.position = Vector3(rng.randf_range(-18.0, 18.0), rng.randf_range(3.0, 10.0), -45.0 - rng.randf_range(0.0, 130.0))
@@ -444,13 +449,11 @@ func _create_distant_battle_layer() -> void:
 			traffic.add_child(_box_mesh("DistantJetFallback", Vector3.ZERO, Vector3(0.8, 0.08, 0.55), city_mat))
 		add_child(traffic)
 		air_traffic.append(traffic)
-	for i in range(18):
-		var mat = tracer_cyan_mat if i % 3 == 0 else tracer_red_mat
-		var tracer_texture = hero_shot_texture if i % 3 == 0 else enemy_shot_texture
-		var tracer = _vfx_quad("DistantTracer_%02d" % i, Vector3.ZERO, Vector2(0.18, rng.randf_range(2.2, 5.2)), tracer_texture, Color.WHITE, 1.3)
-		tracer.position = Vector3(rng.randf_range(-18.0, 18.0), rng.randf_range(1.0, 10.5), -24.0 - rng.randf_range(0.0, 145.0))
-		tracer.rotation_degrees = Vector3(rng.randf_range(-12.0, 12.0), rng.randf_range(-28.0, 28.0), rng.randf_range(-18.0, 18.0))
-		tracer.set_meta("speed_mul", rng.randf_range(0.62, 0.95))
+	for i in range(4):
+		var tracer_texture = hero_shot_texture if i % 2 == 0 else enemy_shot_texture
+		var tracer = _vfx_forward_projectile_quad("DistantForwardTracer_%02d" % i, Vector3.ZERO, Vector2(0.14, rng.randf_range(2.8, 5.8)), tracer_texture, Color(0.78, 0.92, 1.0, 0.42), 0.75)
+		tracer.position = Vector3(rng.randf_range(-14.0, 14.0), rng.randf_range(2.2, 8.8), -48.0 - rng.randf_range(0.0, 105.0))
+		tracer.set_meta("speed_mul", rng.randf_range(0.42, 0.68))
 		add_child(tracer)
 		tracer_streaks.append(tracer)
 
@@ -492,7 +495,7 @@ func _create_visual_lock_composition_layer() -> void:
 		boss_anchor.add_child(boss_core)
 	add_child(boss_anchor)
 
-	for i in range(5):
+	for i in range(0):
 		var x = -4.4 + i * 2.2
 		var beam = _vfx_quad("BossLaserLance_%02d" % i, Vector3(x, 5.8 - abs(float(i) - 2.0) * 0.30, -54.0 + i * 1.4), Vector2(0.42, 9.8), enemy_shot_texture, Color(1.0, 0.42, 0.12, 0.88), 1.8)
 		beam.rotation_degrees = Vector3(0.0, -x * 1.6, x * 2.0)
@@ -501,15 +504,15 @@ func _create_visual_lock_composition_layer() -> void:
 		boss_beams.append(beam)
 
 	var lanes = [-3.4, -2.15, -0.9, 0.9, 2.15, 3.4]
-	for i in range(36):
+	for i in range(14):
 		var lane = lanes[i % lanes.size()]
-		var bullet = _vfx_quad("ReadableEnemyBolt_%02d" % i, Vector3(lane, rng.randf_range(1.6, 5.4), -34.0 - i * 3.8), Vector2(0.36, 1.55), enemy_shot_texture, Color(1.0, 0.58, 0.24, 0.95), 1.9)
+		var bullet = _vfx_forward_projectile_quad("ReadableEnemyForwardBolt_%02d" % i, Vector3(lane, rng.randf_range(1.6, 5.0), -38.0 - i * 6.2), Vector2(0.30, 1.95), enemy_shot_texture, Color(1.0, 0.48, 0.20, 0.78), 1.35)
 		bullet.set_meta("lane", lane)
 		bullet.set_meta("speed_mul", rng.randf_range(1.20, 1.55))
 		add_child(bullet)
 		cinematic_bullets.append(bullet)
 
-	for i in range(3):
+	for i in range(0):
 		var beam_x = -0.78 + float(i) * 0.78
 		var player_beam = _vfx_forward_projectile_quad("PlayerCyanForwardFireLane_%02d" % i, Vector3(beam_x, 1.78, -34.0), Vector2(0.62, 18.0), hero_shot_texture, Color(0.58, 0.98, 1.0, 0.92), 3.2)
 		player_beam.set_meta("beam_x", beam_x)
@@ -517,7 +520,7 @@ func _create_visual_lock_composition_layer() -> void:
 		player_beams.append(player_beam)
 
 	for i in range(30):
-		var lane_x = -0.78 + float(i % 3) * 0.78
+		var lane_x = -0.62 + float(i % 3) * 0.62
 		var pulse = _vfx_forward_projectile_quad("PlayerCyanForwardShotPulse_%02d" % i, Vector3(lane_x, 1.78, -5.5 - float(i) * 3.35), Vector2(0.52, 3.25), hero_shot_texture, Color(0.74, 1.0, 1.0, 1.0), 3.6)
 		pulse.set_meta("lane_x", lane_x)
 		pulse.set_meta("phase", float(i) * 0.13)
@@ -526,7 +529,7 @@ func _create_visual_lock_composition_layer() -> void:
 
 	_create_projectile_visual_pools()
 
-	for i in range(8):
+	for i in range(4):
 		var enemy = Node3D.new()
 		enemy.name = "EnemyHeroJetAttack_%02d" % i
 		var side = -1.0 if i % 2 == 0 else 1.0
@@ -546,21 +549,21 @@ func _create_visual_lock_composition_layer() -> void:
 		add_child(enemy)
 		enemy_attack_jets.append(enemy)
 
-	for i in range(16):
+	for i in range(0):
 		var trail = _vfx_quad("MissileSmokeTrail_%02d" % i, Vector3(rng.randf_range(-11.0, 11.0), rng.randf_range(-0.7, 3.5), -14.0 - rng.randf_range(0.0, 94.0)), Vector2(rng.randf_range(1.0, 1.8), rng.randf_range(2.0, 4.8)), smoke_texture, Color(0.82, 0.88, 0.92, 0.46), 0.45)
 		trail.rotation_degrees = Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(-26.0, 26.0), rng.randf_range(-18.0, 18.0))
 		trail.set_meta("speed_mul", rng.randf_range(0.72, 1.05))
 		add_child(trail)
 		missile_trails.append(trail)
 
-	for i in range(5):
+	for i in range(0):
 		var explosion = _vfx_quad("WarzoneExplosionBurst_%02d" % i, Vector3(rng.randf_range(-9.5, 9.5), rng.randf_range(-2.4, 1.4), -24.0 - rng.randf_range(0.0, 86.0)), Vector2(rng.randf_range(1.3, 2.8), rng.randf_range(1.3, 2.8)), explosion_texture, Color(1.0, 0.65, 0.26, 0.88), 2.0)
 		explosion.set_meta("base_radius", explosion.scale.x)
 		explosion.set_meta("speed_mul", rng.randf_range(0.78, 1.05))
 		add_child(explosion)
 		explosion_bursts.append(explosion)
 
-	for i in range(2):
+	for i in range(0):
 		var shield_x = -8.8 if i == 0 else 8.6
 		var shield = _vfx_quad("WingmanShieldBubble_%02d" % i, Vector3(shield_x, 2.0 + i * 0.45, -34.0 - i * 18.0), Vector2(3.5, 3.5), shield_texture, Color(0.64, 0.95, 1.0, 0.62), 1.4)
 		shield.set_meta("speed_mul", 0.66 + i * 0.06)
@@ -812,7 +815,7 @@ func _update_visual_lock_composition(delta: float, travel_speed: float) -> void:
 	for bullet in cinematic_bullets:
 		bullet.position.z += travel_speed * float(bullet.get_meta("speed_mul", 1.35)) * delta
 		bullet.position.x = float(bullet.get_meta("lane", 0.0)) + sin(forward_time * 1.15 + bullet.position.z * 0.05) * 0.18
-		bullet.rotation_degrees.x = 0.0
+		bullet.rotation_degrees.x = 90.0
 		if bullet.position.z > 6.0:
 			bullet.position.z = -112.0 - rng.randf_range(0.0, 28.0)
 			bullet.position.y = rng.randf_range(1.1, 4.5)

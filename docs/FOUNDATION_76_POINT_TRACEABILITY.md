@@ -18,9 +18,9 @@ Status yang dipakai:
 
 | Gate | Requirement | Status | Bukti wajib |
 |---|---|---:|---|
-| A | Shot player harus mengarah ke depan/depth, bukan ke atas/vertical screen | STARTER | Screenshot 9:16 memperlihatkan shot keluar dari pesawat menuju horizon/boss |
-| B | Player aircraft memakai GLB source yang valid/original, bukan rebuild low-quality | STARTER | Runtime bridge `playerModelSource`, visual screenshot, audit asset |
-| C | Background buruk/code-generated harus dibersihkan sebelum art phase berikutnya | BLOCKER | Screenshot arena lebih clean, asset-backed, tidak penuh clutter |
+| A | Shot player harus mengarah ke depan/depth, bukan ke atas/vertical screen | PARTIAL | Runtime lock `shotDirectionMode=forward_depth_negative_z`; screenshot tetap wajib untuk visual approval |
+| B | Player aircraft memakai GLB source yang valid/original, bukan rebuild low-quality | PARTIAL | Runtime player memakai Blender-prepared derivative dari uploaded GLB; original source path tetap dilacak |
+| C | Background buruk/code-generated harus dibersihkan sebelum art phase berikutnya | STARTER | Foundation clean mode mengurangi vertical beams/explosions/shield clutter; masih butuh full art pass |
 | D | QA otomatis tidak cukup; screenshot/manual visual gate wajib | PARTIAL | Capture browser disimpan/direview setiap visual claim |
 | E | Tidak tambah fitur gameplay besar sebelum A-C stabil | ACTIVE | Commit berikutnya harus fokus correction pass |
 
@@ -48,8 +48,8 @@ Status yang dipakai:
 | 18 | Scaling player harus mobile-readable | Mobile | PARTIAL | Scale dikoreksi; perlu screenshot review |
 | 19 | Aircraft harus punya muzzle/hardpoint contract | Weapons | STARTER | Starter sockets `MuzzleForward_*` ditambah di rig runtime |
 | 20 | Shot harus lahir dari hardpoint aircraft | Weapons | STARTER | Bridge `playerShotFromHardpoint=true`; final Blender sockets pending |
-| 21 | Shot arah ke depan/horizon/boss | Weapons | STARTER | Bridge `shotDirectionMode=forward_depth_negative_z`; screenshot gate wajib |
-| 22 | Shot tidak boleh terbaca sebagai kolom ke atas | Weapons | STARTER | Billboard projectile dimatikan untuk pool; forward XZ quads dipakai |
+| 21 | Shot arah ke depan/horizon/boss | Weapons | PARTIAL | Forward-depth XZ shot quads aktif; screenshot gate tetap wajib |
+| 22 | Shot tidak boleh terbaca sebagai kolom ke atas | Weapons | PARTIAL | Persistent vertical beam layer dimatikan dan forward XZ quads dipakai |
 | 23 | Projectile visual align dengan logic projectile | Weapons | PARTIAL | Pool logic/visual masih perlu hard sync penuh |
 | 24 | Enemy bullets tidak continuous homing/chasing | Combat | PARTIAL | Pattern fixed/scheduled; visual review perlu |
 | 25 | Bullet-hell tidak pakai Node3D/physics body per bullet | Performance | VERIFIED | Logical dictionaries + MultiMesh visual pool |
@@ -64,7 +64,7 @@ Status yang dipakai:
 | 34 | Boss attack pattern scheduler | Boss | VERIFIED | Bridge `bossPatternScheduler=true` |
 | 35 | Boss hardpoint/turret visual harus terbaca | Boss | PENDING | Visual pass berikutnya setelah foundation shot/player benar |
 | 36 | BattlefieldDirector untuk background war | Arena | PARTIAL | `ForwardArenaDirector` ada; visual quality masih blocker |
-| 37 | Background tidak boleh static/acak code-looking | Arena | BLOCKER | Perlu cleanup asset-backed pass |
+| 37 | Background tidak boleh static/acak code-looking | Arena | STARTER | Clutter visual pass mengurangi beams/explosions/tracers; full background art rebuild masih blocker lanjutan |
 | 38 | Background harus asset-backed/GLB/photos/textures proper | Arena | PARTIAL | GLB deck/boss ada; clutter procedural perlu audit |
 | 39 | No convoy/cars terlihat di aircraft gameplay | Cleanup | PARTIAL | Runtime forward-air; asset legacy masih ada untuk audit |
 | 40 | No road/convoy boot/loading visual | Loading | PARTIAL | Sudah pernah diperbaiki; regression check wajib |
@@ -107,7 +107,7 @@ Status yang dipakai:
 
 ## Phase 1 starter scope now
 
-This starter only addresses the first foundation gates:
+This starter plus Tahap 1 pass addresses the first foundation gates:
 
 1. Runtime player visual source is changed away from the generated `player_stormhawk.glb` and toward the Blender-prepared derivative of the uploaded GLB; the original uploaded GLB remains the source contract.
 2. Runtime muzzle hardpoint sockets are introduced as a temporary contract until Blender-authored sockets are exported.
@@ -115,3 +115,7 @@ This starter only addresses the first foundation gates:
 4. QA bridge flags are added so this regression cannot silently return.
 
 This is **not** a final visual-quality claim. Background cleanup, original GLB scale/orientation visual approval, and full Blender socket authoring remain blocking follow-up work.
+
+## Tahap 1 direction/cleanliness pass update
+
+Tahap 1 setelah starter menambahkan runtime alignment `uploaded_glb_local_negative_y_to_world_negative_z`, mematikan fallback afterburner box yang terlihat seperti blok UI, mengurangi vertical boss beams/explosion/shield clutter, dan mengunci `backgroundClutterMode=foundation_clean` di QA. Ini masih bukan final visual-art pass; tujuannya menghentikan regression arah shot/player sebelum background production dibangun ulang.
