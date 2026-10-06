@@ -20,6 +20,8 @@ var lanes: Array = []
 var positions: Array = []
 var base_lanes: Array = []
 var phases: Array = []
+var spawn_origins: Array = []
+var spawn_from_hardpoints := false
 var wobble_rates: Array = []
 var speeds: Array = []
 
@@ -106,9 +108,14 @@ func update_pool(delta: float, wind_drift: float, time_seconds: float) -> void:
 		else:
 			pos.z -= speed * delta
 			if pos.z < z_far:
-				pos.z = z_near + rng.randf_range(0.0, 3.5)
-				pos.y = rng.randf_range(y_min, y_max)
-				base_lanes[i] = float(lanes[i % lanes.size()])
+				if spawn_from_hardpoints and not spawn_origins.is_empty():
+					var origin: Vector3 = spawn_origins[i % spawn_origins.size()]
+					pos = origin
+					base_lanes[i] = origin.x
+				else:
+					pos.z = z_near + rng.randf_range(0.0, 3.5)
+					pos.y = rng.randf_range(y_min, y_max)
+					base_lanes[i] = float(lanes[i % lanes.size()])
 		pos.x = float(base_lanes[i]) + sin(time_seconds * float(wobble_rates[i]) + float(phases[i])) * 0.09 + wind_drift * 0.10
 		positions[i] = pos
 		_write_transform(i, pos)
@@ -116,6 +123,20 @@ func update_pool(delta: float, wind_drift: float, time_seconds: float) -> void:
 
 func get_pool_count() -> int:
 	return multimesh.instance_count if active else 0
+
+
+func set_spawn_origins(hardpoint_state: Dictionary) -> void:
+	spawn_origins.clear()
+	spawn_from_hardpoints = bool(hardpoint_state.get("sockets_found", false)) and not toward_camera
+	if not spawn_from_hardpoints:
+		return
+	for key in ["left", "right", "center"]:
+		if hardpoint_state.has(key):
+			var value = hardpoint_state[key]
+			if value is Vector3:
+				spawn_origins.append(value)
+	if spawn_origins.is_empty():
+		spawn_from_hardpoints = false
 
 
 func _reset_instance(i: int, randomize_z: bool, min_speed: float, max_speed: float) -> void:

@@ -36,6 +36,9 @@ var logical_collision_radius_scale := 1.0
 var active_boss_projectile_pattern := "shield_lane_sweep_pool_v1"
 var recent_boss_hits: Array = []
 var last_boss_hit_part := "shield"
+var player_weapon_hardpoints: Dictionary = {}
+var player_hardpoint_binding := "pending"
+var player_shot_spawn_origin := "runtime_fallback_socket"
 
 
 func setup() -> void:
@@ -79,6 +82,12 @@ func stop_mission() -> void:
 	for i in range(player_pool.size()):
 		player_pool[i]["active"] = false
 	recent_boss_hits.clear()
+
+
+func set_player_weapon_hardpoints(state: Dictionary) -> void:
+	player_weapon_hardpoints = state.duplicate(true)
+	player_hardpoint_binding = str(player_weapon_hardpoints.get("binding", "pending"))
+	player_shot_spawn_origin = "glb_muzzle_socket" if bool(player_weapon_hardpoints.get("sockets_found", false)) else "runtime_fallback_socket"
 
 
 func update_logic(delta: float, player_corridor: Vector2, weather_effect: Dictionary, boost_amount: float) -> float:
@@ -125,6 +134,8 @@ func get_bridge_state() -> Dictionary:
 		"projectileDamageTaken": total_damage_to_player,
 		"projectileShotsSpawned": shots_spawned,
 		"playerProjectileShotsSpawned": player_shots_spawned,
+		"logicalPlayerHardpointBinding": player_hardpoint_binding,
+		"logicalPlayerShotOrigin": player_shot_spawn_origin,
 		"playerProjectileHits": boss_hit_count,
 		"playerBossDamage": total_damage_to_boss,
 		"playerProjectileHitModel": "pooled_logical_boss_parts",
@@ -215,13 +226,15 @@ func _spawn_player_bullet(player_corridor: Vector2, weather_effect: Dictionary, 
 	var lanes: Array = player_data.get("lanes", [-0.98, -0.32, 0.32, 0.98])
 	if lanes.is_empty():
 		lanes = [0.0]
-	var lane: float = float(lanes[player_lane_index % lanes.size()])
+	var shot_sequence := player_lane_index
+	var lane: float = float(lanes[shot_sequence % lanes.size()])
 	player_lane_index += 1
+	var shot_origin := _player_hardpoint_origin(shot_sequence, lane, player_corridor)
 	var speed: float = float(player_data.get("speed", 88.0)) * (1.12 if overcharged else 1.0)
-	var part: String = _choose_boss_hit_part(Vector3(player_corridor.x + lane * 0.55, 1.55 + player_corridor.y * 0.32, -5.5), weather_effect)
+	var part: String = _choose_boss_hit_part(shot_origin, weather_effect)
 	var bullet: Dictionary = player_pool[index]
 	bullet["active"] = true
-	bullet["pos"] = Vector3(player_corridor.x + lane * 0.55, 1.55 + player_corridor.y * 0.32, -5.5)
+	bullet["pos"] = shot_origin
 	bullet["vel"] = Vector3(wind * 0.16, 0.0, -speed)
 	bullet["life"] = float(player_data.get("lifetime", 1.65))
 	bullet["radius"] = float(player_data.get("radius", 0.34))
@@ -230,6 +243,23 @@ func _spawn_player_bullet(player_corridor: Vector2, weather_effect: Dictionary, 
 	bullet["part"] = part
 	player_pool[index] = bullet
 	player_shots_spawned += 1
+
+
+func _player_hardpoint_origin(sequence: int, fallback_lane: float, player_corridor: Vector2) -> Vector3:
+	var key := "center"
+	if sequence % 3 == 0:
+		key = "left"
+	elif sequence % 3 == 1:
+		key = "right"
+	if player_weapon_hardpoints.has(key):
+		var value = player_weapon_hardpoints[key]
+		if value is Vector3:
+			return value
+	if player_weapon_hardpoints.has("center"):
+		var center_value = player_weapon_hardpoints["center"]
+		if center_value is Vector3:
+			return center_value
+	return Vector3(player_corridor.x + fallback_lane * 0.55, 1.55 + player_corridor.y * 0.32, -5.5)
 
 
 func _update_enemy_bullets(delta: float, player_corridor: Vector2, wind: float, boost_amount: float, overcharged: bool) -> void:

@@ -68,3 +68,7 @@ After user feedback that the generated `player_stormhawk.glb` was visually unacc
 ## Foundation direction/cleanliness pass
 
 Tahap 1 correction now aligns the Blender-prepared uploaded player GLB from local negative-Y into the gameplay negative-Z forward axis, disables visible runtime fallback afterburner boxes, and reduces decorative vertical beams/explosion/shield clutter in the arena. QA now checks `playerModelAlignment`, `backgroundClutterMode=foundation_clean`, and `legacyVerticalShotColumns=false`. This remains a correction pass, not a final art-quality claim.
+
+## Tahap 2 socket binding note
+
+The player shot origin is now bound to named sockets from `assets/models/enemy_hero_jet_blender_ready.glb`: `Muzzle_Left`, `Muzzle_Right`, and `Engine_Core`. Runtime fallback sockets remain only as safety if the GLB socket lookup fails. The arena shot pulses, player projectile visual pool spawn resets, and logical player projectile manager now consume the same hardpoint state. Browser QA now checks `playerWeaponHardpointBinding=glb_socket_runtime`, `playerGLBWeaponSocketsFound=true`, `playerShotSpawnOrigin=glb_muzzle_socket`, and `logicalPlayerShotOrigin=glb_muzzle_socket`.

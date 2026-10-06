@@ -29,9 +29,12 @@ var player_model_authenticity := "unknown"
 var player_model_original_source := "unknown"
 var player_model_alignment := "unknown"
 var runtime_afterburner_boxes := false
+var weapon_hardpoint_binding := "runtime_fallback"
+var glb_weapon_sockets_found := false
 var muzzle_center: Node3D
 var muzzle_left: Node3D
 var muzzle_right: Node3D
+var engine_socket: Node3D
 var afterburner_left: MeshInstance3D
 var afterburner_right: MeshInstance3D
 var arena_director: Node3D
@@ -101,6 +104,7 @@ func start_mission(stage_data: Dictionary, loadout_data: Dictionary, aircraft_da
 		camera.position = Vector3(0.0, 4.9, 12.2)
 		camera.look_at(Vector3(0.0, 2.15, -24.0), Vector3.UP)
 	_reset_depth_nodes()
+	_sync_player_weapon_hardpoints_to_arena()
 
 
 func stop_mission() -> void:
@@ -127,9 +131,10 @@ func update_forward(delta: float, input_state: Dictionary) -> void:
 		weather_effect = arena_director.update_arena(delta, corridor_pos, travel_speed)
 	mission_progress = clamp(mission_progress + delta * forward_speed / 1380.0, 0.0, 0.985)
 	_update_corridor_position(delta, input_state, weather_effect)
+	_update_player_pose(delta, input_state, weather_effect)
+	_sync_player_weapon_hardpoints_to_arena()
 	_update_projectile_logic(delta, weather_effect)
 	_update_weather_damage(delta, weather_effect)
-	_update_player_pose(delta, input_state, weather_effect)
 	_update_forward_markers(delta)
 	_update_environment_weather(delta, weather_effect)
 	_update_camera(delta, input_state, weather_effect)
@@ -145,6 +150,10 @@ func get_bridge_state() -> Dictionary:
 		"playerModelOriginalSource": player_model_original_source,
 		"playerModelAlignment": player_model_alignment,
 		"runtimeAfterburnerBoxes": runtime_afterburner_boxes,
+		"playerWeaponHardpointBinding": weapon_hardpoint_binding,
+		"playerGLBWeaponSocketsFound": glb_weapon_sockets_found,
+		"playerShotSpawnOrigin": "glb_muzzle_socket" if glb_weapon_sockets_found else "runtime_fallback_socket",
+		"playerMuzzleCenterZ": _muzzle_world_position(muzzle_center).z,
 		"playerForwardAxis": "negative_z",
 		"stageName": current_stage_name,
 		"progress": mission_progress,
@@ -238,6 +247,7 @@ func _load_player_model() -> void:
 		player_model_original_source = PLAYER_ORIGINAL_SOURCE_PATH
 		player_model_authenticity = "uploaded_glb_blender_prepared_runtime_instance"
 		player_rig.add_child(player_model)
+		_bind_glb_weapon_hardpoints()
 	else:
 		var fallback_packed = PLAYER_FALLBACK_MODEL_SCENE
 		if fallback_packed is PackedScene:
@@ -271,21 +281,51 @@ func _create_fallback_aircraft(parent: Node3D) -> void:
 
 
 func _create_weapon_hardpoints() -> void:
-	# Starter hardpoint contract. These sockets live on the player rig so shot VFX can
-	# originate from aircraft space instead of detached screen-space beams. Final
-	# Blender sockets should replace these coordinates once the source GLB is rigged.
+	# Fallback socket contract only. The preferred path is to bind actual named
+	# sockets from the Blender-prepared uploaded GLB: Muzzle_Left / Muzzle_Right / Engine_Core.
+	if muzzle_left != null and muzzle_right != null:
+		return
+	weapon_hardpoint_binding = "runtime_fallback"
+	glb_weapon_sockets_found = false
 	muzzle_center = Node3D.new()
-	muzzle_center.name = "MuzzleForward_Center"
+	muzzle_center.name = "MuzzleForward_Center_Fallback"
 	muzzle_center.position = Vector3(0.0, 0.03, -1.62)
 	player_rig.add_child(muzzle_center)
 	muzzle_left = Node3D.new()
-	muzzle_left.name = "MuzzleForward_Left"
+	muzzle_left.name = "MuzzleForward_Left_Fallback"
 	muzzle_left.position = Vector3(-0.52, -0.02, -1.05)
 	player_rig.add_child(muzzle_left)
 	muzzle_right = Node3D.new()
-	muzzle_right.name = "MuzzleForward_Right"
+	muzzle_right.name = "MuzzleForward_Right_Fallback"
 	muzzle_right.position = Vector3(0.52, -0.02, -1.05)
 	player_rig.add_child(muzzle_right)
+
+
+func _bind_glb_weapon_hardpoints() -> void:
+	if player_model == null:
+		return
+	muzzle_left = _find_node3d(player_model, "Muzzle_Left")
+	muzzle_right = _find_node3d(player_model, "Muzzle_Right")
+	engine_socket = _find_node3d(player_model, "Engine_Core")
+	if muzzle_left != null and muzzle_right != null:
+		glb_weapon_sockets_found = true
+		weapon_hardpoint_binding = "glb_socket_runtime"
+		muzzle_center = Node3D.new()
+		muzzle_center.name = "MuzzleForward_Center_FromGLBSockets"
+		muzzle_center.position = (muzzle_left.position + muzzle_right.position) * 0.5
+		muzzle_left.get_parent().add_child(muzzle_center)
+
+
+func _find_node3d(root: Node, node_name: String) -> Node3D:
+	if root == null:
+		return null
+	if root.name == node_name and root is Node3D:
+		return root
+	for child in root.get_children():
+		var found := _find_node3d(child, node_name)
+		if found != null:
+			return found
+	return null
 
 
 func _create_afterburners() -> void:
@@ -361,6 +401,28 @@ func _update_corridor_position(delta: float, input_state: Dictionary, effect: Di
 	corridor_pos += hazard_vec * delta * 1.35
 	corridor_pos.x = clamp(corridor_pos.x, -corridor_width, corridor_width)
 	corridor_pos.y = clamp(corridor_pos.y, -corridor_height, corridor_height)
+
+
+func _sync_player_weapon_hardpoints_to_arena() -> void:
+	var hardpoint_state := {
+		"binding": weapon_hardpoint_binding,
+		"sockets_found": glb_weapon_sockets_found,
+		"center": _muzzle_world_position(muzzle_center),
+		"left": _muzzle_world_position(muzzle_left),
+		"right": _muzzle_world_position(muzzle_right),
+		"engine": _muzzle_world_position(engine_socket),
+		"forward": FORWARD_DIR
+	}
+	if arena_director != null and arena_director.has_method("set_player_weapon_hardpoints"):
+		arena_director.set_player_weapon_hardpoints(hardpoint_state)
+	if projectile_manager != null and projectile_manager.has_method("set_player_weapon_hardpoints"):
+		projectile_manager.set_player_weapon_hardpoints(hardpoint_state)
+
+
+func _muzzle_world_position(socket: Node3D) -> Vector3:
+	if socket != null and socket.is_inside_tree():
+		return socket.global_transform.origin
+	return player_rig.global_transform.origin if player_rig != null and player_rig.is_inside_tree() else Vector3.ZERO
 
 
 func _update_projectile_logic(delta: float, effect: Dictionary) -> void:

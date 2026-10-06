@@ -46,8 +46,8 @@ Status yang dipakai:
 | 16 | Player aircraft harus GLB 3D, bukan sprite/foto | Asset | STARTER | Runtime diarahkan ke Blender-prepared derivative dari uploaded GLB source |
 | 17 | Player GLB user tidak boleh dibongkar/remade jadi visual buruk | Asset | STARTER | Starter memakai `enemy_hero_jet_blender_ready.glb` sebagai derivative runtime dari original `enemy_hero_jet.glb`; perlu visual review |
 | 18 | Scaling player harus mobile-readable | Mobile | PARTIAL | Scale dikoreksi; perlu screenshot review |
-| 19 | Aircraft harus punya muzzle/hardpoint contract | Weapons | STARTER | Starter sockets `MuzzleForward_*` ditambah di rig runtime |
-| 20 | Shot harus lahir dari hardpoint aircraft | Weapons | STARTER | Bridge `playerShotFromHardpoint=true`; final Blender sockets pending |
+| 19 | Aircraft harus punya muzzle/hardpoint contract | Weapons | PARTIAL | Tahap 2 binds actual GLB sockets `Muzzle_Left`/`Muzzle_Right`; fallback sockets remain only as safety |
+| 20 | Shot harus lahir dari hardpoint aircraft | Weapons | PARTIAL | Visual pulse, visual-pool respawn, and logical player shots now consume `glb_socket_runtime` / `glb_muzzle_socket`; final VFX polish pending |
 | 21 | Shot arah ke depan/horizon/boss | Weapons | PARTIAL | Forward-depth XZ shot quads aktif; screenshot gate tetap wajib |
 | 22 | Shot tidak boleh terbaca sebagai kolom ke atas | Weapons | PARTIAL | Persistent vertical beam layer dimatikan dan forward XZ quads dipakai |
 | 23 | Projectile visual align dengan logic projectile | Weapons | PARTIAL | Pool logic/visual masih perlu hard sync penuh |
@@ -119,3 +119,7 @@ This is **not** a final visual-quality claim. Background cleanup, original GLB s
 ## Tahap 1 direction/cleanliness pass update
 
 Tahap 1 setelah starter menambahkan runtime alignment `uploaded_glb_local_negative_y_to_world_negative_z`, mematikan fallback afterburner box yang terlihat seperti blok UI, mengurangi vertical boss beams/explosion/shield clutter, dan mengunci `backgroundClutterMode=foundation_clean` di QA. Ini masih bukan final visual-art pass; tujuannya menghentikan regression arah shot/player sebelum background production dibangun ulang.
+
+## Tahap 2 GLB socket binding update
+
+Phase 0 gate is considered complete enough to proceed because the requirement matrix and blockers are now tracked. Tahap 2 starts by binding player shot visuals and logical player projectile spawn to actual named sockets from the Blender-prepared uploaded GLB (`Muzzle_Left`, `Muzzle_Right`, `Engine_Core`) instead of only runtime-estimated hardpoints. QA now fails if `playerWeaponHardpointBinding` is not `glb_socket_runtime`, if `playerShotSpawnOrigin` is not `glb_muzzle_socket`, or if `logicalPlayerShotOrigin` is not `glb_muzzle_socket`.

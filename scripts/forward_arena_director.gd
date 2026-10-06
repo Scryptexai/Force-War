@@ -72,6 +72,7 @@ var last_player_corridor := Vector2.ZERO
 var shot_forward_axis := Vector3(0.0, 0.0, -1.0)
 var foundation_visual_mode := true
 var background_clutter_mode := "foundation_clean"
+var player_weapon_hardpoints: Dictionary = {}
 
 var cloud_scene: PackedScene
 var arena_scene: PackedScene
@@ -222,7 +223,10 @@ func get_weather_effect() -> Dictionary:
 		"shotDirectionMode": "forward_depth_negative_z",
 		"shotVisualOrientation": "forward_aligned_xz_not_billboard_vertical",
 		"playerShotFromHardpoint": true,
-		"foundationCorrectionPass": "phase_1_direction_and_cleanliness",
+		"playerWeaponHardpointBinding": str(player_weapon_hardpoints.get("binding", "pending")),
+		"playerShotSpawnOrigin": "glb_muzzle_socket" if bool(player_weapon_hardpoints.get("sockets_found", false)) else "runtime_fallback_socket",
+		"playerGLBWeaponSocketsFound": bool(player_weapon_hardpoints.get("sockets_found", false)),
+		"foundationCorrectionPass": "phase_2_glb_socket_binding",
 		"foundationVisualMode": foundation_visual_mode,
 		"backgroundClutterMode": background_clutter_mode,
 		"legacyVerticalShotColumns": false,
@@ -237,6 +241,12 @@ func get_weather_effect() -> Dictionary:
 
 func get_bridge_state() -> Dictionary:
 	return _weather_effect_with_boss_state(true)
+
+
+func set_player_weapon_hardpoints(state: Dictionary) -> void:
+	player_weapon_hardpoints = state.duplicate(true)
+	if player_projectile_visual_pool != null and player_projectile_visual_pool.has_method("set_spawn_origins"):
+		player_projectile_visual_pool.set_spawn_origins(player_weapon_hardpoints)
 
 
 func apply_player_projectile_hits(hits: Array) -> void:
@@ -692,7 +702,9 @@ func _reset_layers() -> void:
 		var side = -1.0 if i % 2 == 0 else 1.0
 		enemy_attack_jets[i].position = Vector3(side * rng.randf_range(4.8, 8.8), rng.randf_range(2.8, 7.2), -34.0 - float(i) * 12.5)
 	for i in range(player_shot_pulses.size()):
-		player_shot_pulses[i].position = Vector3(last_player_corridor.x + float(player_shot_pulses[i].get_meta("lane_x", 0.0)) * 0.45, 1.55 + last_player_corridor.y * 0.35, -5.5 - float(i) * 3.35)
+		var lane_x: float = float(player_shot_pulses[i].get_meta("lane_x", 0.0))
+		var origin: Vector3 = _player_shot_origin(i, lane_x)
+		player_shot_pulses[i].position = Vector3(origin.x, origin.y, origin.z - float(i) * 3.35)
 	for bullet in cinematic_bullets:
 		bullet.position.z = -18.0 - rng.randf_range(0.0, 112.0)
 		bullet.position.y = rng.randf_range(1.1, 4.5)
@@ -825,14 +837,16 @@ func _update_visual_lock_composition(delta: float, travel_speed: float) -> void:
 		beam.position.y = 1.55 + last_player_corridor.y * 0.35
 		beam.position.z = -34.0
 		beam.scale.y = 1.0 + (0.22 if overcharge_timer > 0.0 else 0.0) + sin(forward_time * 14.0) * 0.02
-	for pulse in player_shot_pulses:
+	for i in range(player_shot_pulses.size()):
+		var pulse: MeshInstance3D = player_shot_pulses[i]
 		pulse.position.z -= (72.0 + (18.0 if overcharge_timer > 0.0 else 0.0)) * delta
 		var pulse_lane: float = float(pulse.get_meta("lane_x", 0.0))
-		pulse.position.x = last_player_corridor.x + pulse_lane * 0.45 + sin(forward_time * 6.0 + float(pulse.get_meta("phase", 0.0))) * 0.04
-		pulse.position.y = 1.55 + last_player_corridor.y * 0.35
+		var origin: Vector3 = _player_shot_origin(i, pulse_lane)
+		pulse.position.x = origin.x + sin(forward_time * 6.0 + float(pulse.get_meta("phase", 0.0))) * 0.035
+		pulse.position.y = origin.y
 		pulse.scale.y = 1.0 + sin(forward_time * 18.0 + pulse.position.z) * 0.10
 		if pulse.position.z < -112.0:
-			pulse.position.z = -5.5
+			pulse.position = origin
 	if player_projectile_visual_pool != null and player_projectile_visual_pool.has_method("update_pool"):
 		player_projectile_visual_pool.update_pool(delta, wind_drift, forward_time)
 	if enemy_projectile_visual_pool != null and enemy_projectile_visual_pool.has_method("update_pool"):
@@ -945,6 +959,21 @@ func _plane_mesh(node_name: String, pos: Vector3, size: Vector2, material: Mater
 	mi.position = pos
 	mi.material_override = material
 	return mi
+
+
+func _player_shot_origin(index: int, fallback_lane: float) -> Vector3:
+	var key := "center"
+	if index % 3 == 0:
+		key = "left"
+	elif index % 3 == 1:
+		key = "right"
+	if player_weapon_hardpoints.has(key):
+		var value = player_weapon_hardpoints[key]
+		if value is Vector3:
+			return value
+	if player_weapon_hardpoints.has("center") and player_weapon_hardpoints["center"] is Vector3:
+		return player_weapon_hardpoints["center"]
+	return Vector3(last_player_corridor.x + fallback_lane * 0.45, 1.55 + last_player_corridor.y * 0.35, -5.5)
 
 
 func _vfx_forward_projectile_quad(node_name: String, pos: Vector3, size: Vector2, texture: Texture2D, tint: Color = Color.WHITE, emission_energy: float = 1.0) -> MeshInstance3D:
