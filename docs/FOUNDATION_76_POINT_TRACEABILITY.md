@@ -60,7 +60,7 @@ Status yang dipakai:
 | 30 | Boss bukan HP dekoratif | Boss | VERIFIED | `BossPhaseController` aktif |
 | 31 | Boss punya shield/wings/turrets/core | Boss | VERIFIED | Bridge damage model parts |
 | 32 | Boss punya phase transition | Boss | PARTIAL | Phase logic ada; visual phase belum cukup jelas |
-| 33 | Boss weakpoint target routing | Boss | PARTIAL | Data/bridge ada; visual target bracket pending |
+| 33 | Boss weakpoint target routing | Boss | PARTIAL | Tahap 3 adds GLB socket-bound weakpoint reticle and pooled hit-feedback bridge; full boss phase art still pending |
 | 34 | Boss attack pattern scheduler | Boss | VERIFIED | Bridge `bossPatternScheduler=true` |
 | 35 | Boss hardpoint/turret visual harus terbaca | Boss | PENDING | Visual pass berikutnya setelah foundation shot/player benar |
 | 36 | BattlefieldDirector untuk background war | Arena | PARTIAL | `ForwardArenaDirector` ada; visual quality masih blocker |
@@ -131,3 +131,7 @@ The socket-binding foundation now includes a browser-checked visible fire layer,
 ## Tahap 2 muzzle-forward yaw correction
 
 During the visible socket-fire pass, the socket bridge exposed the muzzle center on the camera-side of the player. Tahap 2 corrects the uploaded GLB runtime yaw so the GLB muzzle sockets are actually in front of the aircraft on world negative-Z, then locks this with `playerMuzzleForwardZLocked=true` in browser QA. This prevents the earlier shot-origin fix from becoming a misleading data-only pass.
+
+## Tahap 3 boss weakpoint/hit-feedback update
+
+Tahap 3 now starts with boss gameplay VFX instead of adding unrelated features: the Dreadnought GLB is searched for `Boss_WeakPoint_Core` plus boss muzzle sockets, a clean reticle follows the active weakpoint, and pooled explosion-sprite impacts spawn from real player projectile hit events. Browser QA now fails unless `phase3GameplayVFXPass=boss_weakpoint_hit_feedback`, `bossWeakpointSocketBinding=glb_boss_socket_runtime`, `bossGLBWeakpointSocketFound=true`, and `bossImpactEvents` is greater than zero.

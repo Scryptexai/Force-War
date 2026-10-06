@@ -14,6 +14,7 @@ const ENEMY_SHOT_TEXTURE_PATH = "res://assets/vfx/enemy_orange_shot.png"
 const EXPLOSION_TEXTURE_PATH = "res://assets/vfx/explosion_fireball.png"
 const SMOKE_TEXTURE_PATH = "res://assets/vfx/smoke_plume.png"
 const SHIELD_TEXTURE_PATH = "res://assets/vfx/shield_bubble.png"
+const RETICLE_TEXTURE_PATH = "res://assets/vfx/reticle_lock.png"
 const ARENA_DECK_TEXTURE_PATH = "res://assets/vfx/arena_deck_panel.png"
 const STORM_OCEAN_TEXTURE_PATH = "res://assets/vfx/storm_ocean_material.jpg"
 const CINEMATIC_MATTE_TEXTURE_PATH = "res://assets/rendered/forward_air_battlefield_matte.jpg"
@@ -65,6 +66,19 @@ var enemy_attack_jets: Array = []
 var missile_trails: Array = []
 var shield_bubbles: Array = []
 var explosion_bursts: Array = []
+var boss_impact_pool: Array = []
+var boss_impact_pool_cursor := 0
+var boss_impact_events_seen := 0
+var boss_impact_visuals_active := 0
+var boss_damage_feedback_mode := "pending"
+var boss_visual_target_part := "shield"
+var boss_weakpoint_marker: MeshInstance3D
+var boss_weakpoint_socket: Node3D
+var boss_muzzle_core_socket: Node3D
+var boss_muzzle_left_socket: Node3D
+var boss_muzzle_right_socket: Node3D
+var boss_socket_binding := "runtime_fallback"
+var boss_glb_weakpoint_socket_found := false
 var storm_cells: Array = []
 var lightning_nodes: Array = []
 var cinematic_matte_plane: MeshInstance3D
@@ -86,6 +100,7 @@ var enemy_shot_texture: Texture2D
 var explosion_texture: Texture2D
 var smoke_texture: Texture2D
 var shield_texture: Texture2D
+var reticle_texture: Texture2D
 var arena_deck_texture: Texture2D
 var storm_ocean_texture: Texture2D
 var cinematic_matte_texture: Texture2D
@@ -153,6 +168,7 @@ func start_mission(stage_data: Dictionary) -> void:
 	rain_visibility = float(stage_weather.get("visibility", 0.8))
 	storm_hazard = 0.0
 	hazard_push = Vector2.ZERO
+	_reset_boss_gameplay_vfx()
 	_reset_layers()
 	if boss_phase_controller and boss_phase_controller.has_method("start_mission"):
 		boss_phase_controller.start_mission(stage_data)
@@ -205,6 +221,16 @@ func get_weather_effect() -> Dictionary:
 		"bossName": "Dreadnought Leviathan",
 		"bossPhaseController": boss_phase_controller != null,
 		"visualLockComposition": "dreadnought_forward_battle",
+		"phase3GameplayVFXPass": "boss_weakpoint_hit_feedback",
+		"bossDamageFeedbackMode": boss_damage_feedback_mode,
+		"bossWeakpointVisual": boss_weakpoint_marker != null,
+		"bossWeakpointVisualTarget": boss_visual_target_part,
+		"bossWeakpointSocketBinding": boss_socket_binding,
+		"bossGLBWeakpointSocketFound": boss_glb_weakpoint_socket_found,
+		"bossImpactVFXPool": boss_impact_pool.size(),
+		"bossImpactEvents": boss_impact_events_seen,
+		"bossImpactVFXActive": _active_boss_impact_count() > 0,
+		"bossImpactVFXActiveCount": _active_boss_impact_count(),
 		"blenderPipeline": "bpy_4_5_14_generated_glb",
 		"enemyHeroJetModel": enemy_hero_jet_scene != null,
 		"enemyHeroJetSource": "blender_ready_glb" if enemy_hero_jet_blender_ready else "uploaded_source_glb",
@@ -258,6 +284,7 @@ func apply_player_projectile_hits(hits: Array) -> void:
 		var part_name: String = str(hit.get("part", "shield"))
 		var damage: float = float(hit.get("damage", 0.0))
 		boss_phase_controller.apply_projectile_damage(part_name, damage)
+		_spawn_boss_impact_visual(hit, part_name)
 
 
 func _weather_effect_with_boss_state(strip_runtime_vectors: bool) -> Dictionary:
@@ -292,6 +319,7 @@ func _load_scene_assets() -> void:
 	explosion_texture = load(EXPLOSION_TEXTURE_PATH)
 	smoke_texture = load(SMOKE_TEXTURE_PATH)
 	shield_texture = load(SHIELD_TEXTURE_PATH)
+	reticle_texture = load(RETICLE_TEXTURE_PATH)
 	arena_deck_texture = load(ARENA_DECK_TEXTURE_PATH)
 	storm_ocean_texture = load(STORM_OCEAN_TEXTURE_PATH)
 	cinematic_matte_texture = load(CINEMATIC_MATTE_TEXTURE_PATH)
@@ -482,6 +510,7 @@ func _create_visual_lock_composition_layer() -> void:
 		boss_model.scale = Vector3(1.0, 1.0, 1.0)
 		boss_model.rotation_degrees = Vector3(0.0, 0.0, 0.0)
 		boss_anchor.add_child(boss_model)
+		_bind_boss_glb_sockets(boss_model)
 		_play_first_animation(boss_model)
 		boss_core = null
 	else:
@@ -504,6 +533,7 @@ func _create_visual_lock_composition_layer() -> void:
 		boss_core = _sphere_mesh("LeviathanCoreCannon", Vector3(0.0, -0.20, 5.92), 0.92, boss_core_mat)
 		boss_anchor.add_child(boss_core)
 	add_child(boss_anchor)
+	_create_boss_gameplay_vfx_layer()
 
 	for i in range(0):
 		var x = -4.4 + i * 2.2
@@ -579,6 +609,160 @@ func _create_visual_lock_composition_layer() -> void:
 		shield.set_meta("speed_mul", 0.66 + i * 0.06)
 		add_child(shield)
 		shield_bubbles.append(shield)
+
+
+func _bind_boss_glb_sockets(root: Node) -> void:
+	boss_weakpoint_socket = _find_node3d(root, "Boss_WeakPoint_Core")
+	boss_muzzle_core_socket = _find_node3d(root, "Boss_Muzzle_Core")
+	boss_muzzle_left_socket = _find_node3d(root, "Boss_Muzzle_Left")
+	boss_muzzle_right_socket = _find_node3d(root, "Boss_Muzzle_Right")
+	boss_glb_weakpoint_socket_found = boss_weakpoint_socket != null
+	boss_socket_binding = "glb_boss_socket_runtime" if boss_glb_weakpoint_socket_found else "runtime_fallback"
+
+
+func _find_node3d(root: Node, node_name: String) -> Node3D:
+	if root == null:
+		return null
+	if root.name == node_name and root is Node3D:
+		return root
+	for child in root.get_children():
+		var found := _find_node3d(child, node_name)
+		if found != null:
+			return found
+	return null
+
+
+func _create_boss_gameplay_vfx_layer() -> void:
+	boss_damage_feedback_mode = "pooled_sprite_impacts_target_reticle"
+	if reticle_texture != null:
+		boss_weakpoint_marker = _vfx_quad("BossWeakpointReticle_GLBSocket", Vector3.ZERO, Vector2(5.8, 5.8), reticle_texture, Color(0.68, 0.98, 1.0, 0.74), 2.8)
+	else:
+		boss_weakpoint_marker = _vfx_quad("BossWeakpointReticleFallback", Vector3.ZERO, Vector2(4.6, 4.6), hero_shot_texture, Color(0.68, 0.98, 1.0, 0.68), 2.2)
+	if boss_weakpoint_marker != null:
+		boss_weakpoint_marker.visible = false
+		var marker_mat := boss_weakpoint_marker.material_override as StandardMaterial3D
+		if marker_mat != null:
+			marker_mat.no_depth_test = true
+		add_child(boss_weakpoint_marker)
+	boss_impact_pool.clear()
+	for i in range(10):
+		var impact := _vfx_quad("BossSocketImpactBurst_%02d" % i, Vector3.ZERO, Vector2(2.4, 2.4), explosion_texture, Color(1.0, 0.72, 0.24, 0.88), 3.4)
+		impact.visible = false
+		impact.set_meta("life", 0.0)
+		impact.set_meta("max_life", 0.42)
+		impact.set_meta("base_scale", 1.0)
+		var impact_mat := impact.material_override as StandardMaterial3D
+		if impact_mat != null:
+			impact_mat.no_depth_test = true
+		add_child(impact)
+		boss_impact_pool.append(impact)
+
+
+func _reset_boss_gameplay_vfx() -> void:
+	boss_impact_events_seen = 0
+	boss_impact_pool_cursor = 0
+	boss_impact_visuals_active = 0
+	boss_visual_target_part = "shield"
+	boss_damage_feedback_mode = "pooled_sprite_impacts_target_reticle" if boss_weakpoint_marker != null else boss_damage_feedback_mode
+	if boss_weakpoint_marker != null:
+		boss_weakpoint_marker.visible = false
+	for impact in boss_impact_pool:
+		if impact is MeshInstance3D:
+			impact.visible = false
+			impact.set_meta("life", 0.0)
+
+
+func _spawn_boss_impact_visual(hit: Dictionary, part_name: String) -> void:
+	if boss_impact_pool.is_empty():
+		return
+	var impact: MeshInstance3D = boss_impact_pool[boss_impact_pool_cursor % boss_impact_pool.size()]
+	boss_impact_pool_cursor += 1
+	var target := _boss_weakpoint_world_position(part_name)
+	var hit_x: float = clamp(float(hit.get("x", 0.0)) * 0.30, -3.8, 3.8)
+	var part_offset := Vector3(hit_x, rng.randf_range(-0.45, 0.62), rng.randf_range(-0.55, 0.55))
+	if part_name == "left_wing":
+		part_offset.x -= 3.2
+	elif part_name == "right_wing":
+		part_offset.x += 3.2
+	elif part_name == "turrets":
+		part_offset.y += 1.0
+	elif part_name == "core":
+		part_offset *= 0.45
+	impact.global_position = target + part_offset
+	impact.visible = true
+	impact.set_meta("life", 0.46)
+	impact.set_meta("max_life", 0.46)
+	impact.set_meta("base_scale", rng.randf_range(0.82, 1.35))
+	impact.set_meta("part", part_name)
+	boss_impact_events_seen += 1
+	boss_visual_target_part = part_name
+
+
+func _update_boss_gameplay_vfx(delta: float) -> void:
+	if boss_phase_controller != null and boss_phase_controller.has_method("get_bridge_state"):
+		var boss_state: Dictionary = boss_phase_controller.get_bridge_state()
+		boss_visual_target_part = str(boss_state.get("bossTargetablePart", boss_visual_target_part))
+	if boss_weakpoint_marker != null:
+		boss_weakpoint_marker.visible = active
+		if active:
+			boss_weakpoint_marker.global_position = _boss_weakpoint_world_position(boss_visual_target_part)
+			var marker_pulse: float = 1.0 + sin(forward_time * 5.6) * 0.08 + lightning_flash * 0.10
+			boss_weakpoint_marker.scale = Vector3.ONE * marker_pulse
+	boss_impact_visuals_active = 0
+	for impact in boss_impact_pool:
+		if not (impact is MeshInstance3D):
+			continue
+		var life := float(impact.get_meta("life", 0.0))
+		if life <= 0.0:
+			impact.visible = false
+			continue
+		life = max(0.0, life - delta)
+		impact.set_meta("life", life)
+		if life <= 0.0:
+			impact.visible = false
+			continue
+		boss_impact_visuals_active += 1
+		var max_life: float = max(0.01, float(impact.get_meta("max_life", 0.46)))
+		var fade: float = clamp(life / max_life, 0.0, 1.0)
+		var grow: float = 0.72 + (1.0 - fade) * 1.28
+		var base_scale: float = float(impact.get_meta("base_scale", 1.0))
+		impact.scale = Vector3.ONE * base_scale * grow
+		var mat := impact.material_override as StandardMaterial3D
+		if mat != null:
+			mat.albedo_color = Color(1.0, 0.70 + fade * 0.18, 0.18, fade * 0.90)
+			mat.emission_energy_multiplier = 1.4 + fade * 3.2
+
+
+func _boss_weakpoint_world_position(part_name: String) -> Vector3:
+	if boss_weakpoint_socket != null and boss_weakpoint_socket.is_inside_tree():
+		var socket_pos := boss_weakpoint_socket.global_transform.origin
+		if part_name == "left_wing":
+			return socket_pos + Vector3(-5.0, -0.2, -0.6)
+		if part_name == "right_wing":
+			return socket_pos + Vector3(5.0, -0.2, -0.6)
+		if part_name == "turrets":
+			return socket_pos + Vector3(0.0, 1.25, -1.1)
+		return socket_pos
+	if boss_anchor != null and boss_anchor.is_inside_tree():
+		var offset := Vector3(0.0, 0.0, 5.85)
+		if part_name == "left_wing":
+			offset = Vector3(-6.2, -0.1, 1.2)
+		elif part_name == "right_wing":
+			offset = Vector3(6.2, -0.1, 1.2)
+		elif part_name == "turrets":
+			offset = Vector3(0.0, 2.6, -0.4)
+		elif part_name == "core":
+			offset = Vector3(0.0, -0.1, 5.9)
+		return boss_anchor.global_position + offset
+	return Vector3(0.0, 12.0, -90.0)
+
+
+func _active_boss_impact_count() -> int:
+	var count := 0
+	for impact in boss_impact_pool:
+		if impact is MeshInstance3D and impact.visible and float(impact.get_meta("life", 0.0)) > 0.0:
+			count += 1
+	return count
 
 
 func _create_projectile_visual_pools() -> void:
@@ -817,6 +1001,7 @@ func _update_visual_lock_composition(delta: float, travel_speed: float) -> void:
 		boss_anchor.position.z = lerp(boss_anchor.position.z, -96.0 + sin(forward_time * 0.22) * 2.0, min(1.0, delta * 0.7))
 		boss_anchor.position.x = sin(forward_time * 0.17) * 1.0
 		boss_anchor.rotation_degrees.z = sin(forward_time * 0.19) * 1.5
+	_update_boss_gameplay_vfx(delta)
 	if boss_core:
 		var core_pulse = 1.0 + sin(forward_time * 7.5) * 0.10 + lightning_flash * 0.32
 		boss_core.scale = Vector3.ONE * core_pulse

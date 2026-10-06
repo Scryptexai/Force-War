@@ -81,3 +81,15 @@ npm run qa:web
 - Add boss attack phases with safe gaps instead of ambient-only lane telegraphs.
 - Add missile model/logic and overcharge laser tied to weather.
 - Continue replacing any visible legacy/primitive modules with GLB, particles, or authored sprites.
+
+## 2026-10-06 continuation — boss weakpoint and hit feedback
+
+After the Phase 2 GLB muzzle/socket foundation, Phase 3 resumes with boss gameplay readability:
+
+- binds the Dreadnought visual target to GLB socket `Boss_WeakPoint_Core` when available;
+- adds one clean authored reticle quad on the current targetable boss part;
+- adds a pooled sprite impact layer for player projectile hit events;
+- keeps impact feedback asset-backed (`reticle_lock.png`, `explosion_fireball.png`) and avoids reintroducing full-screen/vertical beam clutter;
+- exports bridge fields for QA: `phase3GameplayVFXPass`, `bossWeakpointSocketBinding`, `bossGLBWeakpointSocketFound`, `bossImpactVFXPool`, `bossImpactEvents`, and `bossImpactVFXActive`.
+
+This still is not the final Phase 3 boss package; turret hardpoint fire, phase-specific destruction art, scoring, and final boss encounter pacing remain pending.

@@ -80,3 +80,7 @@ The next Tahap 2 pass adds visible cyan muzzle flashes and short forward tracer 
 ## Tahap 2 yaw/forward-axis correction
 
 The visible hardpoint pass found that the prepared GLB muzzle sockets were landing camera-side after the prior Phase 1 rotation. Tahap 2 now yaws the uploaded GLB runtime instance 180 degrees after the X-axis import correction so the named `Muzzle_Left`/`Muzzle_Right` sockets sit ahead of the aircraft in world negative-Z. QA checks `playerModelAlignment=uploaded_glb_socket_muzzle_forward_world_negative_z` and fails if `playerMuzzleCenterZ` is not forward of the player rig.
+
+## Tahap 3 boss gameplay VFX update
+
+Tahap 3 adds a boss weakpoint and hit-feedback layer using existing authored VFX textures (`reticle_lock.png` and `explosion_fireball.png`) plus named sockets from `boss_dreadnought_leviathan.glb`. The runtime bridge now reports `phase3GameplayVFXPass=boss_weakpoint_hit_feedback`, `bossDamageFeedbackMode=pooled_sprite_impacts_target_reticle`, `bossWeakpointSocketBinding=glb_boss_socket_runtime`, and pooled impact counts/events for browser verification.
