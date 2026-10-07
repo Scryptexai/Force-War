@@ -371,7 +371,7 @@ func _create_materials() -> void:
 	storm_cloud_mat = _make_material(Color(0.48, 0.61, 0.76, 0.26), Color(0.05, 0.11, 0.18, 1.0), 0.0, 0.26)
 	deep_cloud_mat = _make_material(Color(0.16, 0.22, 0.32, 0.38), Color(0.03, 0.08, 0.14, 1.0), 0.0, 0.38)
 	if storm_ocean_texture != null:
-		ocean_mat = _make_textured_material(storm_ocean_texture, Color(0.085, 0.125, 0.175, 1.0), Color(0.0, 0.012, 0.025, 1.0), 1.0, false, false, 0.10)
+		ocean_mat = _make_textured_material(storm_ocean_texture, Color(0.135, 0.175, 0.235, 1.0), Color(0.0, 0.012, 0.025, 1.0), 1.0, false, false, 0.14)
 	else:
 		ocean_mat = _make_material(Color(0.02, 0.09, 0.15, 1.0), Color(0.00, 0.04, 0.08, 1.0), 0.05, 1.0)
 	city_mat = _make_material(Color(0.10, 0.13, 0.18, 1.0), Color(0.03, 0.06, 0.10, 1.0), 0.18, 1.0)
@@ -390,8 +390,8 @@ func _create_materials() -> void:
 	missile_smoke_mat = _make_material(Color(0.70, 0.76, 0.82, 0.46), Color(0.08, 0.10, 0.12, 1.0), 0.0, 0.46)
 	shield_mat = _make_material(Color(0.18, 0.75, 1.0, 0.20), Color(0.12, 0.68, 1.0, 1.0), 0.0, 0.20)
 	explosion_mat = _make_material(Color(1.0, 0.52, 0.08, 0.90), Color(1.0, 0.22, 0.02, 1.0), 0.0, 0.90)
-	underworld_decor_mat = _make_material(Color(0.055, 0.075, 0.105, 1.0), Color.BLACK, 0.25, 1.0)
-	arena_deck_mat = _make_textured_material(arena_deck_texture, Color(0.09, 0.13, 0.17, 1.0), Color(0.01, 0.03, 0.05, 1.0), 1.0, false, false)
+	underworld_decor_mat = _make_material(Color(0.095, 0.115, 0.145, 1.0), Color.BLACK, 0.25, 1.0)
+	arena_deck_mat = _make_textured_material(arena_deck_texture, Color(0.052, 0.072, 0.098, 1.0), Color(0.01, 0.03, 0.05, 1.0), 1.0, false, false)
 	cinematic_matte_mat = _make_textured_material(cinematic_matte_texture, Color(1.0, 1.0, 1.0, 0.92), Color(0.04, 0.10, 0.15, 1.0), 0.38, true, true)
 
 

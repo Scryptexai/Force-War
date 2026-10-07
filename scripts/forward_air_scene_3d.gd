@@ -22,6 +22,9 @@ var rng = RandomNumberGenerator.new()
 
 var world_environment: WorldEnvironment
 var sun_light: DirectionalLight3D
+var sea_fill_light: DirectionalLight3D
+var camera_fill_light: DirectionalLight3D
+var player_marker_light: OmniLight3D
 var camera: Camera3D
 var player_rig: Node3D
 var player_model: Node3D
@@ -226,26 +229,112 @@ func get_bridge_state() -> Dictionary:
 
 
 func _create_environment() -> void:
+	# Pass 2: value before colour.
+	# Dusk key light comes in low and warm, the ambient fill is cool sea light,
+	# the sky gradates warm at the horizon to a dark top, and fog is pushed into
+	# the far layer only so the play plane is never hazed.
 	world_environment = WorldEnvironment.new()
 	world_environment.name = "ForwardStormEnvironment"
 	var env = Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.015, 0.03, 0.075, 1.0)
+
+	var sky_material := ProceduralSkyMaterial.new()
+	sky_material.sky_top_color = Color(0.055, 0.075, 0.145, 1.0)
+	sky_material.sky_horizon_color = Color(1.0, 0.60, 0.30, 1.0)
+	sky_material.sky_curve = 0.055
+	sky_material.sky_energy_multiplier = 2.45
+	sky_material.ground_bottom_color = Color(0.016, 0.022, 0.034, 1.0)
+	sky_material.ground_horizon_color = Color(0.085, 0.082, 0.11, 1.0)
+	sky_material.ground_curve = 0.03
+	sky_material.ground_energy_multiplier = 0.55
+	sky_material.sun_angle_max = 11.0
+	sky_material.sun_curve = 0.12
+	var sky := Sky.new()
+	sky.sky_material = sky_material
+	env.sky = sky
+	env.background_mode = Environment.BG_SKY
+	env.background_energy_multiplier = 1.0
+
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.12, 0.20, 0.34, 1.0)
-	env.ambient_light_energy = 0.85
+	# Cool bounce from the sea, kept weak so the under-world stays the darkest value.
+	env.ambient_light_color = Color(0.11, 0.17, 0.27, 1.0)
+	env.ambient_light_energy = 0.58
+
+	# Depth fog: starts past the boss, so foreground, bullets and boss stay crisp.
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.20, 0.33, 0.48, 1.0)
-	env.fog_density = 0.018
+	env.fog_mode = Environment.FOG_MODE_DEPTH
+	env.fog_light_color = Color(0.46, 0.30, 0.22, 1.0)
+	env.fog_light_energy = 1.0
+	env.fog_density = 0.40
+	env.fog_depth_begin = 66.0
+	env.fog_depth_end = 150.0
+	env.fog_depth_curve = 1.6
+	# Depth fog must not repaint the sky: that is what flattened the whole frame
+	# into one hue in the rejected build.
+	env.fog_sky_affect = 0.12
+	env.fog_aerial_perspective = 0.0
+
+	# Bloom belongs to bullets, boss core, turret eyes, engines and explosions
+	# only, so the threshold sits above anything the environment can reach.
+	env.glow_enabled = true
+	env.glow_intensity = 0.85
+	env.glow_strength = 1.0
+	env.glow_bloom = 0.10
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+	env.glow_hdr_threshold = 1.05
+	env.glow_hdr_scale = 2.2
+	env.set_glow_level(1, 0.6)
+	env.set_glow_level(3, 1.0)
+	env.set_glow_level(5, 0.6)
+
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 1.0
+	env.tonemap_white = 2.6
+	env.adjustment_enabled = true
+	env.adjustment_contrast = 1.22
+	env.adjustment_saturation = 0.92
+	env.adjustment_brightness = 0.98
+
 	world_environment.environment = env
 	add_child(world_environment)
 
 	sun_light = DirectionalLight3D.new()
-	sun_light.name = "StormKeyLight"
-	sun_light.light_color = Color(0.65, 0.82, 1.0, 1.0)
-	sun_light.light_energy = 1.65
-	sun_light.rotation_degrees = Vector3(-46.0, -28.0, 0.0)
+	sun_light.name = "DuskKeyLight"
+	# Low angle warm key: long shadows, warm tops, cool shadow sides.
+	sun_light.light_color = Color(1.0, 0.66, 0.38, 1.0)
+	sun_light.light_energy = 2.2
+	sun_light.light_specular = 0.25
+	sun_light.rotation_degrees = Vector3(-9.0, 168.0, 0.0)
 	add_child(sun_light)
+
+	camera_fill_light = DirectionalLight3D.new()
+	camera_fill_light.name = "CameraSideFill"
+	# Keeps the player hull and the boss faces that point at the camera readable
+	# without washing the scene: cool, weak, no specular.
+	camera_fill_light.light_color = Color(0.70, 0.84, 1.0, 1.0)
+	camera_fill_light.light_energy = 1.55
+	camera_fill_light.light_specular = 0.1
+	camera_fill_light.rotation_degrees = Vector3(-31.0, 6.0, 0.0)
+	add_child(camera_fill_light)
+
+	sea_fill_light = DirectionalLight3D.new()
+	sea_fill_light.name = "SeaCoolFill"
+	sea_fill_light.light_color = Color(0.32, 0.52, 0.86, 1.0)
+	sea_fill_light.light_energy = 0.55
+	sea_fill_light.light_specular = 0.0
+	sea_fill_light.rotation_degrees = Vector3(62.0, -24.0, 0.0)
+	add_child(sea_fill_light)
+
+	# A small cool lamp rides with the aircraft so the hull reads bright against
+	# the dark sea without lifting the whole under-world.
+	player_marker_light = OmniLight3D.new()
+	player_marker_light.name = "PlayerReadabilityLamp"
+	player_marker_light.light_color = Color(0.74, 0.88, 1.0, 1.0)
+	player_marker_light.light_energy = 3.4
+	player_marker_light.light_specular = 0.35
+	player_marker_light.omni_range = 9.5
+	player_marker_light.omni_attenuation = 1.4
+	player_marker_light.position = Vector3(0.0, 3.4, 3.2)
+	add_child(player_marker_light)
 
 
 func _create_camera_rig() -> void:
@@ -679,18 +768,21 @@ func _update_weather_damage(delta: float, effect: Dictionary) -> void:
 func _update_environment_weather(delta: float, effect: Dictionary) -> void:
 	if not world_environment or not world_environment.environment:
 		return
-	var env = world_environment.environment
-	var visibility = float(effect.get("rainVisibility", 1.0))
-	var cover = float(effect.get("cloudCover", 0.0))
-	var lightning = float(effect.get("lightningFlash", 0.0))
-	var hazard = float(effect.get("stormHazard", 0.0))
-	var target_fog = 0.004 + (1.0 - visibility) * 0.012 + cover * 0.006 + hazard * 0.005
-	env.fog_density = lerp(env.fog_density, target_fog, min(1.0, delta * 1.9))
-	var storm_color = Color(0.012, 0.026, 0.065, 1.0).lerp(Color(0.06, 0.11, 0.16, 1.0), cover * 0.42)
-	env.background_color = storm_color.lerp(Color(0.55, 0.74, 1.0, 1.0), lightning * 0.55)
-	env.ambient_light_energy = lerp(env.ambient_light_energy, 0.70 + lightning * 1.6 + (1.0 - visibility) * 0.20, min(1.0, delta * 2.0))
+	var env: Environment = world_environment.environment
+	var visibility := float(effect.get("rainVisibility", 1.0))
+	var cover := float(effect.get("cloudCover", 0.0))
+	var lightning := float(effect.get("lightningFlash", 0.0))
+	var hazard := float(effect.get("stormHazard", 0.0))
+	# Weather still drives the far haze, but it can never creep onto the play
+	# plane: only the depth window and its density move.
+	var target_density: float = 0.38 + (1.0 - visibility) * 0.30 + cover * 0.16 + hazard * 0.12
+	env.fog_density = lerpf(env.fog_density, clampf(target_density, 0.25, 0.92), minf(1.0, delta * 1.9))
+	var target_begin: float = 76.0 - (1.0 - visibility) * 14.0 - cover * 6.0
+	env.fog_depth_begin = lerpf(env.fog_depth_begin, maxf(58.0, target_begin), minf(1.0, delta * 1.6))
+	env.ambient_light_energy = lerpf(env.ambient_light_energy, 0.58 + lightning * 0.95 + (1.0 - visibility) * 0.10, minf(1.0, delta * 2.0))
 	if sun_light:
-		sun_light.light_energy = lerp(sun_light.light_energy, 1.35 + lightning * 4.8 + hazard * 0.55, min(1.0, delta * 4.5))
+		sun_light.light_energy = lerpf(sun_light.light_energy, 2.2 + lightning * 3.2 + hazard * 0.30, minf(1.0, delta * 4.5))
+		sun_light.light_color = Color(1.0, 0.66, 0.38, 1.0).lerp(Color(0.86, 0.92, 1.0, 1.0), clampf(lightning, 0.0, 1.0))
 
 
 func _update_player_pose(delta: float, input_state: Dictionary, effect: Dictionary) -> void:
@@ -749,6 +841,12 @@ func _update_forward_markers(delta: float) -> void:
 		debris.scale.y = 1.0 + sin(forward_time * 9.0 + debris.position.x) * 0.25
 		if debris.position.z > 12.0:
 			debris.position = Vector3(rng.randf_range(-5.2, 5.2), -2.75, -118.0 - rng.randf_range(0.0, 24.0))
+
+
+func _update_player_lamp() -> void:
+	if player_marker_light == null or player_rig == null:
+		return
+	player_marker_light.position = player_rig.position + Vector3(0.0, 3.1, 2.6)
 
 
 func _update_camera(delta: float, input_state: Dictionary, effect: Dictionary) -> void:

@@ -3633,20 +3633,26 @@ func draw_panel(rect: Rect2, title: String) -> void:
 
 func draw_bar(rect: Rect2, ratio: float, fill: Color, back: Color) -> void:
 	ratio = clamp(ratio, 0.0, 1.0)
+	draw_rect(Rect2(rect.position + Vector2(1.5, 1.5), rect.size), Color(0.0, 0.0, 0.0, 0.45))
 	draw_rect(rect, back)
 	draw_rect(Rect2(rect.position, Vector2(rect.size.x * ratio, rect.size.y)), fill)
 	draw_rect(rect, Color(1,1,1,0.16), false, 1.0)
 
 
 func draw_text(text: String, x: float, y: float, size: int = 18, color: Color = Color.WHITE) -> void:
+	# Pass 2: the HUD sits on a dusk sky that can be near white, so every glyph
+	# carries its own drop shadow instead of a solid panel behind it.
+	draw_string(font, Vector2(x + 1.5, y + 1.5), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(0.0, 0.0, 0.0, 0.62))
 	draw_string(font, Vector2(x, y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
 
 
 func draw_text_center(text: String, y: float, size: int = 18, color: Color = Color.WHITE) -> void:
+	draw_string(font, Vector2(1.5, y + 1.5), text, HORIZONTAL_ALIGNMENT_CENTER, W, size, Color(0.0, 0.0, 0.0, 0.62))
 	draw_string(font, Vector2(0, y), text, HORIZONTAL_ALIGNMENT_CENTER, W, size, color)
 
 
 func draw_text_centered_at(text: String, pos: Vector2, size: int = 18, color: Color = Color.WHITE) -> void:
+	draw_string(font, Vector2(pos.x - 118.5, pos.y + 1.5), text, HORIZONTAL_ALIGNMENT_CENTER, 240, size, Color(0.0, 0.0, 0.0, 0.62))
 	draw_string(font, Vector2(pos.x - 120, pos.y), text, HORIZONTAL_ALIGNMENT_CENTER, 240, size, color)
 
 
