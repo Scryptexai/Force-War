@@ -22,7 +22,7 @@ const ENEMY_HERO_JET_READY_PATH = "res://assets/models/enemy_hero_jet_blender_re
 const ENEMY_HERO_JET_PATH = "res://assets/models/enemy_hero_jet.glb"
 const DEPTH_LAYER_COUNT = 5
 const PROJECTILE_VISUAL_POOL_SCRIPT = preload("res://scripts/projectiles/projectile_visual_pool_3d.gd")
-const BOSS_PHASE_CONTROLLER_SCRIPT = preload("res://scripts/boss/boss_phase_controller.gd")
+const BOSS_ENTITY_SCRIPT = preload("res://scripts/boss/boss_entity_3d.gd")
 
 var active = false
 var is_setup = false
@@ -54,6 +54,8 @@ var debris_streaks: Array = []
 var air_traffic: Array = []
 var tracer_streaks: Array = []
 var boss_anchor: Node3D
+var boss_entity: Node3D
+var projectile_manager_ref: Node
 var boss_core: MeshInstance3D
 var boss_phase_controller: Node
 var boss_beams: Array = []
@@ -139,6 +141,7 @@ var missile_smoke_mat: StandardMaterial3D
 var shield_mat: StandardMaterial3D
 var explosion_mat: StandardMaterial3D
 var arena_deck_mat: StandardMaterial3D
+var underworld_decor_mat: StandardMaterial3D
 var cinematic_matte_mat: StandardMaterial3D
 
 
@@ -150,15 +153,14 @@ func setup() -> void:
 	visible = false
 	_load_scene_assets()
 	_create_materials()
-	_create_cinematic_matte_layer()
 	_create_ocean_battlefield_floor()
 	_create_far_sky_layer()
 	_create_mid_cloud_layer()
 	_create_warzone_layer()
 	_create_near_weather_layer()
 	_create_distant_battle_layer()
+	_create_boss_entity()
 	_create_visual_lock_composition_layer()
-	_create_boss_phase_controller()
 	_create_storm_hazard_cells()
 	is_setup = true
 
@@ -184,15 +186,19 @@ func start_mission(stage_data: Dictionary) -> void:
 	hazard_push = Vector2.ZERO
 	_reset_boss_gameplay_vfx()
 	_reset_layers()
-	if boss_phase_controller and boss_phase_controller.has_method("start_mission"):
-		boss_phase_controller.start_mission(stage_data)
+	if boss_entity != null and boss_entity.has_method("start_mission"):
+		boss_entity.start_mission(stage_data)
 
 
 func stop_mission() -> void:
 	active = false
 	visible = false
-	if boss_phase_controller and boss_phase_controller.has_method("stop_mission"):
-		boss_phase_controller.stop_mission()
+	if boss_entity != null and boss_entity.has_method("stop_mission"):
+		boss_entity.stop_mission()
+	if player_projectile_visual_pool != null and player_projectile_visual_pool.has_method("clear_pool"):
+		player_projectile_visual_pool.clear_pool()
+	if enemy_projectile_visual_pool != null and enemy_projectile_visual_pool.has_method("clear_pool"):
+		enemy_projectile_visual_pool.clear_pool()
 
 
 func update_arena(delta: float, player_corridor: Vector2, travel_speed: float) -> Dictionary:
@@ -233,69 +239,56 @@ func get_weather_effect() -> Dictionary:
 		"lightningOvercharge": overcharge_timer > 0.0,
 		"overchargeSeconds": overcharge_timer,
 		"stormHazard": storm_hazard,
-		"bossAnchor": boss_anchor != null,
+		"bossAnchor": boss_entity != null,
 		"bossName": "Dreadnought Leviathan",
-		"bossPhaseController": boss_phase_controller != null,
-		"visualLockComposition": "dreadnought_forward_battle",
-		"phase3GameplayVFXPass": "boss_weakpoint_hit_feedback",
+		"combatPlaneY": CombatSpace.PLANE_Y,
+		"underworldY": CombatSpace.UNDERWORLD_Y,
+		"singlePlayfieldPlane": true,
+		"staticMatteBackdrop": false,
+		"decorativeBulletNodes": 0,
+		"enemyPoolRendered": (enemy_projectile_visual_pool.rendered_count if enemy_projectile_visual_pool != null else -1),
+		"playerPoolRendered": (player_projectile_visual_pool.rendered_count if player_projectile_visual_pool != null else -1),
+		"unhittableMidfieldEntities": 0,
+		"pass1CausalityContract": "boss_entity_owns_state_bullets_from_visible_muzzles",
 		"phase3DebugStatus": _phase3_debug_status(),
-		"phase3QAContract": "phase3_debug_browser_v1",
+		"phase3QAContract": "pass1_combat_causality_v1",
 		"phase3VisualSafety": "clean_hud_no_vertical_columns_no_cloud_geometry",
 		"bossDamageFeedbackMode": boss_damage_feedback_mode,
-		"bossImpactFeedbackSource": "logical_player_projectile_hits",
+		"bossImpactFeedbackSource": "boss_entity_part_hitbox_hits",
 		"bossWeakpointVisual": boss_weakpoint_marker != null,
 		"bossWeakpointVisualTarget": boss_visual_target_part,
-		"bossWeakpointWorldZ": _boss_weakpoint_world_position(boss_visual_target_part).z,
 		"bossWeakpointSocketBinding": boss_socket_binding,
-		"bossGLBWeakpointSocketFound": boss_glb_weakpoint_socket_found,
 		"bossMuzzleSocketBinding": boss_muzzle_socket_binding,
-		"bossGLBMuzzleSocketsFound": boss_glb_muzzle_sockets_found,
 		"bossMuzzleSocketCount": _boss_muzzle_world_positions().size(),
 		"bossMuzzleSocketNames": _boss_muzzle_socket_names(),
 		"bossMuzzleSpreadX": _boss_muzzle_spread_x(),
 		"bossSocketFireVFX": boss_socket_fire_mode,
-		"bossSocketFireDepthMode": "forward_lanes_positive_z_to_player",
-		"bossSocketFireVFXActive": boss_socket_fire_active_count > 0,
-		"bossSocketFireVFXCount": boss_socket_fire_nodes.size(),
-		"bossSocketFireEvents": boss_socket_fire_events_seen,
-		"bossHardpointFireNonHoming": boss_socket_fire_non_homing,
-		"bossMuzzleOrigins": _boss_muzzle_world_positions(),
 		"bossPartDamageVFX": boss_part_damage_vfx_mode,
-		"bossDestroyedPartVFXActive": boss_destroyed_part_visual_count > 0,
 		"bossDestroyedPartVFXCount": boss_destroyed_part_visual_count,
 		"bossPhaseTransitionEventsSeen": boss_phase_transition_events_seen,
 		"bossPartDestructionEventsSeen": boss_part_destruction_events_seen,
-		"bossImpactVFXPool": boss_impact_pool.size(),
 		"bossImpactEvents": boss_impact_events_seen,
-		"bossImpactVFXActive": _active_boss_impact_count() > 0,
-		"bossImpactVFXActiveCount": _active_boss_impact_count(),
 		"blenderPipeline": "bpy_4_5_14_generated_glb",
-		"enemyHeroJetModel": enemy_hero_jet_scene != null,
-		"enemyHeroJetSource": "blender_ready_glb" if enemy_hero_jet_blender_ready else "uploaded_source_glb",
-		"enemyHeroJetAnimation": "EnemyJet_AttackPass_Loop" if enemy_hero_jet_blender_ready else "runtime_motion_only",
-		"bossArenaAsset": "boss_dreadnought_leviathan_glb" if boss_dreadnought_scene != null else "runtime_fallback",
+		"bossArenaAsset": "boss_dreadnought_leviathan_glb",
 		"arenaAssetDeckCluster": arena_deck_cluster_scene != null,
 		"stormOceanTextureAsset": storm_ocean_texture != null,
-		"texturedBlenderAssets": arena_deck_cluster_scene != null and boss_dreadnought_scene != null and storm_ocean_texture != null,
-		"cinematicMatteAsset": cinematic_matte_texture != null,
+		"texturedBlenderAssets": storm_ocean_texture != null and arena_deck_texture != null and hero_shot_texture != null and enemy_shot_texture != null,
 		"projectileAssetSprites": hero_shot_texture != null and enemy_shot_texture != null,
 		"projectileVisualPool": player_projectile_visual_pool != null and enemy_projectile_visual_pool != null,
 		"projectilePoolCount": _projectile_pool_count(),
-		"projectileArchitecture": "pooled_multimesh_visuals_logical_collision_target",
+		"projectileArchitecture": "pooled_multimesh_bound_to_logical_bullets",
 		"cleanArenaOverlay": true,
-		"shotAnimation": "asset_sprite_hero_enemy_lanes",
-		"shotDirectionMode": "forward_depth_negative_z",
-		"shotVisualOrientation": "forward_aligned_xz_not_billboard_vertical",
+		"shotDirectionMode": "xz_plane_velocity_aligned",
+		"shotVisualOrientation": "velocity_aligned_flat_on_combat_plane",
 		"playerShotFromHardpoint": true,
 		"playerWeaponHardpointBinding": str(player_weapon_hardpoints.get("binding", "pending")),
 		"playerShotSpawnOrigin": "glb_muzzle_socket" if bool(player_weapon_hardpoints.get("sockets_found", false)) else "runtime_fallback_socket",
 		"playerGLBWeaponSocketsFound": bool(player_weapon_hardpoints.get("sockets_found", false)),
-		"foundationCorrectionPass": "phase_2_glb_socket_binding",
+		"foundationCorrectionPass": "pass_1_combat_causality_and_playfield",
 		"foundationVisualMode": foundation_visual_mode,
 		"backgroundClutterMode": background_clutter_mode,
 		"legacyVerticalShotColumns": false,
 		"legacyNearCameraCyanPulseNodes": player_shot_pulses.size(),
-		"playerScaleMode": "reduced_mobile_readable",
 		"cloudGeometry": false,
 		"hazardPushX": hazard_push.x,
 		"hazardPushY": hazard_push.y,
@@ -314,27 +307,27 @@ func set_player_weapon_hardpoints(state: Dictionary) -> void:
 		player_projectile_visual_pool.set_spawn_origins(player_weapon_hardpoints)
 
 
-func apply_player_projectile_hits(hits: Array) -> void:
-	if boss_phase_controller == null or not boss_phase_controller.has_method("apply_projectile_damage"):
-		return
-	for hit in hits:
-		if not (hit is Dictionary):
-			continue
-		var part_name: String = str(hit.get("part", "shield"))
-		var damage: float = float(hit.get("damage", 0.0))
-		boss_phase_controller.apply_projectile_damage(part_name, damage)
-		_spawn_boss_impact_visual(hit, part_name)
+func render_projectiles(enemy_bullets: Array, player_bullets: Array) -> void:
+	# Bullets on screen are the logical bullets, one instance each.
+	if enemy_projectile_visual_pool != null and enemy_projectile_visual_pool.has_method("render_bullets"):
+		enemy_projectile_visual_pool.render_bullets(enemy_bullets)
+	if player_projectile_visual_pool != null and player_projectile_visual_pool.has_method("render_bullets"):
+		player_projectile_visual_pool.render_bullets(player_bullets)
+
+
+func note_boss_hits(hits: Array) -> void:
+	boss_impact_events_seen += hits.size()
 
 
 func _weather_effect_with_boss_state(strip_runtime_vectors: bool) -> Dictionary:
 	var effect = get_weather_effect()
-	if boss_phase_controller and boss_phase_controller.has_method("get_bridge_state"):
-		var boss_state = boss_phase_controller.get_bridge_state()
+	if boss_entity != null and boss_entity.has_method("get_bridge_state"):
+		var boss_state = boss_entity.get_bridge_state()
 		for key in boss_state.keys():
 			effect[key] = boss_state[key]
 	if strip_runtime_vectors:
 		effect.erase("turbulence")
-		effect.erase("bossMuzzleOrigins")
+		effect.erase("bossPartHitboxes")
 	return effect
 
 
@@ -378,7 +371,7 @@ func _create_materials() -> void:
 	storm_cloud_mat = _make_material(Color(0.48, 0.61, 0.76, 0.26), Color(0.05, 0.11, 0.18, 1.0), 0.0, 0.26)
 	deep_cloud_mat = _make_material(Color(0.16, 0.22, 0.32, 0.38), Color(0.03, 0.08, 0.14, 1.0), 0.0, 0.38)
 	if storm_ocean_texture != null:
-		ocean_mat = _make_textured_material(storm_ocean_texture, Color(0.72, 0.86, 0.98, 0.92), Color(0.00, 0.06, 0.10, 1.0), 0.92, false, false, 0.35)
+		ocean_mat = _make_textured_material(storm_ocean_texture, Color(0.085, 0.125, 0.175, 1.0), Color(0.0, 0.012, 0.025, 1.0), 1.0, false, false, 0.10)
 	else:
 		ocean_mat = _make_material(Color(0.02, 0.09, 0.15, 1.0), Color(0.00, 0.04, 0.08, 1.0), 0.05, 1.0)
 	city_mat = _make_material(Color(0.10, 0.13, 0.18, 1.0), Color(0.03, 0.06, 0.10, 1.0), 0.18, 1.0)
@@ -397,31 +390,18 @@ func _create_materials() -> void:
 	missile_smoke_mat = _make_material(Color(0.70, 0.76, 0.82, 0.46), Color(0.08, 0.10, 0.12, 1.0), 0.0, 0.46)
 	shield_mat = _make_material(Color(0.18, 0.75, 1.0, 0.20), Color(0.12, 0.68, 1.0, 1.0), 0.0, 0.20)
 	explosion_mat = _make_material(Color(1.0, 0.52, 0.08, 0.90), Color(1.0, 0.22, 0.02, 1.0), 0.0, 0.90)
-	arena_deck_mat = _make_textured_material(arena_deck_texture, Color(0.25, 0.55, 0.72, 0.95), Color(0.02, 0.11, 0.18, 1.0), 0.95, false, false)
+	underworld_decor_mat = _make_material(Color(0.055, 0.075, 0.105, 1.0), Color.BLACK, 0.25, 1.0)
+	arena_deck_mat = _make_textured_material(arena_deck_texture, Color(0.09, 0.13, 0.17, 1.0), Color(0.01, 0.03, 0.05, 1.0), 1.0, false, false)
 	cinematic_matte_mat = _make_textured_material(cinematic_matte_texture, Color(1.0, 1.0, 1.0, 0.92), Color(0.04, 0.10, 0.15, 1.0), 0.38, true, true)
 
 
-func _create_cinematic_matte_layer() -> void:
-	if cinematic_matte_texture == null:
-		return
-	var mesh = PlaneMesh.new()
-	mesh.size = Vector2(120.0, 214.0)
-	cinematic_matte_plane = MeshInstance3D.new()
-	cinematic_matte_plane.name = "CinematicBattlefieldMatteAsset"
-	cinematic_matte_plane.mesh = mesh
-	cinematic_matte_plane.position = Vector3(0.0, 17.5, -164.0)
-	cinematic_matte_plane.rotation_degrees = Vector3(90.0, 0.0, 0.0)
-	cinematic_matte_plane.material_override = cinematic_matte_mat
-	add_child(cinematic_matte_plane)
-
-
 func _create_ocean_battlefield_floor() -> void:
-	# Runtime image-textured ocean floor. This is a real texture asset on Godot planes,
-	# used only as storm sea material under Blender deck/ship GLBs, not as a fake aircraft photo.
+	# Under-world layer: the sea sits far below the combat plane so it can never be
+	# confused with a platform the player shares space with.
 	if ocean_mat == null:
 		return
 	for i in range(5):
-		var ocean = _plane_mesh("StormOceanTexturePlane_%02d" % i, Vector3(0.0, -9.45, -24.0 - i * 44.0), Vector2(58.0, 44.0), ocean_mat)
+		var ocean = _plane_mesh("StormOceanTexturePlane_%02d" % i, Vector3(0.0, CombatSpace.UNDERWORLD_Y, -24.0 - i * 44.0), Vector2(78.0, 46.0), ocean_mat)
 		ocean.set_meta("speed_mul", 0.52)
 		add_child(ocean)
 		ocean_floor_planes.append(ocean)
@@ -454,7 +434,7 @@ func _create_warzone_layer() -> void:
 	for i in range(8):
 		var chunk = Node3D.new()
 		chunk.name = "ForwardWarzoneChunk_%02d" % i
-		chunk.position = Vector3(0.0, -9.0, -24.0 - i * 22.0)
+		chunk.position = Vector3(0.0, CombatSpace.UNDERWORLD_DECOR_Y, -24.0 - i * 22.0)
 		chunk.set_meta("speed_mul", 0.88)
 		chunk.add_child(_plane_mesh("ArenaDeckPanelLeft", Vector3(-8.5, 0.0, 0.0), Vector2(8.5, 13.0), arena_deck_mat))
 		chunk.add_child(_plane_mesh("ArenaDeckPanelRight", Vector3(8.5, 0.0, 0.0), Vector2(8.5, 13.0), arena_deck_mat))
@@ -469,20 +449,34 @@ func _create_warzone_layer() -> void:
 				deck_cluster.scale = Vector3(cluster_scale, cluster_scale, cluster_scale)
 				deck_cluster.rotation_degrees = Vector3(0.0, rng.randf_range(-10.0, 10.0), 0.0)
 				chunk.add_child(deck_cluster)
-				_play_first_animation(deck_cluster)
+				_neutralize_underworld_decor(deck_cluster)
 			else:
 				var by = rng.randf_range(0.35, 1.1)
 				chunk.add_child(_box_mesh("FallbackDeckModule_%02d" % b, Vector3(bx, by * 0.5, bz), Vector3(rng.randf_range(0.45, 0.95), by, rng.randf_range(0.45, 1.0)), city_mat))
-		for f in range(4):
-			var fire = _vfx_quad("GroundFirePocket_%02d" % f, Vector3(rng.randf_range(-10.0, -4.8) if f % 2 == 0 else rng.randf_range(4.8, 10.0), 0.80, rng.randf_range(-5.6, 5.6)), Vector2(rng.randf_range(1.0, 1.7), rng.randf_range(1.0, 1.9)), explosion_texture, Color(1.0, 0.55, 0.18, 0.82), 1.9)
+		for f in range(2):
+			var fire = _vfx_quad("GroundFirePocket_%02d" % f, Vector3(rng.randf_range(-10.0, -4.8) if f % 2 == 0 else rng.randf_range(4.8, 10.0), 0.80, rng.randf_range(-5.6, 5.6)), Vector2(rng.randf_range(0.5, 0.9), rng.randf_range(0.5, 1.0)), explosion_texture, Color(0.55, 0.20, 0.07, 0.42), 0.45)
 			chunk.add_child(fire)
 			fire_pockets.append(fire)
-		for s in range(3):
+		for s in range(2):
 			var smoke = _smoke_column("SmokeColumn_%02d" % s, Vector3(rng.randf_range(-10.5, -5.0) if s % 2 == 0 else rng.randf_range(5.0, 10.5), 1.0, rng.randf_range(-5.8, 5.8)))
 			chunk.add_child(smoke)
 			smoke_columns.append(smoke)
 		add_child(chunk)
 		warzone_chunks.append(chunk)
+
+
+func _neutralize_underworld_decor(node: Node) -> void:
+	# Under-world decoration must not use the player faction colour and must not
+	# look like something that can be shot. Cyan radar balls, masts and pod markers
+	# from the deck GLB are hidden; everything else is pushed down in value.
+	if node is MeshInstance3D:
+		var mesh_node: MeshInstance3D = node
+		if str(mesh_node.name).contains("Cyan"):
+			mesh_node.visible = false
+		else:
+			mesh_node.material_override = underworld_decor_mat
+	for child in node.get_children():
+		_neutralize_underworld_decor(child)
 
 
 func _create_near_weather_layer() -> void:
@@ -499,7 +493,7 @@ func _create_near_weather_layer() -> void:
 		rain_sheets.append(sheet)
 	for i in range(4):
 		var debris = _box_mesh("NearDebrisStreak_%02d" % i, Vector3.ZERO, Vector3(rng.randf_range(0.06, 0.13), rng.randf_range(0.03, 0.08), rng.randf_range(0.8, 2.2)), debris_mat)
-		debris.position = Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(-1.8, 4.7), -8.0 - rng.randf_range(0.0, 95.0))
+		debris.position = Vector3(rng.randf_range(-12.0, 12.0), CombatSpace.UNDERWORLD_DECOR_Y + rng.randf_range(0.5, 3.5), -8.0 - rng.randf_range(0.0, 95.0))
 		debris.rotation_degrees = Vector3(rng.randf_range(-4.0, 4.0), rng.randf_range(-12.0, 12.0), rng.randf_range(-24.0, 24.0))
 		debris.set_meta("speed_mul", rng.randf_range(1.10, 1.55))
 		add_child(debris)
@@ -507,7 +501,8 @@ func _create_near_weather_layer() -> void:
 
 
 func _create_distant_battle_layer() -> void:
-	for i in range(5):
+	# Pass 1: no unhittable jets or sourceless tracers inside the combat frame.
+	for i in range(0):
 		var traffic = Node3D.new()
 		traffic.name = "DistantAirTraffic_%02d" % i
 		traffic.position = Vector3(rng.randf_range(-18.0, 18.0), rng.randf_range(3.0, 10.0), -45.0 - rng.randf_range(0.0, 130.0))
@@ -531,7 +526,7 @@ func _create_distant_battle_layer() -> void:
 			traffic.add_child(_box_mesh("DistantJetFallback", Vector3.ZERO, Vector3(0.8, 0.08, 0.55), city_mat))
 		add_child(traffic)
 		air_traffic.append(traffic)
-	for i in range(4):
+	for i in range(0):
 		var tracer_texture = hero_shot_texture if i % 2 == 0 else enemy_shot_texture
 		var tracer = _vfx_forward_projectile_quad("DistantForwardTracer_%02d" % i, Vector3.ZERO, Vector2(0.14, rng.randf_range(2.8, 5.8)), tracer_texture, Color(0.78, 0.92, 1.0, 0.42), 0.75)
 		tracer.position = Vector3(rng.randf_range(-14.0, 14.0), rng.randf_range(2.2, 8.8), -48.0 - rng.randf_range(0.0, 105.0))
@@ -541,133 +536,30 @@ func _create_distant_battle_layer() -> void:
 
 
 func _create_visual_lock_composition_layer() -> void:
-	# Recenter the arena around the reference composition: readable player path,
-	# a massive boss carrier in the upper half, ordered projectile lanes, smoke,
-	# shielded support craft, and explosions over the warzone below.
-	boss_anchor = Node3D.new()
-	boss_anchor.name = "DreadnoughtLeviathanBossAnchor"
-	boss_anchor.position = Vector3(0.0, 12.5, -96.0)
-	boss_anchor.set_meta("base_z", -96.0)
-	if boss_dreadnought_scene:
-		var boss_model = boss_dreadnought_scene.instantiate()
-		boss_model.name = "BossDreadnoughtLeviathanGLB"
-		boss_model.scale = Vector3(1.0, 1.0, 1.0)
-		boss_model.rotation_degrees = Vector3(0.0, 0.0, 0.0)
-		boss_anchor.add_child(boss_model)
-		_bind_boss_glb_sockets(boss_model)
-		_play_first_animation(boss_model)
-		boss_core = null
-	else:
-		boss_anchor.add_child(_box_mesh("LeviathanMainHull", Vector3(0.0, 0.0, 0.0), Vector3(24.0, 2.4, 8.2), boss_hull_mat))
-		boss_anchor.add_child(_box_mesh("LeviathanUpperDeck", Vector3(0.0, 1.65, -0.3), Vector3(17.0, 0.95, 5.9), boss_armor_mat))
-		boss_anchor.add_child(_box_mesh("LeviathanBowPlate", Vector3(0.0, -0.15, 5.1), Vector3(11.5, 1.3, 0.9), boss_armor_mat))
-		boss_anchor.add_child(_box_mesh("LeftFlightSponson", Vector3(-12.7, -0.15, 0.6), Vector3(3.8, 0.65, 5.8), boss_hull_mat))
-		boss_anchor.add_child(_box_mesh("RightFlightSponson", Vector3(12.7, -0.15, 0.6), Vector3(3.8, 0.65, 5.8), boss_hull_mat))
-		for i in range(7):
-			var tx = -7.8 + i * 2.6
-			var tower = _box_mesh("CommandTower_%02d" % i, Vector3(tx, 2.8 + rng.randf_range(0.0, 1.0), rng.randf_range(-2.8, 2.5)), Vector3(0.75, rng.randf_range(2.2, 4.8), 0.75), boss_armor_mat)
-			boss_anchor.add_child(tower)
-			var light = _box_mesh("TowerBlueBeacon_%02d" % i, tower.position + Vector3(0.0, tower.mesh.size.y * 0.55 + 0.10, 0.0), Vector3(0.20, 0.12, 0.20), player_beam_mat)
-			boss_anchor.add_child(light)
-		for i in range(11):
-			var sx = -7.5 + i * 1.5
-			boss_anchor.add_child(_box_mesh("LeviathanBlueWindow_%02d" % i, Vector3(sx, -0.45, 5.68), Vector3(0.45, 0.16, 0.08), player_beam_mat))
-			if i % 2 == 0:
-				boss_anchor.add_child(_box_mesh("LeviathanRedPort_%02d" % i, Vector3(sx + 0.7, 0.20, 5.75), Vector3(0.34, 0.14, 0.08), tracer_red_mat))
-		boss_core = _sphere_mesh("LeviathanCoreCannon", Vector3(0.0, -0.20, 5.92), 0.92, boss_core_mat)
-		boss_anchor.add_child(boss_core)
-	add_child(boss_anchor)
+	# Pass 1 correction: no decorative bullets, no unhittable mid-field jets and no
+	# static matte standing in for an entity. Only real systems are built here.
 	_create_boss_gameplay_vfx_layer()
-
-	for i in range(0):
-		var x = -4.4 + i * 2.2
-		var beam = _vfx_quad("BossLaserLance_%02d" % i, Vector3(x, 5.8 - abs(float(i) - 2.0) * 0.30, -54.0 + i * 1.4), Vector2(0.42, 9.8), enemy_shot_texture, Color(1.0, 0.42, 0.12, 0.88), 1.8)
-		beam.rotation_degrees = Vector3(0.0, -x * 1.6, x * 2.0)
-		beam.set_meta("base_x", x)
-		add_child(beam)
-		boss_beams.append(beam)
-
-	var lanes = [-3.4, -2.15, -0.9, 0.9, 2.15, 3.4]
-	for i in range(14):
-		var lane = lanes[i % lanes.size()]
-		var bullet = _vfx_forward_projectile_quad("ReadableEnemyForwardBolt_%02d" % i, Vector3(lane, rng.randf_range(1.6, 5.0), -38.0 - i * 6.2), Vector2(0.30, 1.95), enemy_shot_texture, Color(1.0, 0.48, 0.20, 0.78), 1.35)
-		bullet.set_meta("lane", lane)
-		bullet.set_meta("speed_mul", rng.randf_range(1.20, 1.55))
-		add_child(bullet)
-		cinematic_bullets.append(bullet)
-
-	for i in range(0):
-		var beam_x = -0.78 + float(i) * 0.78
-		var player_beam = _vfx_forward_projectile_quad("PlayerCyanForwardFireLane_%02d" % i, Vector3(beam_x, 1.78, -34.0), Vector2(0.62, 18.0), hero_shot_texture, Color(0.58, 0.98, 1.0, 0.92), 3.2)
-		player_beam.set_meta("beam_x", beam_x)
-		add_child(player_beam)
-		player_beams.append(player_beam)
-
-	# Legacy near-camera cyan pulse quads are disabled for Phase 3. Exact socket
-	# muzzle flashes remain in ForwardAirScene and pooled projectile visuals start
-	# several meters ahead of the GLB hardpoints; this avoids giant cyan sheets when
-	# a mobile screenshot catches a quad too close to the chase camera.
-	for i in range(0):
-		var lane_x = -0.62 + float(i % 3) * 0.62
-		var pulse = _vfx_forward_projectile_quad("PlayerCyanForwardShotPulse_%02d" % i, Vector3(lane_x, 1.78, -5.5 - float(i) * 3.35), Vector2(0.52, 3.25), hero_shot_texture, Color(0.74, 1.0, 1.0, 1.0), 3.6)
-		pulse.set_meta("lane_x", lane_x)
-		pulse.set_meta("phase", float(i) * 0.13)
-		add_child(pulse)
-		player_shot_pulses.append(pulse)
-
 	_create_projectile_visual_pools()
 
-	for i in range(4):
-		var enemy = Node3D.new()
-		enemy.name = "EnemyHeroJetAttack_%02d" % i
-		var side = -1.0 if i % 2 == 0 else 1.0
-		enemy.position = Vector3(side * rng.randf_range(4.8, 8.8), rng.randf_range(2.8, 7.2), -34.0 - float(i) * 12.5)
-		enemy.set_meta("side", side)
-		enemy.set_meta("speed_mul", rng.randf_range(0.88, 1.20))
-		enemy.set_meta("base_y", enemy.position.y)
-		if enemy_hero_jet_scene:
-			var model = enemy_hero_jet_scene.instantiate()
-			model.name = "EnemyHeroJetGLB"
-			model.scale = Vector3(0.022, 0.022, 0.022)
-			model.rotation_degrees = Vector3(0.0, 180.0 + side * 18.0, 0.0)
-			enemy.add_child(model)
-			_play_first_animation(model)
-		else:
-			enemy.add_child(_box_mesh("EnemyHeroJetFallback", Vector3.ZERO, Vector3(1.4, 0.16, 1.1), boss_armor_mat))
-		add_child(enemy)
-		enemy_attack_jets.append(enemy)
 
-	for i in range(0):
-		var trail = _vfx_quad("MissileSmokeTrail_%02d" % i, Vector3(rng.randf_range(-11.0, 11.0), rng.randf_range(-0.7, 3.5), -14.0 - rng.randf_range(0.0, 94.0)), Vector2(rng.randf_range(1.0, 1.8), rng.randf_range(2.0, 4.8)), smoke_texture, Color(0.82, 0.88, 0.92, 0.46), 0.45)
-		trail.rotation_degrees = Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(-26.0, 26.0), rng.randf_range(-18.0, 18.0))
-		trail.set_meta("speed_mul", rng.randf_range(0.72, 1.05))
-		add_child(trail)
-		missile_trails.append(trail)
-
-	for i in range(0):
-		var explosion = _vfx_quad("WarzoneExplosionBurst_%02d" % i, Vector3(rng.randf_range(-9.5, 9.5), rng.randf_range(-2.4, 1.4), -24.0 - rng.randf_range(0.0, 86.0)), Vector2(rng.randf_range(1.3, 2.8), rng.randf_range(1.3, 2.8)), explosion_texture, Color(1.0, 0.65, 0.26, 0.88), 2.0)
-		explosion.set_meta("base_radius", explosion.scale.x)
-		explosion.set_meta("speed_mul", rng.randf_range(0.78, 1.05))
-		add_child(explosion)
-		explosion_bursts.append(explosion)
-
-	for i in range(0):
-		var shield_x = -8.8 if i == 0 else 8.6
-		var shield = _vfx_quad("WingmanShieldBubble_%02d" % i, Vector3(shield_x, 2.0 + i * 0.45, -34.0 - i * 18.0), Vector2(3.5, 3.5), shield_texture, Color(0.64, 0.95, 1.0, 0.62), 1.4)
-		shield.set_meta("speed_mul", 0.66 + i * 0.06)
-		add_child(shield)
-		shield_bubbles.append(shield)
+func _create_boss_entity() -> void:
+	boss_entity = BOSS_ENTITY_SCRIPT.new()
+	add_child(boss_entity)
+	if boss_entity.has_method("setup"):
+		boss_entity.setup()
+	boss_entity.position = Vector3(0.0, CombatSpace.PLANE_Y, CombatSpace.BOSS_Z)
+	boss_anchor = boss_entity
+	boss_phase_controller = boss_entity.phase_controller
+	boss_glb_weakpoint_socket_found = bool(boss_entity.model_loaded)
+	boss_glb_muzzle_sockets_found = bool(boss_entity.model_loaded)
+	boss_socket_binding = "boss_entity_weakpoint_anchor"
+	boss_muzzle_socket_binding = "boss_entity_live_turret_muzzles"
 
 
-func _bind_boss_glb_sockets(root: Node) -> void:
-	boss_weakpoint_socket = _find_node3d(root, "Boss_WeakPoint_Core")
-	boss_muzzle_core_socket = _find_node3d(root, "Boss_Muzzle_Core")
-	boss_muzzle_left_socket = _find_node3d(root, "Boss_Muzzle_Left")
-	boss_muzzle_right_socket = _find_node3d(root, "Boss_Muzzle_Right")
-	boss_glb_weakpoint_socket_found = boss_weakpoint_socket != null
-	boss_glb_muzzle_sockets_found = boss_muzzle_core_socket != null and boss_muzzle_left_socket != null and boss_muzzle_right_socket != null
-	boss_socket_binding = "glb_boss_socket_runtime" if boss_glb_weakpoint_socket_found else "runtime_fallback"
-	boss_muzzle_socket_binding = "glb_boss_muzzle_socket_runtime" if boss_glb_muzzle_sockets_found else "runtime_fallback"
+func set_projectile_manager(manager: Node) -> void:
+	projectile_manager_ref = manager
+	if manager != null and manager.has_method("set_boss_entity"):
+		manager.set_boss_entity(boss_entity)
 
 
 func _find_node3d(root: Node, node_name: String) -> Node3D:
@@ -683,262 +575,73 @@ func _find_node3d(root: Node, node_name: String) -> Node3D:
 
 
 func _create_boss_gameplay_vfx_layer() -> void:
-	boss_damage_feedback_mode = "pooled_sprite_impacts_target_reticle"
+	# Only the target reticle lives here now. Impact sparks, muzzle flashes, damage
+	# smoke and destruction visuals are owned by BossEntity3D, next to the state
+	# that causes them.
+	boss_damage_feedback_mode = "boss_entity_part_flash_and_impact_sparks"
 	if reticle_texture != null:
-		boss_weakpoint_marker = _vfx_quad("BossWeakpointReticle_GLBSocket", Vector3.ZERO, Vector2(5.8, 5.8), reticle_texture, Color(0.68, 0.98, 1.0, 0.74), 2.8)
+		boss_weakpoint_marker = _vfx_quad("BossWeakpointReticle_Entity", Vector3.ZERO, Vector2(5.2, 5.2), reticle_texture, Color(0.68, 0.98, 1.0, 0.62), 2.2)
 	else:
-		boss_weakpoint_marker = _vfx_quad("BossWeakpointReticleFallback", Vector3.ZERO, Vector2(4.6, 4.6), hero_shot_texture, Color(0.68, 0.98, 1.0, 0.68), 2.2)
+		boss_weakpoint_marker = _vfx_quad("BossWeakpointReticleFallback", Vector3.ZERO, Vector2(4.4, 4.4), hero_shot_texture, Color(0.68, 0.98, 1.0, 0.56), 2.0)
 	if boss_weakpoint_marker != null:
 		boss_weakpoint_marker.visible = false
 		var marker_mat := boss_weakpoint_marker.material_override as StandardMaterial3D
 		if marker_mat != null:
 			marker_mat.no_depth_test = true
 		add_child(boss_weakpoint_marker)
-	boss_impact_pool.clear()
-	for i in range(10):
-		var impact := _vfx_quad("BossSocketImpactBurst_%02d" % i, Vector3.ZERO, Vector2(2.4, 2.4), explosion_texture, Color(1.0, 0.72, 0.24, 0.88), 3.4)
-		impact.visible = false
-		impact.set_meta("life", 0.0)
-		impact.set_meta("max_life", 0.42)
-		impact.set_meta("base_scale", 1.0)
-		var impact_mat := impact.material_override as StandardMaterial3D
-		if impact_mat != null:
-			impact_mat.no_depth_test = true
-		add_child(impact)
-		boss_impact_pool.append(impact)
-	boss_socket_fire_nodes.clear()
-	for i in range(3):
-		var fire_lane := _vfx_forward_projectile_quad("BossGLBMuzzleForwardFire_%02d" % i, Vector3.ZERO, Vector2(0.34, 9.4), enemy_shot_texture, Color(1.0, 0.46, 0.16, 0.68), 2.4)
-		fire_lane.visible = false
-		fire_lane.set_meta("socket_index", i)
-		fire_lane.set_meta("phase", float(i) * 0.37)
-		var fire_mat := fire_lane.material_override as StandardMaterial3D
-		if fire_mat != null:
-			fire_mat.no_depth_test = true
-		add_child(fire_lane)
-		boss_socket_fire_nodes.append(fire_lane)
-	boss_part_damage_nodes.clear()
-	for part_name in ["shield", "turrets", "left_wing", "right_wing", "core"]:
-		var damage_marker := _vfx_quad("BossDestroyedPartSmoke_%s" % part_name, Vector3.ZERO, Vector2(1.8, 1.8), smoke_texture if smoke_texture != null else explosion_texture, Color(0.95, 0.52, 0.18, 0.58), 1.45)
-		damage_marker.visible = false
-		damage_marker.set_meta("part", part_name)
-		damage_marker.set_meta("phase", rng.randf_range(0.0, TAU))
-		var marker_mat := damage_marker.material_override as StandardMaterial3D
-		if marker_mat != null:
-			marker_mat.no_depth_test = false
-		add_child(damage_marker)
-		boss_part_damage_nodes[part_name] = damage_marker
-	boss_part_damage_vfx_mode = "socket_part_damage_markers"
-	boss_socket_fire_mode = "glb_boss_muzzle_forward_lanes" if boss_glb_muzzle_sockets_found else "runtime_fallback"
+	boss_part_damage_vfx_mode = "boss_entity_owned_part_smoke"
+	boss_socket_fire_mode = "boss_entity_muzzle_flash"
 
 
 func _reset_boss_gameplay_vfx() -> void:
 	boss_impact_events_seen = 0
-	boss_impact_pool_cursor = 0
-	boss_impact_visuals_active = 0
-	boss_socket_fire_events_seen = 0
-	boss_socket_fire_active_count = 0
 	boss_destroyed_part_visual_count = 0
 	boss_phase_transition_events_seen = 0
 	boss_last_phase_transition_count = 0
 	boss_part_destruction_events_seen = 0
 	boss_last_part_destruction_count = 0
 	boss_visual_target_part = "shield"
-	boss_damage_feedback_mode = "pooled_sprite_impacts_target_reticle" if boss_weakpoint_marker != null else boss_damage_feedback_mode
-	boss_part_damage_vfx_mode = "socket_part_damage_markers" if not boss_part_damage_nodes.is_empty() else "pending"
 	if boss_weakpoint_marker != null:
 		boss_weakpoint_marker.visible = false
-	for impact in boss_impact_pool:
-		if impact is MeshInstance3D:
-			impact.visible = false
-			impact.set_meta("life", 0.0)
-	for key in boss_part_damage_nodes.keys():
-		var marker = boss_part_damage_nodes[key]
-		if marker is MeshInstance3D:
-			marker.visible = false
-
-
-func _spawn_boss_impact_visual(hit: Dictionary, part_name: String) -> void:
-	if boss_impact_pool.is_empty():
-		return
-	var impact: MeshInstance3D = boss_impact_pool[boss_impact_pool_cursor % boss_impact_pool.size()]
-	boss_impact_pool_cursor += 1
-	var target := _boss_weakpoint_world_position(part_name)
-	var hit_x: float = clamp(float(hit.get("x", 0.0)) * 0.30, -3.8, 3.8)
-	var part_offset := Vector3(hit_x, rng.randf_range(-0.45, 0.62), rng.randf_range(-0.55, 0.55))
-	if part_name == "left_wing":
-		part_offset.x -= 3.2
-	elif part_name == "right_wing":
-		part_offset.x += 3.2
-	elif part_name == "turrets":
-		part_offset.y += 1.0
-	elif part_name == "core":
-		part_offset *= 0.45
-	impact.global_position = target + part_offset
-	impact.visible = true
-	impact.set_meta("life", 0.46)
-	impact.set_meta("max_life", 0.46)
-	impact.set_meta("base_scale", rng.randf_range(0.82, 1.35))
-	impact.set_meta("part", part_name)
-	boss_impact_events_seen += 1
-	boss_visual_target_part = part_name
 
 
 func _update_boss_gameplay_vfx(delta: float) -> void:
 	var boss_state: Dictionary = {}
-	if boss_phase_controller != null and boss_phase_controller.has_method("get_bridge_state"):
-		boss_state = boss_phase_controller.get_bridge_state()
+	if boss_entity != null and boss_entity.has_method("get_bridge_state"):
+		boss_state = boss_entity.get_bridge_state()
 		boss_visual_target_part = str(boss_state.get("bossTargetablePart", boss_visual_target_part))
-		var phase_transition_count: int = int(boss_state.get("bossPhaseTransitionCount", 0))
-		if phase_transition_count > boss_last_phase_transition_count:
-			boss_phase_transition_events_seen += phase_transition_count - boss_last_phase_transition_count
-			boss_last_phase_transition_count = phase_transition_count
-		var part_destruction_count: int = int(boss_state.get("bossPartDestructionEvents", 0))
-		if part_destruction_count > boss_last_part_destruction_count:
-			boss_part_destruction_events_seen += part_destruction_count - boss_last_part_destruction_count
-			boss_last_part_destruction_count = part_destruction_count
-	_update_boss_part_damage_vfx(delta, boss_state)
+		var transition_count: int = int(boss_state.get("bossPhaseTransitionCount", 0))
+		if transition_count > boss_last_phase_transition_count:
+			boss_phase_transition_events_seen += transition_count - boss_last_phase_transition_count
+			boss_last_phase_transition_count = transition_count
+		var destruction_count: int = int(boss_state.get("bossPartDestructionEvents", 0))
+		if destruction_count > boss_last_part_destruction_count:
+			boss_part_destruction_events_seen += destruction_count - boss_last_part_destruction_count
+			boss_last_part_destruction_count = destruction_count
+		boss_destroyed_part_visual_count = int(boss_state.get("bossDestroyedParts", 0))
 	if boss_weakpoint_marker != null:
 		boss_weakpoint_marker.visible = active
 		if active:
-			boss_weakpoint_marker.global_position = _boss_weakpoint_world_position(boss_visual_target_part)
-			var marker_pulse: float = 1.0 + sin(forward_time * 5.6) * 0.08 + lightning_flash * 0.10
+			boss_weakpoint_marker.global_position = _boss_weakpoint_world_position(boss_visual_target_part) + Vector3(0.0, 0.0, 2.2)
+			boss_weakpoint_marker.rotation_degrees = Vector3(74.0, 0.0, 0.0)
+			var marker_pulse: float = 1.0 + sin(forward_time * 5.6) * 0.07
 			boss_weakpoint_marker.scale = Vector3.ONE * marker_pulse
-	_update_boss_socket_fire_vfx(delta)
-	boss_impact_visuals_active = 0
-	for impact in boss_impact_pool:
-		if not (impact is MeshInstance3D):
-			continue
-		var life := float(impact.get_meta("life", 0.0))
-		if life <= 0.0:
-			impact.visible = false
-			continue
-		life = max(0.0, life - delta)
-		impact.set_meta("life", life)
-		if life <= 0.0:
-			impact.visible = false
-			continue
-		boss_impact_visuals_active += 1
-		var max_life: float = max(0.01, float(impact.get_meta("max_life", 0.46)))
-		var fade: float = clamp(life / max_life, 0.0, 1.0)
-		var grow: float = 0.72 + (1.0 - fade) * 1.28
-		var base_scale: float = float(impact.get_meta("base_scale", 1.0))
-		impact.scale = Vector3.ONE * base_scale * grow
-		var mat := impact.material_override as StandardMaterial3D
-		if mat != null:
-			mat.albedo_color = Color(1.0, 0.70 + fade * 0.18, 0.18, fade * 0.90)
-			mat.emission_energy_multiplier = 1.4 + fade * 3.2
-
-
-func _update_boss_part_damage_vfx(delta: float, boss_state: Dictionary) -> void:
-	boss_part_damage_vfx_mode = "socket_part_damage_markers" if not boss_part_damage_nodes.is_empty() else "pending"
-	var destroyed: Array = boss_state.get("bossDestroyedPartList", [])
-	var phase_flash: bool = bool(boss_state.get("bossPhaseTransitionVFX", false))
-	boss_destroyed_part_visual_count = 0
-	for key in boss_part_damage_nodes.keys():
-		var marker := boss_part_damage_nodes[key] as MeshInstance3D
-		if marker == null:
-			continue
-		var part_name := str(key)
-		var is_destroyed := destroyed.has(part_name)
-		marker.visible = active and is_destroyed
-		if not marker.visible:
-			continue
-		boss_destroyed_part_visual_count += 1
-		var phase_offset: float = float(marker.get_meta("phase", 0.0))
-		var pulse: float = 0.5 + 0.5 * sin(forward_time * 4.8 + phase_offset)
-		var phase_boost: float = 0.34 if phase_flash else 0.0
-		marker.global_position = _boss_destroyed_part_world_position(part_name) + Vector3(sin(forward_time * 1.4 + phase_offset) * 0.16, pulse * 0.28, 0.25 + pulse * 0.22)
-		marker.rotation_degrees = Vector3(76.0 + pulse * 4.0, 0.0, sin(forward_time * 1.9 + phase_offset) * 8.0)
-		marker.scale = Vector3.ONE * (1.0 + pulse * 0.30 + phase_boost)
-		var mat := marker.material_override as StandardMaterial3D
-		if mat != null:
-			mat.albedo_color = Color(1.0, 0.42 + pulse * 0.20, 0.16, 0.48 + pulse * 0.22 + phase_boost)
-			mat.emission_energy_multiplier = 1.1 + pulse * 1.2 + phase_boost * 2.0
-
-
-func _boss_destroyed_part_world_position(part_name: String) -> Vector3:
-	if part_name == "turrets":
-		var origins := _boss_muzzle_world_positions()
-		if origins.size() >= 3:
-			return (origins[0] + origins[1] + origins[2]) / 3.0 + Vector3(0.0, 0.55, 0.6)
-	return _boss_weakpoint_world_position(part_name)
 
 
 func _boss_weakpoint_world_position(part_name: String) -> Vector3:
-	if boss_weakpoint_socket != null and boss_weakpoint_socket.is_inside_tree():
-		var socket_pos := boss_weakpoint_socket.global_transform.origin
-		if part_name == "left_wing":
-			return socket_pos + Vector3(-5.0, -0.2, -0.6)
-		if part_name == "right_wing":
-			return socket_pos + Vector3(5.0, -0.2, -0.6)
-		if part_name == "turrets":
-			return socket_pos + Vector3(0.0, 1.25, -1.1)
-		return socket_pos
-	if boss_anchor != null and boss_anchor.is_inside_tree():
-		var offset := Vector3(0.0, 0.0, 5.85)
-		if part_name == "left_wing":
-			offset = Vector3(-6.2, -0.1, 1.2)
-		elif part_name == "right_wing":
-			offset = Vector3(6.2, -0.1, 1.2)
-		elif part_name == "turrets":
-			offset = Vector3(0.0, 2.6, -0.4)
-		elif part_name == "core":
-			offset = Vector3(0.0, -0.1, 5.9)
-		return boss_anchor.global_position + offset
-	return Vector3(0.0, 12.0, -90.0)
-
-
-func _update_boss_socket_fire_vfx(delta: float) -> void:
-	boss_socket_fire_mode = "glb_boss_muzzle_forward_lanes" if boss_glb_muzzle_sockets_found else "runtime_fallback"
-	var origins := _boss_muzzle_world_positions()
-	boss_socket_fire_active_count = 0
-	if origins.is_empty():
-		for node in boss_socket_fire_nodes:
-			if node is MeshInstance3D:
-				node.visible = false
-		return
-	for i in range(boss_socket_fire_nodes.size()):
-		var lane: MeshInstance3D = boss_socket_fire_nodes[i]
-		var origin: Vector3 = origins[i % origins.size()]
-		var phase := float(lane.get_meta("phase", 0.0))
-		var pulse: float = 0.5 + 0.5 * sin(forward_time * 9.4 + phase * TAU)
-		lane.visible = active
-		if not lane.visible:
-			continue
-		boss_socket_fire_active_count += 1
-		lane.global_position = origin + Vector3(sin(forward_time * 1.7 + phase) * 0.18, -0.08 - pulse * 0.12, 4.2 + pulse * 0.55)
-		lane.rotation_degrees = Vector3(90.0, 0.0, 0.0)
-		lane.scale = Vector3(0.72 + pulse * 0.20, 0.84 + pulse * 0.36 + lightning_flash * 0.16, 1.0)
-		var mat := lane.material_override as StandardMaterial3D
-		if mat != null:
-			mat.albedo_color = Color(1.0, 0.42 + pulse * 0.18, 0.12, 0.40 + pulse * 0.38)
-			mat.emission_energy_multiplier = 1.8 + pulse * 2.4 + lightning_flash * 0.8
-	if active and boss_socket_fire_active_count > 0:
-		boss_socket_fire_events_seen += 1
+	if boss_entity != null and boss_entity.has_method("get_part_world_position"):
+		return boss_entity.get_part_world_position(part_name)
+	return Vector3(0.0, CombatSpace.PLANE_Y, CombatSpace.BOSS_Z)
 
 
 func _boss_muzzle_world_positions() -> Array:
-	var positions: Array = []
-	for socket in [boss_muzzle_left_socket, boss_muzzle_core_socket, boss_muzzle_right_socket]:
-		if socket != null and socket.is_inside_tree():
-			positions.append(socket.global_transform.origin)
-	if positions.is_empty() and boss_anchor != null and boss_anchor.is_inside_tree():
-		positions.append(boss_anchor.global_position + Vector3(-4.2, 0.0, 5.4))
-		positions.append(boss_anchor.global_position + Vector3(0.0, 0.3, 5.8))
-		positions.append(boss_anchor.global_position + Vector3(4.2, 0.0, 5.4))
-	return positions
+	if boss_entity != null and boss_entity.has_method("get_live_muzzle_positions"):
+		return boss_entity.get_live_muzzle_positions()
+	return []
 
 
 func _boss_muzzle_socket_names() -> Array:
-	var names: Array = []
-	if boss_muzzle_left_socket != null:
-		names.append("Boss_Muzzle_Left")
-	if boss_muzzle_core_socket != null:
-		names.append("Boss_Muzzle_Core")
-	if boss_muzzle_right_socket != null:
-		names.append("Boss_Muzzle_Right")
-	return names
+	return ["LargeAATurret_00", "LargeAATurret_01", "LargeAATurret_02", "LargeAATurret_03", "Boss_Muzzle_Core"]
 
 
 func _boss_muzzle_spread_x() -> float:
@@ -956,57 +659,35 @@ func _boss_muzzle_spread_x() -> float:
 
 
 func _phase3_debug_status() -> String:
-	if boss_glb_weakpoint_socket_found and boss_glb_muzzle_sockets_found and boss_weakpoint_marker != null and boss_socket_fire_active_count > 0 and boss_impact_events_seen > 0:
-		return "boss_weakpoint_muzzle_fire_debug_locked"
+	if boss_entity != null and boss_impact_events_seen > 0:
+		return "boss_entity_causality_locked"
 	return "phase3_debug_waiting_for_runtime_events"
 
 
-func _active_boss_impact_count() -> int:
-	var count := 0
-	for impact in boss_impact_pool:
-		if impact is MeshInstance3D and impact.visible and float(impact.get_meta("life", 0.0)) > 0.0:
-			count += 1
-	return count
-
-
 func _create_projectile_visual_pools() -> void:
-	# Architecture pass: high-count projectile visuals are pooled and batched through MultiMesh.
-	# The current gameplay damage logic stays separate; this is the renderer-aware bullet field.
+	# Both pools are bound renderers for the logical bullet arrays.
+	# Readability order: enemy bullets are brighter and thicker than player fire.
 	if hero_shot_texture != null:
 		player_projectile_visual_pool = PROJECTILE_VISUAL_POOL_SCRIPT.new()
 		add_child(player_projectile_visual_pool)
-		player_projectile_visual_pool.setup(
+		player_projectile_visual_pool.setup_bound(
 			"player_cyan_plasma",
 			hero_shot_texture,
-			Color(0.62, 1.0, 1.0, 0.92),
-			36,
-			Vector2(0.42, 2.45),
-			[-0.98, -0.32, 0.32, 0.98],
-			1.65,
-			3.65,
-			-5.5,
-			-118.0,
-			false,
-			54.0,
-			84.0
+			Color(0.56, 0.95, 1.0, 0.68),
+			80,
+			Vector2(0.55, 2.60),
+			2.0
 		)
 	if enemy_shot_texture != null:
 		enemy_projectile_visual_pool = PROJECTILE_VISUAL_POOL_SCRIPT.new()
 		add_child(enemy_projectile_visual_pool)
-		enemy_projectile_visual_pool.setup(
+		enemy_projectile_visual_pool.setup_bound(
 			"enemy_orange_bolts",
 			enemy_shot_texture,
-			Color(1.0, 0.48, 0.18, 0.86),
-			48,
-			Vector2(0.30, 1.75),
-			[-4.1, -2.55, -1.05, 1.05, 2.55, 4.1],
-			1.8,
-			5.7,
-			8.0,
-			-126.0,
-			true,
-			34.0,
-			56.0
+			Color(1.0, 0.64, 0.34, 1.0),
+			160,
+			Vector2(1.05, 3.00),
+			4.4
 		)
 
 
@@ -1018,22 +699,12 @@ func _projectile_pool_count() -> int:
 		count += int(enemy_projectile_visual_pool.get_pool_count())
 	return count
 
-func _create_boss_phase_controller() -> void:
-	boss_phase_controller = BOSS_PHASE_CONTROLLER_SCRIPT.new()
-	add_child(boss_phase_controller)
-	if boss_phase_controller.has_method("setup"):
-		boss_phase_controller.setup()
-
-
 func _update_boss_phase_logic(delta: float) -> void:
-	if boss_phase_controller == null or not boss_phase_controller.has_method("update_boss"):
+	if boss_entity == null or not boss_entity.has_method("update_boss"):
 		return
 	var overcharged: bool = overcharge_timer > 0.0
 	var pressure: float = 1.0 + (0.30 if overcharged else 0.0) + lightning_flash * 0.22
-	boss_phase_controller.update_boss(delta, overcharged, pressure)
-	if boss_core and boss_phase_controller.has_method("get_hp_ratio"):
-		var wounded := 1.0 - float(boss_phase_controller.get_hp_ratio())
-		boss_core.scale = Vector3.ONE * (1.0 + wounded * 0.20 + lightning_flash * 0.25)
+	boss_entity.update_boss(delta, overcharged, pressure)
 
 
 func _play_first_animation(root: Node) -> void:
@@ -1068,42 +739,14 @@ func _create_storm_hazard_cells() -> void:
 
 
 func _reset_layers() -> void:
-	for i in range(far_sky_banks.size()):
-		far_sky_banks[i].position = Vector3(rng.randf_range(-26.0, 26.0), rng.randf_range(9.0, 16.0), -72.0 - i * 34.0)
-	for cloud in mid_cloud_banks:
-		cloud.position = Vector3(rng.randf_range(-13.5, 13.5), rng.randf_range(3.0, 8.2), -36.0 - rng.randf_range(0.0, 130.0))
 	for i in range(ocean_floor_planes.size()):
-		ocean_floor_planes[i].position = Vector3(0.0, -9.45, -24.0 - i * 44.0)
+		ocean_floor_planes[i].position = Vector3(0.0, CombatSpace.UNDERWORLD_Y, -24.0 - i * 44.0)
 	for i in range(warzone_chunks.size()):
-		warzone_chunks[i].position = Vector3(0.0, -9.0, -24.0 - i * 22.0)
-	for rain in rain_sheets:
-		rain.position = Vector3(rng.randf_range(-8.5, 8.5), rng.randf_range(0.5, 6.0), -5.0 - rng.randf_range(0.0, 78.0))
+		warzone_chunks[i].position = Vector3(0.0, CombatSpace.UNDERWORLD_DECOR_Y, -24.0 - i * 22.0)
 	for debris in debris_streaks:
-		debris.position = Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(-1.8, 4.7), -8.0 - rng.randf_range(0.0, 95.0))
-	for traffic in air_traffic:
-		traffic.position = Vector3(rng.randf_range(-18.0, 18.0), rng.randf_range(3.0, 10.0), -45.0 - rng.randf_range(0.0, 130.0))
-	for tracer in tracer_streaks:
-		tracer.position = Vector3(rng.randf_range(-18.0, 18.0), rng.randf_range(1.0, 10.5), -24.0 - rng.randf_range(0.0, 145.0))
-	if boss_anchor:
-		boss_anchor.position = Vector3(0.0, 12.5, -96.0)
-	for i in range(enemy_attack_jets.size()):
-		var side = -1.0 if i % 2 == 0 else 1.0
-		enemy_attack_jets[i].position = Vector3(side * rng.randf_range(4.8, 8.8), rng.randf_range(2.8, 7.2), -34.0 - float(i) * 12.5)
-	for i in range(player_shot_pulses.size()):
-		var lane_x: float = float(player_shot_pulses[i].get_meta("lane_x", 0.0))
-		var origin: Vector3 = _player_shot_origin(i, lane_x)
-		player_shot_pulses[i].position = Vector3(origin.x, origin.y, origin.z - float(i) * 3.35)
-	for bullet in cinematic_bullets:
-		bullet.position.z = -18.0 - rng.randf_range(0.0, 112.0)
-		bullet.position.y = rng.randf_range(1.1, 4.5)
-	for trail in missile_trails:
-		trail.position = Vector3(rng.randf_range(-11.0, 11.0), rng.randf_range(-0.7, 3.5), -14.0 - rng.randf_range(0.0, 94.0))
-	for explosion in explosion_bursts:
-		explosion.position = Vector3(rng.randf_range(-9.5, 9.5), rng.randf_range(-2.4, 1.4), -24.0 - rng.randf_range(0.0, 86.0))
-	for i in range(shield_bubbles.size()):
-		shield_bubbles[i].position = Vector3(-8.8 if i == 0 else 8.6, 2.0 + i * 0.45, -34.0 - i * 18.0)
-	for i in range(storm_cells.size()):
-		storm_cells[i].position = Vector3(rng.randf_range(-5.0, 5.0), rng.randf_range(0.4, 3.8), -35.0 - i * 42.0)
+		debris.position = Vector3(rng.randf_range(-12.0, 12.0), CombatSpace.UNDERWORLD_DECOR_Y + rng.randf_range(0.5, 3.5), -8.0 - rng.randf_range(0.0, 95.0))
+	if boss_entity:
+		boss_entity.position = Vector3(0.0, CombatSpace.PLANE_Y, CombatSpace.BOSS_Z)
 
 
 func _update_weather_logic(delta: float, player_corridor: Vector2) -> void:
@@ -1143,6 +786,7 @@ func _update_ocean_floor(delta: float, travel_speed: float) -> void:
 	for ocean in ocean_floor_planes:
 		ocean.position.z += travel_speed * float(ocean.get_meta("speed_mul", 0.52)) * delta
 		ocean.position.x = sin(forward_time * 0.18 + ocean.position.z * 0.05) * 0.55 + wind_drift * 0.35
+		ocean.position.y = CombatSpace.UNDERWORLD_Y
 		if ocean.position.z > 26.0:
 			ocean.position.z -= 220.0
 
@@ -1182,7 +826,7 @@ func _update_near_weather(delta: float, travel_speed: float) -> void:
 		debris.position.x += wind_drift * delta * 0.55
 		debris.rotation_degrees.z += delta * 80.0
 		if debris.position.z > 10.0:
-			debris.position = Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(-1.8, 4.7), -100.0 - rng.randf_range(0.0, 35.0))
+			debris.position = Vector3(rng.randf_range(-12.0, 12.0), CombatSpace.UNDERWORLD_DECOR_Y + rng.randf_range(0.5, 3.5), -100.0 - rng.randf_range(0.0, 35.0))
 
 
 func _update_distant_battle(delta: float, travel_speed: float) -> void:
@@ -1200,74 +844,12 @@ func _update_distant_battle(delta: float, travel_speed: float) -> void:
 			tracer.position = Vector3(rng.randf_range(-18.0, 18.0), rng.randf_range(1.0, 10.5), -145.0 - rng.randf_range(0.0, 45.0))
 
 
-func _update_visual_lock_composition(delta: float, travel_speed: float) -> void:
-	if boss_anchor:
-		boss_anchor.position.z = lerp(boss_anchor.position.z, -96.0 + sin(forward_time * 0.22) * 2.0, min(1.0, delta * 0.7))
-		boss_anchor.position.x = sin(forward_time * 0.17) * 1.0
-		boss_anchor.rotation_degrees.z = sin(forward_time * 0.19) * 1.5
+func _update_visual_lock_composition(delta: float, _travel_speed: float) -> void:
+	if boss_entity != null:
+		boss_entity.position.x = sin(forward_time * 0.17) * 1.1
+		boss_entity.position.z = CombatSpace.BOSS_Z + sin(forward_time * 0.22) * 1.6
+		boss_entity.rotation_degrees.z = sin(forward_time * 0.19) * 1.2
 	_update_boss_gameplay_vfx(delta)
-	if boss_core:
-		var core_pulse = 1.0 + sin(forward_time * 7.5) * 0.10 + lightning_flash * 0.32
-		boss_core.scale = Vector3.ONE * core_pulse
-	for beam in boss_beams:
-		beam.visible = true
-		beam.position.x = float(beam.get_meta("base_x", 0.0)) + sin(forward_time * 0.9 + beam.position.z) * 0.22
-		beam.scale.z = 1.0 + lightning_flash * 0.18
-	for bullet in cinematic_bullets:
-		bullet.position.z += travel_speed * float(bullet.get_meta("speed_mul", 1.35)) * delta
-		bullet.position.x = float(bullet.get_meta("lane", 0.0)) + sin(forward_time * 1.15 + bullet.position.z * 0.05) * 0.18
-		bullet.rotation_degrees.x = 90.0
-		if bullet.position.z > 6.0:
-			bullet.position.z = -112.0 - rng.randf_range(0.0, 28.0)
-			bullet.position.y = rng.randf_range(1.1, 4.5)
-	for beam in player_beams:
-		var beam_lane: float = float(beam.get_meta("beam_x", 0.0))
-		beam.position.x = last_player_corridor.x + beam_lane * 0.45 + sin(forward_time * 12.0) * 0.025
-		beam.position.y = 1.55 + last_player_corridor.y * 0.35
-		beam.position.z = -34.0
-		beam.scale.y = 1.0 + (0.22 if overcharge_timer > 0.0 else 0.0) + sin(forward_time * 14.0) * 0.02
-	for i in range(player_shot_pulses.size()):
-		var pulse: MeshInstance3D = player_shot_pulses[i]
-		pulse.position.z -= (72.0 + (18.0 if overcharge_timer > 0.0 else 0.0)) * delta
-		var pulse_lane: float = float(pulse.get_meta("lane_x", 0.0))
-		var origin: Vector3 = _player_shot_origin(i, pulse_lane)
-		pulse.position.x = origin.x + sin(forward_time * 6.0 + float(pulse.get_meta("phase", 0.0))) * 0.035
-		pulse.position.y = origin.y
-		pulse.scale.y = 1.0 + sin(forward_time * 18.0 + pulse.position.z) * 0.10
-		if pulse.position.z < -112.0:
-			pulse.position = origin
-	if player_projectile_visual_pool != null and player_projectile_visual_pool.has_method("update_pool"):
-		player_projectile_visual_pool.update_pool(delta, wind_drift, forward_time)
-	if enemy_projectile_visual_pool != null and enemy_projectile_visual_pool.has_method("update_pool"):
-		enemy_projectile_visual_pool.update_pool(delta, wind_drift, forward_time)
-	for enemy in enemy_attack_jets:
-		var side = float(enemy.get_meta("side", 1.0))
-		enemy.position.z += travel_speed * float(enemy.get_meta("speed_mul", 1.0)) * 0.62 * delta
-		enemy.position.x += -side * delta * 0.45 + wind_drift * delta * 0.18
-		enemy.position.y = float(enemy.get_meta("base_y", 4.0)) + sin(forward_time * 1.4 + enemy.position.z * 0.05) * 0.30
-		enemy.rotation_degrees.z = -side * 8.0 + sin(forward_time * 1.8 + enemy.position.z) * 5.0
-		if enemy.position.z > -4.0 or abs(enemy.position.x) > 11.5:
-			enemy.position = Vector3(side * rng.randf_range(4.8, 8.8), rng.randf_range(2.8, 7.2), -126.0 - rng.randf_range(0.0, 32.0))
-			enemy.set_meta("base_y", enemy.position.y)
-	for trail in missile_trails:
-		trail.position.z += travel_speed * float(trail.get_meta("speed_mul", 0.9)) * delta
-		trail.position.x += wind_drift * delta * 0.72
-		trail.scale.z = 1.0 + sin(forward_time * 1.7 + trail.position.x) * 0.06
-		if trail.position.z > 12.0:
-			trail.position = Vector3(rng.randf_range(-11.0, 11.0), rng.randf_range(-0.7, 3.5), -112.0 - rng.randf_range(0.0, 28.0))
-	for explosion in explosion_bursts:
-		explosion.position.z += travel_speed * float(explosion.get_meta("speed_mul", 0.86)) * delta
-		var pulse = 1.0 + sin(forward_time * 9.0 + explosion.position.x) * 0.18
-		explosion.scale = Vector3.ONE * float(explosion.get_meta("base_radius", 1.0)) * pulse
-		if explosion.position.z > 10.0:
-			explosion.position = Vector3(rng.randf_range(-9.5, 9.5), rng.randf_range(-2.4, 1.4), -112.0 - rng.randf_range(0.0, 36.0))
-	for shield in shield_bubbles:
-		shield.position.z += travel_speed * float(shield.get_meta("speed_mul", 0.66)) * delta
-		shield.rotation_degrees.y += delta * 22.0
-		shield.scale = Vector3.ONE * (1.0 + sin(forward_time * 2.5 + shield.position.x) * 0.045)
-		if shield.position.z > 10.0:
-			shield.position = Vector3(rng.randf_range(-9.5, 9.5), rng.randf_range(1.5, 3.1), -105.0 - rng.randf_range(0.0, 44.0))
-
 
 
 func _update_storm_cells(delta: float, travel_speed: float, player_corridor: Vector2) -> void:

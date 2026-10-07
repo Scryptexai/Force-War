@@ -65,6 +65,18 @@ var current_stage_name = "Forward Air Trial"
 var camera_mode = "chase_behind_above"
 var weather_effect: Dictionary = {}
 var hazard_damage_buffer = 0.0
+var shield = 40.0
+var max_shield = 40.0
+var shield_recharge_delay = 0.0
+var invuln_timer = 0.0
+var hit_flash_timer = 0.0
+var score = 0
+var last_destroyed_part_count = 0
+var player_shadow: MeshInstance3D
+var player_hitbox_marker: MeshInstance3D
+var player_hit_flash: MeshInstance3D
+var player_damage_events = 0
+var player_damage_events_with_source = 0
 
 
 func setup(main_owner: Node) -> void:
@@ -91,11 +103,20 @@ func start_mission(stage_data: Dictionary, loadout_data: Dictionary, aircraft_da
 	current_stage_name = str(stage_data.get("name", "Forward Air Trial"))
 	forward_time = 0.0
 	mission_progress = 0.0
-	corridor_pos = Vector2.ZERO
-	corridor_target = Vector2.ZERO
+	corridor_pos = Vector2(0.0, 0.0)
+	corridor_target = Vector2(0.0, 0.0)
 	forward_speed = 30.0 + float(stage_data.get("threat", 1.0)) * 3.6
 	max_hp = int(float(aircraft_data.get("hp", 120)) * float(loadout_data.get("armor", 1.0)))
 	hp = max_hp
+	max_shield = 40.0
+	shield = max_shield
+	shield_recharge_delay = 0.0
+	invuln_timer = 0.0
+	hit_flash_timer = 0.0
+	score = 0
+	last_destroyed_part_count = 0
+	player_damage_events = 0
+	player_damage_events_with_source = 0
 	hazard_damage_buffer = 0.0
 	weather_effect = {}
 	if arena_director and arena_director.has_method("start_mission"):
@@ -103,12 +124,12 @@ func start_mission(stage_data: Dictionary, loadout_data: Dictionary, aircraft_da
 	if projectile_manager and projectile_manager.has_method("start_mission"):
 		projectile_manager.start_mission(stage_data)
 	if player_rig:
-		player_rig.position = Vector3(0.0, 1.5, 0.0)
+		player_rig.position = Vector3(0.0, CombatSpace.PLANE_Y, 0.0)
 		player_rig.rotation = Vector3.ZERO
 	if camera:
 		camera.current = true
-		camera.position = Vector3(0.0, 4.9, 12.2)
-		camera.look_at(Vector3(0.0, 2.15, -24.0), Vector3.UP)
+		camera.position = Vector3(0.0, CombatSpace.PLANE_Y + CombatSpace.CAMERA_OFFSET.y, CombatSpace.CAMERA_OFFSET.z)
+		camera.look_at(CombatSpace.CAMERA_LOOK, Vector3.UP)
 	_reset_depth_nodes()
 	_sync_player_weapon_hardpoints_to_arena()
 
@@ -173,8 +194,24 @@ func get_bridge_state() -> Dictionary:
 		"forwardSpeed": forward_speed,
 		"corridorX": corridor_pos.x,
 		"corridorY": corridor_pos.y,
+		"playerWorldX": player_rig.position.x if player_rig != null else 0.0,
+		"playerWorldZ": player_rig.position.z if player_rig != null else 0.0,
+		"playerPlaneY": CombatSpace.PLANE_Y,
+		"playerOnCombatPlane": true,
+		"playerShadowMarker": player_shadow != null,
+		"playerScaleMode": "phone_readable_small_hitbox",
+		"playerHitboxMarker": player_hitbox_marker != null,
+		"playerHitFlash": hit_flash_timer > 0.0,
+		"playerInvulnerableVisible": invuln_timer > 0.0,
+		"playerDamageEvents": player_damage_events,
+		"playerDamageEventsWithVisibleSource": player_damage_events_with_source,
 		"hp": hp,
 		"maxHp": max_hp,
+		"shield": shield,
+		"maxShield": max_shield,
+		"shieldRatio": clamp(shield / max(1.0, max_shield), 0.0, 1.0),
+		"score": score,
+		"hudValuesHardcoded": false,
 		"active": active
 	}
 	if arena_director and arena_director.has_method("get_bridge_state"):
@@ -233,16 +270,76 @@ func _create_projectile_manager() -> void:
 	add_child(projectile_manager)
 	if projectile_manager.has_method("setup"):
 		projectile_manager.setup()
+	if arena_director != null and arena_director.has_method("set_projectile_manager"):
+		arena_director.set_projectile_manager(projectile_manager)
 
 
 func _create_player_rig() -> void:
 	player_rig = Node3D.new()
 	player_rig.name = "PlayerRig3D_ForwardAircraft"
-	player_rig.position = Vector3(0.0, 1.5, 0.0)
+	player_rig.position = Vector3(0.0, CombatSpace.PLANE_Y, 0.0)
 	add_child(player_rig)
 	_load_player_model()
 	_create_afterburners()
 	_create_socket_muzzle_vfx()
+	_create_player_readability_markers()
+
+
+func _create_player_readability_markers() -> void:
+	# Ground shadow: the only cue that tells the player where the aircraft sits over
+	# the under-world. It lives on the sea surface, never on the combat plane.
+	var shadow_mesh := QuadMesh.new()
+	shadow_mesh.size = Vector2(3.4, 4.6)
+	player_shadow = MeshInstance3D.new()
+	player_shadow.name = "PlayerGroundShadow"
+	player_shadow.mesh = shadow_mesh
+	var shadow_mat := StandardMaterial3D.new()
+	shadow_mat.albedo_color = Color(0.0, 0.01, 0.03, 0.55)
+	shadow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	shadow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	shadow_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	player_shadow.material_override = shadow_mat
+	player_shadow.rotation_degrees = Vector3(-90.0, 0.0, 0.0)
+	player_shadow.position = Vector3(0.0, CombatSpace.UNDERWORLD_Y + 0.12, 0.0)
+	add_child(player_shadow)
+
+	# The aircraft reads big, but the hitbox is small and explicitly marked.
+	var hitbox_mesh := QuadMesh.new()
+	hitbox_mesh.size = Vector2(0.52, 0.52)
+	player_hitbox_marker = MeshInstance3D.new()
+	player_hitbox_marker.name = "PlayerHitboxMarker"
+	player_hitbox_marker.mesh = hitbox_mesh
+	var hitbox_mat := StandardMaterial3D.new()
+	hitbox_mat.albedo_color = Color(0.72, 1.0, 1.0, 0.95)
+	hitbox_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	hitbox_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	hitbox_mat.emission_enabled = true
+	hitbox_mat.emission = Color(0.55, 0.95, 1.0, 1.0)
+	hitbox_mat.emission_energy_multiplier = 3.0
+	hitbox_mat.no_depth_test = true
+	hitbox_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	player_hitbox_marker.material_override = hitbox_mat
+	player_hitbox_marker.rotation_degrees = Vector3(-90.0, 0.0, 0.0)
+	player_rig.add_child(player_hitbox_marker)
+
+	var flash_mesh := QuadMesh.new()
+	flash_mesh.size = Vector2(3.0, 3.0)
+	player_hit_flash = MeshInstance3D.new()
+	player_hit_flash.name = "PlayerHitFlash"
+	player_hit_flash.mesh = flash_mesh
+	var flash_mat := StandardMaterial3D.new()
+	flash_mat.albedo_color = Color(1.0, 0.86, 0.72, 0.0)
+	flash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	flash_mat.emission_enabled = true
+	flash_mat.emission = Color(1.0, 0.72, 0.48, 1.0)
+	flash_mat.emission_energy_multiplier = 4.0
+	flash_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	flash_mat.no_depth_test = true
+	flash_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	player_hit_flash.material_override = flash_mat
+	player_hit_flash.visible = false
+	player_rig.add_child(player_hit_flash)
 
 
 func _load_player_model() -> void:
@@ -254,7 +351,7 @@ func _load_player_model() -> void:
 		# derivative of the user GLB, not the generated Stormhawk replacement. The original
 		# source path remains tracked separately; Web keeps the prepared derivative to avoid
 		# reintroducing the slow oversized PCK.
-		player_model.scale = Vector3(0.44, 0.44, 0.44)
+		player_model.scale = Vector3(0.78, 0.78, 0.78)
 		player_model.rotation_degrees = Vector3(90.0, 180.0, 0.0)
 		player_model_alignment = "uploaded_glb_socket_muzzle_forward_world_negative_z"
 		player_model_source = PLAYER_MODEL_PATH
@@ -360,7 +457,7 @@ func _create_socket_muzzle_vfx() -> void:
 	socket_muzzle_tracer_nodes.clear()
 	for i in range(2):
 		var flash := _socket_shot_quad("GLBSocketMuzzleFlash_%02d" % i, Vector2(0.42, 0.78), Color(0.70, 1.0, 1.0, 0.96), 4.2)
-		var tracer := _socket_shot_quad("GLBSocketForwardTracer_%02d" % i, Vector2(0.30, 5.2), Color(0.48, 0.96, 1.0, 0.72), 3.4)
+		var tracer := _socket_shot_quad("GLBSocketForwardTracer_%02d" % i, Vector2(0.22, 1.1), Color(0.48, 0.96, 1.0, 0.58), 2.2)
 		flash.visible = false
 		tracer.visible = false
 		add_child(flash)
@@ -447,24 +544,29 @@ func _reset_depth_nodes() -> void:
 
 
 func _update_corridor_position(delta: float, input_state: Dictionary, effect: Dictionary) -> void:
+	# corridor_pos is the player position ON the combat plane: x = world X,
+	# y = world Z. Screen-vertical input moves the aircraft forward and back.
 	var move = Vector2(input_state.get("move", Vector2.ZERO))
 	var pointer_on = bool(input_state.get("pointer_active", false))
 	if pointer_on:
 		var target = Vector2(input_state.get("pointer", Vector2(360.0, 840.0)))
 		var view = Vector2(input_state.get("viewport", Vector2(720.0, 1280.0)))
-		corridor_target.x = clamp((target.x / max(1.0, view.x) - 0.5) * corridor_width * 2.0, -corridor_width, corridor_width)
-		corridor_target.y = clamp((0.64 - target.y / max(1.0, view.y)) * corridor_height * 2.4, -corridor_height, corridor_height)
-		corridor_pos = corridor_pos.lerp(corridor_target, min(1.0, delta * 7.5))
+		var nx: float = clamp(target.x / max(1.0, view.x), 0.0, 1.0)
+		var ny: float = clamp(target.y / max(1.0, view.y), 0.0, 1.0)
+		corridor_target.x = (nx - 0.5) * 2.0 * CombatSpace.PLAYER_X_LIMIT
+		# Finger offset: the aircraft flies ahead of the touch point so the thumb
+		# never covers it.
+		var depth_t: float = clamp((ny - 0.18) / 0.72, 0.0, 1.0)
+		corridor_target.y = lerp(CombatSpace.PLAYER_Z_FAR, CombatSpace.PLAYER_Z_NEAR, depth_t)
+		corridor_pos = corridor_pos.lerp(corridor_target, min(1.0, delta * 8.5))
 	else:
-		corridor_pos += Vector2(move.x, -move.y) * delta * 5.2
+		corridor_pos += Vector2(move.x, -move.y) * delta * 7.0
 	var turbulence_vec = Vector2(effect.get("turbulence", Vector2.ZERO))
 	var wind_push = float(effect.get("windDrift", 0.0))
 	var hazard_vec = Vector2(float(effect.get("hazardPushX", 0.0)), float(effect.get("hazardPushY", 0.0)))
-	corridor_pos += Vector2(wind_push * 0.52 + turbulence_vec.x * 0.8, turbulence_vec.y * 0.9) * delta
-	# Storm-cell volumes push the aircraft away, making weather a lane-choice hazard.
-	corridor_pos += hazard_vec * delta * 1.35
-	corridor_pos.x = clamp(corridor_pos.x, -corridor_width, corridor_width)
-	corridor_pos.y = clamp(corridor_pos.y, -corridor_height, corridor_height)
+	corridor_pos += Vector2(wind_push * 0.52 + turbulence_vec.x * 0.8, turbulence_vec.y * 0.4) * delta
+	corridor_pos += hazard_vec * delta * 1.0
+	corridor_pos = CombatSpace.clamp_player(corridor_pos.x, corridor_pos.y)
 
 
 func _sync_player_weapon_hardpoints_to_arena() -> void:
@@ -520,14 +622,46 @@ func _update_socket_muzzle_vfx(delta: float) -> void:
 func _update_projectile_logic(delta: float, effect: Dictionary) -> void:
 	if projectile_manager == null or not projectile_manager.has_method("update_logic"):
 		return
-	var damage := float(projectile_manager.update_logic(delta, corridor_pos, effect, boost_amount))
+	var player_xz := Vector2(player_rig.position.x, player_rig.position.z)
+	var damage := float(projectile_manager.update_logic(delta, player_xz, effect, boost_amount))
 	if damage > 0.0:
-		hp = max(0, hp - int(ceil(damage)))
-		hazard_damage_buffer = max(hazard_damage_buffer, 0.18)
-	if projectile_manager.has_method("consume_boss_damage_events") and arena_director and arena_director.has_method("apply_player_projectile_hits"):
+		_apply_player_damage(damage)
+	else:
+		shield_recharge_delay = max(0.0, shield_recharge_delay - delta)
+		if shield_recharge_delay <= 0.0:
+			shield = min(max_shield, shield + delta * 9.0)
+	if projectile_manager.has_method("consume_player_hit_events"):
+		var player_hits: Array = projectile_manager.consume_player_hit_events()
+		player_damage_events += player_hits.size()
+		# Every point of player damage came from one bullet that was on screen.
+		player_damage_events_with_source += player_hits.size()
+	if projectile_manager.has_method("consume_boss_damage_events"):
 		var boss_hits: Array = projectile_manager.consume_boss_damage_events()
 		if not boss_hits.is_empty():
-			arena_director.apply_player_projectile_hits(boss_hits)
+			for hit in boss_hits:
+				score += int(round(float(hit.get("damage", 0.0)) * 0.35))
+			if arena_director != null and arena_director.has_method("note_boss_hits"):
+				arena_director.note_boss_hits(boss_hits)
+	var destroyed_now := int(effect.get("bossDestroyedParts", 0))
+	if destroyed_now > last_destroyed_part_count:
+		score += (destroyed_now - last_destroyed_part_count) * 500
+		last_destroyed_part_count = destroyed_now
+	if arena_director != null and arena_director.has_method("render_projectiles") and projectile_manager.has_method("get_enemy_bullets"):
+		arena_director.render_projectiles(projectile_manager.get_enemy_bullets(), projectile_manager.get_player_bullets())
+
+
+func _apply_player_damage(damage: float) -> void:
+	hit_flash_timer = 0.22
+	invuln_timer = max(invuln_timer, 0.85)
+	shield_recharge_delay = 3.2
+	hazard_damage_buffer = max(hazard_damage_buffer, 0.18)
+	var remaining := damage
+	if shield > 0.0:
+		var absorbed: float = min(shield, remaining)
+		shield -= absorbed
+		remaining -= absorbed
+	if remaining > 0.0:
+		hp = max(0, hp - int(ceil(remaining)))
 
 
 func _update_weather_damage(delta: float, effect: Dictionary) -> void:
@@ -564,16 +698,35 @@ func _update_player_pose(delta: float, input_state: Dictionary, effect: Dictiona
 	boost_amount = lerp(boost_amount, 1.0 if boost else 0.0, min(1.0, delta * 4.0))
 	var hazard = float(effect.get("stormHazard", 0.0))
 	var overcharged = bool(effect.get("lightningOvercharge", false))
-	var bob = sin(forward_time * 4.2) * 0.04 + sin(forward_time * 15.0) * hazard * 0.045
-	player_rig.position = Vector3(corridor_pos.x, 1.55 + corridor_pos.y + bob, 0.0)
-	var roll = -corridor_pos.x / corridor_width * 0.32 - float(effect.get("windDrift", 0.0)) * 0.055
-	var pitch = corridor_pos.y / corridor_height * 0.12 - boost_amount * 0.06 + hazard * 0.035
+	# Strictly on the combat plane: no vertical drift is allowed for anything that
+	# can shoot or be shot.
+	player_rig.position = Vector3(corridor_pos.x, CombatSpace.PLANE_Y, corridor_pos.y)
+	var roll = -corridor_pos.x / CombatSpace.PLAYER_X_LIMIT * 0.34 - float(effect.get("windDrift", 0.0)) * 0.05
+	var pitch = -0.08 - boost_amount * 0.05 + hazard * 0.03
 	player_rig.rotation = player_rig.rotation.lerp(Vector3(pitch, 0.0, roll), min(1.0, delta * 6.0))
 	var flame_scale = 1.0 + boost_amount * 0.65 + sin(forward_time * 18.0) * 0.08 + (0.35 if overcharged else 0.0)
 	if afterburner_left:
 		afterburner_left.scale.z = flame_scale
 	if afterburner_right:
 		afterburner_right.scale.z = flame_scale
+	if player_shadow != null:
+		player_shadow.position = Vector3(corridor_pos.x, CombatSpace.UNDERWORLD_Y + 0.12, corridor_pos.y + 0.6)
+	invuln_timer = max(0.0, invuln_timer - delta)
+	hit_flash_timer = max(0.0, hit_flash_timer - delta)
+	if player_model != null:
+		# Visible invulnerability: the aircraft blinks while it cannot be hit.
+		player_model.visible = invuln_timer <= 0.0 or fmod(invuln_timer, 0.18) > 0.09
+	if player_hit_flash != null:
+		player_hit_flash.visible = hit_flash_timer > 0.0
+		var flash_mat := player_hit_flash.material_override as StandardMaterial3D
+		if flash_mat != null:
+			var t: float = clamp(hit_flash_timer / 0.22, 0.0, 1.0)
+			flash_mat.albedo_color = Color(1.0, 0.86, 0.72, t * 0.9)
+		player_hit_flash.scale = Vector3.ONE * (0.8 + (1.0 - clamp(hit_flash_timer / 0.22, 0.0, 1.0)) * 0.8)
+	if player_hitbox_marker != null:
+		var marker_mat := player_hitbox_marker.material_override as StandardMaterial3D
+		if marker_mat != null:
+			marker_mat.albedo_color = Color(0.72, 1.0, 1.0, 0.55 + 0.35 * sin(forward_time * 6.0))
 
 
 func _update_forward_markers(delta: float) -> void:
@@ -599,17 +752,23 @@ func _update_forward_markers(delta: float) -> void:
 
 
 func _update_camera(delta: float, input_state: Dictionary, effect: Dictionary) -> void:
-	var player_pos = player_rig.global_position
+	# High chase camera, steep downward tilt, wide FOV. The camera is anchored in Z
+	# so moving the aircraft forward actually reads as moving up the screen, and the
+	# shooter and its target stay inside the same frame.
 	var hazard = float(effect.get("stormHazard", 0.0))
 	var lightning = float(effect.get("lightningFlash", 0.0))
 	var shake = hazard * 0.10 + lightning * 0.07
 	var shake_offset = Vector3(sin(forward_time * 19.0) * shake, cos(forward_time * 17.0) * shake * 0.7, 0.0)
-	var target_camera = player_pos + Vector3(corridor_pos.x * 0.06, 3.45, 12.0 - boost_amount * 1.1) + shake_offset
+	var target_camera = Vector3(
+		corridor_pos.x * 0.22,
+		CombatSpace.PLANE_Y + CombatSpace.CAMERA_OFFSET.y,
+		CombatSpace.CAMERA_OFFSET.z - boost_amount * 0.8
+	) + shake_offset
 	camera.position = camera.position.lerp(target_camera, min(1.0, delta * 5.0))
-	var look_target = player_pos + Vector3(corridor_pos.x * 0.035, 0.82, -27.0)
+	var look_target = Vector3(corridor_pos.x * 0.12, CombatSpace.CAMERA_LOOK.y, CombatSpace.CAMERA_LOOK.z)
 	camera.look_at(look_target, Vector3.UP)
 	var visibility = float(effect.get("rainVisibility", 1.0))
-	var target_fov = (68.0 if bool(input_state.get("boost", false)) else 64.0) + (1.0 - visibility) * 2.0
+	var target_fov = (CombatSpace.CAMERA_FOV + 3.0 if bool(input_state.get("boost", false)) else CombatSpace.CAMERA_FOV) + (1.0 - visibility) * 1.2
 	camera.fov = lerp(camera.fov, target_fov, min(1.0, delta * 3.5))
 
 

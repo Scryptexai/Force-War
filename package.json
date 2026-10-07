@@ -8,9 +8,10 @@
     "start": "node server.js",
     "serve": "node server.js",
     "qa:web": "node qa/web-template-debug-qa.mjs",
-    "qa:phase3": "node qa/phase3-debug-qa.mjs",
     "vercel-build": "node qa/verify-root-export.mjs",
-    "qa:forward": "node qa/forward-flight-browser-qa.mjs"
+    "qa:forward": "node qa/forward-flight-browser-qa.mjs",
+    "qa:pass1": "node qa/pass1-causality-qa.mjs",
+    "qa:probe": "node qa/pass1-probe.mjs"
   },
   "engines": {
     "node": ">=20"

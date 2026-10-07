@@ -3,9 +3,9 @@
   "role": "enemy_boss_lane_visual_and_future_gameplay_projectile",
   "sprite": "res://assets/vfx/enemy_orange_shot.png",
   "speed": 46.0,
-  "lifetime": 3.1,
+  "lifetime": 4.0,
   "damage": 8,
-  "radius": 0.28,
+  "radius": 0.34,
   "lanes": [
     -4.1,
     -2.55,

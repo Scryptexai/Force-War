@@ -18,9 +18,8 @@ var fire_pressure := 0.0
 var destroyed_parts: Array = []
 var parts := {
 	"shield": {"hp": 2400.0, "max": 2400.0, "required_phase": 1},
-	"left_wing": {"hp": 950.0, "max": 950.0, "required_phase": 2},
-	"right_wing": {"hp": 950.0, "max": 950.0, "required_phase": 2},
-	"turrets": {"hp": 1250.0, "max": 1250.0, "required_phase": 2},
+	"turret_left": {"hp": 1150.0, "max": 1150.0, "required_phase": 2},
+	"turret_right": {"hp": 1150.0, "max": 1150.0, "required_phase": 2},
 	"core": {"hp": 2050.0, "max": 2050.0, "required_phase": 3}
 }
 var attack_patterns: Array = []
@@ -41,6 +40,7 @@ var weakpoint_damage_events := 0
 var phase_transition_count := 0
 var part_destruction_event_count := 0
 var latest_destroyed_part := ""
+var last_damaged_part := "shield"
 var phase_transition_flash_timer := 0.0
 
 
@@ -76,6 +76,7 @@ func start_mission(stage_data: Dictionary) -> void:
 	phase_transition_count = 0
 	part_destruction_event_count = 0
 	latest_destroyed_part = ""
+	last_damaged_part = "shield"
 	phase_transition_flash_timer = 0.0
 	_recalculate_total_hp()
 	_update_phase()
@@ -105,12 +106,11 @@ func apply_projectile_damage(part_name: String, amount: float) -> float:
 	if not active or amount <= 0.0:
 		return 0.0
 	var target: String = _resolve_damage_target(part_name)
+	last_damaged_part = target
 	var damage: float = amount
 	if target == current_target_part:
 		damage *= exposed_core_damage_multiplier if target == "core" else weakpoint_damage_multiplier
 		weakpoint_damage_events += 1
-	if target == "shield" and part_name != "shield" and _part_ratio("shield") > 0.0:
-		damage *= 0.52
 	var before_ratio: float = get_hp_ratio()
 	_apply_part_damage(target, damage)
 	_update_phase()
@@ -133,9 +133,9 @@ func get_bridge_state() -> Dictionary:
 		"bossHpRatio": get_hp_ratio(),
 		"bossShieldRatio": _part_ratio("shield"),
 		"bossCoreRatio": _part_ratio("core"),
-		"bossTurretRatio": _part_ratio("turrets"),
-		"bossLeftWingRatio": _part_ratio("left_wing"),
-		"bossRightWingRatio": _part_ratio("right_wing"),
+		"bossTurretRatio": max(_part_ratio("turret_left"), _part_ratio("turret_right")),
+		"bossTurretLeftRatio": _part_ratio("turret_left"),
+		"bossTurretRightRatio": _part_ratio("turret_right"),
 		"bossDestroyedParts": destroyed_parts.size(),
 		"bossDestroyedPartList": destroyed_parts.duplicate(true),
 		"bossLatestDestroyedPart": latest_destroyed_part,
@@ -144,8 +144,9 @@ func get_bridge_state() -> Dictionary:
 		"bossPhaseTransitionCount": phase_transition_count,
 		"bossPhaseTransitionVFX": phase_transition_flash_timer > 0.0,
 		"bossPhaseTransitionLocked": phase_transition_count > 0 and destroyed_parts.has("shield"),
-		"bossDamageModel": "parts_shield_wings_turrets_core",
-		"bossWeakPointModel": "shield_then_wings_turrets_then_core",
+		"bossDamageModel": "parts_shield_turret_left_turret_right_core",
+		"bossWeakPointModel": "shield_then_both_turrets_then_core",
+		"bossLastDamagedPart": last_damaged_part,
 		"bossWeakpointDamageMultiplier": weakpoint_damage_multiplier,
 		"bossExposedCoreDamageMultiplier": exposed_core_damage_multiplier,
 		"bossWeakpointDamageEvents": weakpoint_damage_events,
@@ -164,6 +165,10 @@ func get_bridge_state() -> Dictionary:
 	}
 
 
+func get_last_damaged_part() -> String:
+	return last_damaged_part
+
+
 func get_hp_ratio() -> float:
 	return clamp(total_hp / max(1.0, max_hp), 0.0, 1.0)
 
@@ -174,9 +179,8 @@ func _reset_parts(threat: float) -> void:
 	if data_parts.is_empty():
 		data_parts = {
 			"shield": {"hp": 2400.0, "phase": 1},
-			"left_wing": {"hp": 950.0, "phase": 2},
-			"right_wing": {"hp": 950.0, "phase": 2},
-			"turrets": {"hp": 1250.0, "phase": 2},
+			"turret_left": {"hp": 1150.0, "phase": 2},
+			"turret_right": {"hp": 1150.0, "phase": 2},
 			"core": {"hp": 2050.0, "phase": 3}
 		}
 	for key in data_parts.keys():
@@ -198,12 +202,10 @@ func _resolve_damage_target(part_name: String) -> String:
 		return "core"
 	if parts.has(part_name) and _part_ratio(part_name) > 0.0 and int(parts[part_name].get("required_phase", 1)) <= phase:
 		return part_name
-	if _part_ratio("turrets") > 0.0:
-		return "turrets"
-	if _part_ratio("left_wing") > 0.0:
-		return "left_wing"
-	if _part_ratio("right_wing") > 0.0:
-		return "right_wing"
+	if _part_ratio("turret_left") > 0.0:
+		return "turret_left"
+	if _part_ratio("turret_right") > 0.0:
+		return "turret_right"
 	return "core"
 
 
@@ -227,12 +229,12 @@ func _update_phase() -> void:
 	if _part_ratio("core") <= 0.0:
 		phase = 5
 		phase_name = "DEFEATED"
-	elif _part_ratio("shield") <= 0.0 and (_part_ratio("turrets") <= 0.0 or destroyed_parts.size() >= 3):
+	elif _part_ratio("shield") <= 0.0 and _part_ratio("turret_left") <= 0.0 and _part_ratio("turret_right") <= 0.0:
 		phase = 3
 		phase_name = "PHASE_3_CORE_EXPOSED"
 	elif _part_ratio("shield") <= 0.0:
 		phase = 2
-		phase_name = "PHASE_2_TURRETS_WINGS"
+		phase_name = "PHASE_2_TURRETS"
 	else:
 		phase = 1
 		phase_name = "PHASE_1_SHIELD"
@@ -247,12 +249,10 @@ func _update_targetable_part() -> void:
 		current_target_part = "shield"
 	elif phase >= 3:
 		current_target_part = "core"
-	elif _part_ratio("turrets") > 0.0:
-		current_target_part = "turrets"
-	elif _part_ratio("left_wing") > _part_ratio("right_wing"):
-		current_target_part = "left_wing"
-	elif _part_ratio("right_wing") > 0.0:
-		current_target_part = "right_wing"
+	elif _part_ratio("turret_left") >= _part_ratio("turret_right") and _part_ratio("turret_left") > 0.0:
+		current_target_part = "turret_left"
+	elif _part_ratio("turret_right") > 0.0:
+		current_target_part = "turret_right"
 	else:
 		current_target_part = "core"
 

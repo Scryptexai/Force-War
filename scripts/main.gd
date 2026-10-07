@@ -107,6 +107,8 @@ var warning_text = ""
 var warning_timer = 0.0
 
 var pointer_active = false
+var debug_hud = false
+var pause_button_rect = Rect2(0, 0, 0, 0)
 var pointer_target = Vector2.ZERO
 var touch_active = false
 var js_timer = 0.0
@@ -220,6 +222,17 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and (state == GameState.TITLE or state == GameState.BRIEFING or state == GameState.HANGAR):
 		handle_menu_tap(event.position)
 		return
+
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F2:
+		debug_hud = not debug_hud
+		return
+
+	if (event is InputEventScreenTouch or event is InputEventMouseButton) and event.pressed and state == GameState.PLAYING and using_forward_air_scene():
+		if pause_button_rect.size.x > 0.0 and pause_button_rect.grow(14.0).has_point(event.position):
+			previous_state = state
+			state = GameState.PAUSED
+			js_emit("pause", {})
+			return
 
 	if event.is_action_pressed("pause"):
 		if state == GameState.PLAYING or state == GameState.GROUND:
@@ -1187,7 +1200,7 @@ func forward_input_state() -> Dictionary:
 		"move": direction,
 		"pointer_active": touch_active or pointer_active,
 		"pointer": pointer_target,
-		"viewport": Vector2(W, H),
+		"viewport": get_viewport_rect().size,
 		"boost": Input.is_key_pressed(KEY_SHIFT)
 	}
 
@@ -3454,56 +3467,75 @@ func draw_ground_overlay() -> void:
 		draw_text_center(warning_text, 130, 14, Color(1.0, 0.9, 0.35, 1.0))
 
 
+func view_height() -> float:
+	var size := get_viewport_rect().size
+	return size.y if size.y > 1.0 else H
+
+
+func view_width() -> float:
+	var size := get_viewport_rect().size
+	return size.x if size.x > 1.0 else W
+
+
 func draw_forward_hud() -> void:
+	# HUD rule: the HUD only displays state, it never owns it. Every number below is
+	# read from the live forward scene / boss entity bridge; nothing is hard-coded.
 	var forward_state = {}
 	if using_forward_air_scene() and forward_scene.has_method("get_bridge_state"):
 		forward_state = forward_scene.get_bridge_state()
-	var hp_ratio = float(forward_state.get("hp", player.get("hp", 0))) / max(1.0, float(forward_state.get("maxHp", player.get("max_hp", 1))))
-	var progress = float(forward_state.get("progress", route_progress / max(1.0, route_distance)))
-	var visibility = float(forward_state.get("rainVisibility", 1.0))
-	var cloud_cover = float(forward_state.get("cloudCover", 0.0))
-	var storm_hazard = float(forward_state.get("stormHazard", 0.0))
-	var wind_drift = float(forward_state.get("windDrift", 0.0))
-	var lightning_flash = float(forward_state.get("lightningFlash", 0.0))
-	var overcharged = bool(forward_state.get("lightningOvercharge", false))
+	var vw := view_width()
+	var vh := view_height()
+	var safe_top := 46.0
+	var margin := 22.0
 
-	# Clean reference-style HUD: readable combat frame, no Phase/debug telemetry block.
-	draw_rect(Rect2(0, 0, W, 76), Color(0.0, 0.015, 0.035, 0.28))
-	draw_rect(Rect2(0, 76, W, 42), Color(0.0, 0.0, 0.0, 0.08))
-	draw_text("HP", 84, 28, 14, Color(0.86, 0.96, 1.0, 0.92))
-	draw_bar(Rect2(114, 16, 178, 12), hp_ratio, Color(1.0, 0.19, 0.16, 0.98), Color(0.05, 0.02, 0.04, 0.78))
-	draw_bar(Rect2(114, 36, 134, 9), 0.76 + (0.18 if overcharged else 0.0), Color(0.18, 0.84, 1.0, 0.92), Color(0.05, 0.10, 0.15, 0.70))
-	draw_text("FORCE WAR", 20, 62, 14, Color(0.66, 0.92, 1.0, 0.88))
+	var hp_value: float = float(forward_state.get("hp", 0))
+	var hp_max: float = maxf(1.0, float(forward_state.get("maxHp", 1)))
+	var hp_ratio: float = clampf(hp_value / hp_max, 0.0, 1.0)
+	var shield_ratio: float = clampf(float(forward_state.get("shieldRatio", 0.0)), 0.0, 1.0)
+	var score_value: int = int(forward_state.get("score", 0))
 
-	var boss_rect = Rect2(170, 76, 380, 34)
-	draw_rect(boss_rect, Color(0.11, 0.02, 0.03, 0.54))
-	draw_rect(boss_rect, Color(1.0, 0.26, 0.18, 0.38), false, 1.6)
-	draw_text("BOSS", boss_rect.position.x + 14, boss_rect.position.y + 22, 14, Color(1.0, 0.90, 0.86, 0.96))
-	draw_text(str(forward_state.get("bossName", "Dreadnought Leviathan")), boss_rect.position.x + 72, boss_rect.position.y + 22, 13, Color(0.96, 0.98, 1.0, 0.90))
-	if forward_state.has("bossPhase"):
-		draw_text("P" + str(int(forward_state.get("bossPhase", 1))), boss_rect.position.x + 340, boss_rect.position.y + 22, 12, Color(1.0, 0.72, 0.45, 0.88))
-	var boss_hp_ratio = float(forward_state.get("bossHpRatio", 0.82 - progress * 0.12))
-	draw_bar(Rect2(boss_rect.position.x + 72, boss_rect.position.y + 24, 292, 6), boss_hp_ratio, Color(0.95, 0.08, 0.08, 0.96), Color(0.08, 0.03, 0.04, 0.80))
+	# Left: player hull and shield.
+	draw_text("HP", margin, safe_top + 2, 13, Color(0.78, 0.90, 1.0, 0.80))
+	draw_bar(Rect2(margin, safe_top + 10, 190, 9), hp_ratio, Color(1.0, 0.26, 0.20, 0.95), Color(0.0, 0.0, 0.0, 0.30))
+	draw_bar(Rect2(margin, safe_top + 24, 190, 5), shield_ratio, Color(0.36, 0.92, 1.0, 0.85), Color(0.0, 0.0, 0.0, 0.26))
 
-	draw_text("FORWARD AIR", W - 154, 30, 13, Color(0.84, 0.95, 1.0, 0.72))
-	draw_text(str(int(progress * 100.0)) + "%", W - 92, 56, 20, Color(0.92, 0.98, 1.0, 0.86))
+	# Right: score and pause control.
+	var score_text := str(score_value).pad_zeros(6)
+	draw_text(score_text, vw - margin - 128.0, safe_top + 16, 20, Color(0.94, 0.98, 1.0, 0.92))
+	pause_button_rect = Rect2(vw - margin - 34.0, safe_top + 26.0, 30.0, 30.0)
+	draw_rect(Rect2(pause_button_rect.position + Vector2(7, 6), Vector2(5, 18)), Color(0.86, 0.95, 1.0, 0.72))
+	draw_rect(Rect2(pause_button_rect.position + Vector2(18, 6), Vector2(5, 18)), Color(0.86, 0.95, 1.0, 0.72))
 
-	# Clean gameplay view: use one authored reticle sprite and one compact weather strip.
-	# No radar/ability debug circles or unclear code-drawn overlay objects in the arena.
-	var reticle = Vector2(W * 0.5, H * 0.50)
-	var reticle_alpha = clamp(0.22 + visibility * 0.58 - cloud_cover * 0.15, 0.22, 0.82)
-	draw_sprite("reticle_lock", reticle, Vector2(118.0, 118.0), 0.0, Color(0.72, 0.96, 1.0, reticle_alpha))
+	# Centre: boss identity, phase and health, read straight from the boss entity.
+	if forward_state.has("bossHpRatio"):
+		var boss_hp_ratio: float = clampf(float(forward_state.get("bossHpRatio", 0.0)), 0.0, 1.0)
+		var boss_name: String = str(forward_state.get("bossName", "Dreadnought Leviathan"))
+		var boss_phase: int = int(forward_state.get("bossPhase", 1))
+		var bar_width := 300.0
+		var bar_x := (vw - bar_width) * 0.5
+		draw_text_centered_at(boss_name.to_upper(), Vector2(vw * 0.5, safe_top + 74.0), 13, Color(1.0, 0.80, 0.72, 0.92))
+		draw_bar(Rect2(bar_x, safe_top + 82.0, bar_width, 7), boss_hp_ratio, Color(0.98, 0.16, 0.12, 0.96), Color(0.0, 0.0, 0.0, 0.32))
+		draw_text("P" + str(boss_phase), bar_x + bar_width + 8.0, safe_top + 90.0, 12, Color(1.0, 0.68, 0.42, 0.88))
+		var target_part: String = str(forward_state.get("bossTargetablePart", ""))
+		if target_part != "":
+			draw_text_centered_at(target_part.to_upper().replace("_", " "), Vector2(vw * 0.5, safe_top + 104.0), 11, Color(1.0, 0.62, 0.34, 0.70))
 
-	var weather_panel = Rect2(220, H - 42, 280, 24)
-	draw_rect(weather_panel, Color(0.0, 0.025, 0.055, 0.30))
-	draw_text("WIND " + str(snapped(wind_drift, 0.01)) + "   VIS " + str(int(visibility * 100.0)) + "%", weather_panel.position.x + 16, weather_panel.position.y + 18, 11, Color(0.82, 0.96, 1.0, 0.72))
-
-	if overcharged:
-		draw_text_center("LIGHTNING OVERCHARGE", 138, 18, Color(0.70, 0.94, 1.0, 0.82))
+	if bool(forward_state.get("lightningOvercharge", false)):
+		draw_text_centered_at("OVERCHARGE", Vector2(vw * 0.5, vh - 56.0), 13, Color(0.70, 0.94, 1.0, 0.80))
+	var lightning_flash: float = float(forward_state.get("lightningFlash", 0.0))
 	if lightning_flash > 0.02:
-		draw_rect(Rect2(0, 0, W, H), Color(0.58, 0.82, 1.0, lightning_flash * 0.10))
+		draw_rect(Rect2(0, 0, vw, vh), Color(0.58, 0.82, 1.0, lightning_flash * 0.08))
 	if warning_timer > 0:
-		draw_text_center(warning_text, 150, 16, Color(1.0, 0.9, 0.35, min(1.0, warning_timer)))
+		draw_text_centered_at(warning_text, Vector2(vw * 0.5, safe_top + 150.0), 15, Color(1.0, 0.9, 0.35, min(1.0, warning_timer)))
+
+	if debug_hud:
+		# Frozen weather/route telemetry. The systems still run; only the readout is
+		# hidden behind this toggle until their gameplay role is decided.
+		var wind_drift: float = float(forward_state.get("windDrift", 0.0))
+		var visibility: float = float(forward_state.get("rainVisibility", 1.0))
+		var progress: float = float(forward_state.get("progress", 0.0))
+		draw_text("DBG  WIND " + str(snapped(wind_drift, 0.01)) + "   VIS " + str(int(visibility * 100.0)) + "%   FORWARD AIR " + str(int(progress * 100.0)) + "%", margin, vh - 28.0, 11, Color(0.70, 0.86, 0.98, 0.55))
+
 
 func draw_hud() -> void:
 	draw_rect(Rect2(0, 0, W, 102), Color(0,0,0,0.52))

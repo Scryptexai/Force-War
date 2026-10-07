@@ -2,10 +2,10 @@
   "id": "player_cyan_plasma",
   "role": "player_primary_visual_and_future_gameplay_projectile",
   "sprite": "res://assets/vfx/hero_cyan_shot.png",
-  "speed": 78.0,
-  "lifetime": 1.65,
-  "damage": 18,
-  "radius": 0.34,
+  "speed": 96.0,
+  "lifetime": 1.2,
+  "damage": 22,
+  "radius": 0.3,
   "lanes": [
     -0.98,
     -0.32,
@@ -16,6 +16,6 @@
   "collision_mode": "future_logical_radius",
   "renderer": "multimesh_visual_pool",
   "logic_pool_count": 80,
-  "fire_interval": 0.07,
+  "fire_interval": 0.12,
   "boss_hit_z": -96.0
 }

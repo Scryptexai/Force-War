@@ -2,22 +2,18 @@
   "id": "boss_dreadnought_leviathan",
   "name": "Dreadnought Leviathan",
   "model": "res://assets/models/boss_dreadnought_leviathan.glb",
-  "damage_model": "parts_shield_wings_turrets_core",
+  "damage_model": "parts_shield_turret_left_turret_right_core",
   "parts": {
     "shield": {
       "hp": 2400,
       "phase": 1
     },
-    "left_wing": {
-      "hp": 950,
+    "turret_left": {
+      "hp": 1150,
       "phase": 2
     },
-    "right_wing": {
-      "hp": 950,
-      "phase": 2
-    },
-    "turrets": {
-      "hp": 1250,
+    "turret_right": {
+      "hp": 1150,
       "phase": 2
     },
     "core": {
@@ -53,5 +49,6 @@
       "duration": 2.4,
       "intent": "dense core burst pressure while core is exposed"
     }
-  ]
+  ],
+  "hitbox_model": "per_part_world_aabb_owned_by_boss_entity_3d"
 }
