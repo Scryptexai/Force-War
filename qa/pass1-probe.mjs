@@ -81,6 +81,30 @@ async function main() {
       await page.waitForTimeout(waitMs);
 
       mkdirSync(screenshotDir, { recursive: true });
+      // Headless-Chromium frame-rate PROXY. This is a software/VM WebGL number,
+      // NOT a phone measurement; it is only used to compare before/after a Pass 3
+      // addition on identical hardware.
+      const fpsSample = await page.evaluate(() => new Promise((done) => {
+        const times = [];
+        let last = performance.now();
+        const started = last;
+        function tick(now) {
+          times.push(now - last);
+          last = now;
+          if (now - started < 3000) requestAnimationFrame(tick);
+          else {
+            const sorted = times.slice().sort((a, b) => a - b);
+            const mean = times.reduce((a, b) => a + b, 0) / Math.max(1, times.length);
+            done({
+              frames: times.length,
+              avgFps: Math.round((1000 / mean) * 10) / 10,
+              p95FrameMs: Math.round(sorted[Math.floor(sorted.length * 0.95)] * 10) / 10
+            });
+          }
+        }
+        requestAnimationFrame(tick);
+      }));
+      console.log(`fpsProxyHeadlessChromium: ${JSON.stringify(fpsSample)}`);
       // Drag the aircraft around so freeze frames are not all the same pose.
       const track = [[250, 980], [470, 860], [300, 1050], [520, 960], [360, 900]];
       let state = null;

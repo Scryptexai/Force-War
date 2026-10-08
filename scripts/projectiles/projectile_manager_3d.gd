@@ -45,6 +45,9 @@ var player_weapon_hardpoints: Dictionary = {}
 var player_hardpoint_binding := "pending"
 var player_shot_spawn_origin := "runtime_fallback_socket"
 var boss_entity: Node3D
+var enemy_squadron: Node3D
+var air_enemy_hit_count := 0
+var air_enemy_damage_total := 0.0
 var muzzle_spawn_events := 0
 var blocked_shots := 0
 
@@ -62,6 +65,10 @@ func setup() -> void:
 
 func set_boss_entity(entity: Node3D) -> void:
 	boss_entity = entity
+
+
+func set_enemy_squadron(squadron: Node3D) -> void:
+	enemy_squadron = squadron
 
 
 func start_mission(_stage_data: Dictionary) -> void:
@@ -168,7 +175,9 @@ func get_bridge_state() -> Dictionary:
 		"projectileDataDriven": not enemy_data.is_empty() and not player_data.is_empty(),
 		"projectilePattern": active_boss_projectile_pattern,
 		"bossPatternDrivenProjectiles": true,
-		"enemyBulletSourceModel": "boss_entity_muzzle_fire_events_only",
+		"enemyBulletSourceModel": "boss_and_air_enemy_muzzle_fire_events_only",
+		"airEnemyHitsLanded": air_enemy_hit_count,
+		"airEnemyDamageDealt": air_enemy_damage_total,
 		"enemyBulletsWithoutVisibleSource": 0,
 		"bossProjectileAimingModel": "fixed_angle_formation_no_tracking",
 		"bossProjectileTracking": false,
@@ -216,9 +225,13 @@ func _reset_pools() -> void:
 
 
 func _spawn_from_boss_fire_events() -> void:
-	if boss_entity == null or not boss_entity.has_method("consume_fire_events"):
+	var events: Array = []
+	if boss_entity != null and boss_entity.has_method("consume_fire_events"):
+		events.append_array(boss_entity.consume_fire_events())
+	if enemy_squadron != null and enemy_squadron.has_method("consume_fire_events"):
+		events.append_array(enemy_squadron.consume_fire_events())
+	if events.is_empty():
 		return
-	var events: Array = boss_entity.consume_fire_events()
 	for event in events:
 		if not (event is Dictionary):
 			continue
@@ -324,6 +337,7 @@ func _update_player_bullets(delta: float, wind: float) -> void:
 		if not bool(bullet.get("active", false)):
 			continue
 		var pos: Vector3 = bullet["pos"]
+		var prev_pos: Vector3 = pos
 		var vel: Vector3 = bullet["vel"]
 		vel.x += wind * 0.16 * delta
 		pos += vel * delta
@@ -332,6 +346,25 @@ func _update_player_bullets(delta: float, wind: float) -> void:
 		bullet["pos"] = pos
 		bullet["vel"] = vel
 		var expired: bool = float(bullet["life"]) <= 0.0 or pos.z < CombatSpace.BOSS_Z - 18.0
+		if not expired and enemy_squadron != null and enemy_squadron.has_method("query_hit"):
+			# Swept test: a 96 u/s bullet moves further in one frame than a drone is
+			# deep, so sampling only the end position would tunnel straight through.
+			var unit_index: int = -1
+			var step: Vector3 = pos - prev_pos
+			var samples: int = clampi(int(ceil(step.length() / 0.55)), 1, 12)
+			for sample_index in range(samples):
+				var sample_pos: Vector3 = prev_pos + step * (float(sample_index + 1) / float(samples))
+				unit_index = int(enemy_squadron.query_hit(sample_pos, float(bullet.get("radius", 0.26))))
+				if unit_index >= 0:
+					pos = sample_pos
+					break
+			if unit_index >= 0:
+				var air_damage: float = float(bullet.get("damage", 18.0))
+				var air_applied: float = float(enemy_squadron.apply_hit(unit_index, air_damage, pos))
+				if air_applied > 0.0:
+					air_enemy_hit_count += 1
+					air_enemy_damage_total += air_applied
+				expired = true
 		if not expired and boss_entity != null and boss_entity.has_method("query_hit"):
 			var part: String = str(boss_entity.query_hit(pos, float(bullet.get("radius", 0.26))))
 			if part != "":

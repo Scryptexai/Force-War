@@ -106,7 +106,7 @@ function assertOwnership(state, frame) {
 
 function assertBulletCausality(state, frame) {
   // 2. Every enemy bullet comes from a boss muzzle fire event.
-  expect(state?.enemyBulletSourceModel === 'boss_entity_muzzle_fire_events_only',
+  expect(state?.enemyBulletSourceModel === 'boss_and_air_enemy_muzzle_fire_events_only',
     `[f${frame}] enemy bullet source model: ${state?.enemyBulletSourceModel}`);
   expect(num(state?.enemyBulletsWithoutVisibleSource) === 0,
     `[f${frame}] bullets exist with no visible shooter: ${state?.enemyBulletsWithoutVisibleSource}`);

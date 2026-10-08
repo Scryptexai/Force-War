@@ -333,6 +333,9 @@ func _create_environment() -> void:
 	player_marker_light.light_specular = 0.35
 	player_marker_light.omni_range = 9.5
 	player_marker_light.omni_attenuation = 1.4
+	# Layer 1 only: hostile aircraft (visual layer 2) must not be brightened by
+	# the player's own readability lamp, or the value hierarchy inverts.
+	player_marker_light.light_cull_mask = 1
 	player_marker_light.position = Vector3(0.0, 3.4, 3.2)
 	add_child(player_marker_light)
 

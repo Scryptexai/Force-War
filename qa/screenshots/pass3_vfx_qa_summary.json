@@ -1,0 +1,50 @@
+{
+  "generatedAt": "2026-10-08T09:00:11.998Z",
+  "pass": "pass3_air_enemies_and_explosions",
+  "kindsSeen": [
+    "drone",
+    "gunship"
+  ],
+  "airEnemySpawned": 10,
+  "airEnemyKilled": 4,
+  "airEnemyFireEvents": 20,
+  "airEnemyHitsLanded": 10,
+  "explosionEvents": 4,
+  "explosionDynamicLights": 0,
+  "captures": [
+    {
+      "label": "air_enemy_1",
+      "path": "/home/user/Force-War/qa/screenshots/pass3_air_enemy_1.png",
+      "nearestZ": -21.7251853942871,
+      "live": 2,
+      "bytes": 590134
+    },
+    {
+      "label": "explosion_1",
+      "path": "/home/user/Force-War/qa/screenshots/pass3_explosion_1.png",
+      "kills": 1,
+      "explosionEvents": 2,
+      "explosionVisibleCount": 1,
+      "explosionX": 4.61477661132812,
+      "explosionZ": -25.9967231750488,
+      "bytes": 531609
+    },
+    {
+      "label": "explosion_2",
+      "path": "/home/user/Force-War/qa/screenshots/pass3_explosion_2.png",
+      "kills": 2,
+      "explosionEvents": 3,
+      "explosionVisibleCount": 1,
+      "explosionX": 3.39755868911743,
+      "explosionZ": -12.2279968261719,
+      "bytes": 635232
+    },
+    {
+      "label": "air_enemy_2",
+      "path": "/home/user/Force-War/qa/screenshots/pass3_air_enemy_2.png",
+      "nearestZ": 3.42721748352051,
+      "live": 4,
+      "bytes": 602447
+    }
+  ]
+}

@@ -23,6 +23,7 @@ const ENEMY_HERO_JET_PATH = "res://assets/models/enemy_hero_jet.glb"
 const DEPTH_LAYER_COUNT = 5
 const PROJECTILE_VISUAL_POOL_SCRIPT = preload("res://scripts/projectiles/projectile_visual_pool_3d.gd")
 const BOSS_ENTITY_SCRIPT = preload("res://scripts/boss/boss_entity_3d.gd")
+const ENEMY_SQUADRON_SCRIPT = preload("res://scripts/enemies/enemy_squadron_3d.gd")
 
 var active = false
 var is_setup = false
@@ -55,6 +56,11 @@ var air_traffic: Array = []
 var tracer_streaks: Array = []
 var boss_anchor: Node3D
 var boss_entity: Node3D
+var enemy_squadron: Node3D
+var explosion_pool: Array = []
+var explosion_cursor := 0
+var explosion_events_seen := 0
+var last_explosion_pos := Vector3.ZERO
 var projectile_manager_ref: Node
 var boss_core: MeshInstance3D
 var boss_phase_controller: Node
@@ -160,6 +166,8 @@ func setup() -> void:
 	_create_near_weather_layer()
 	_create_distant_battle_layer()
 	_create_boss_entity()
+	_create_enemy_squadron()
+	_create_explosion_pool()
 	_create_visual_lock_composition_layer()
 	_create_storm_hazard_cells()
 	is_setup = true
@@ -188,6 +196,9 @@ func start_mission(stage_data: Dictionary) -> void:
 	_reset_layers()
 	if boss_entity != null and boss_entity.has_method("start_mission"):
 		boss_entity.start_mission(stage_data)
+	if enemy_squadron != null and enemy_squadron.has_method("start_mission"):
+		enemy_squadron.start_mission(stage_data)
+	_reset_explosions()
 
 
 func stop_mission() -> void:
@@ -215,6 +226,8 @@ func update_arena(delta: float, player_corridor: Vector2, travel_speed: float) -
 	_update_distant_battle(delta, travel_speed)
 	_update_visual_lock_composition(delta, travel_speed)
 	_update_boss_phase_logic(delta)
+	_update_air_enemies(delta)
+	_update_explosions(delta)
 	_update_storm_cells(delta, travel_speed, player_corridor)
 	_update_lightning_nodes()
 	return _weather_effect_with_boss_state(false)
@@ -244,6 +257,14 @@ func get_weather_effect() -> Dictionary:
 		"combatPlaneY": CombatSpace.PLANE_Y,
 		"underworldY": CombatSpace.UNDERWORLD_Y,
 		"singlePlayfieldPlane": true,
+		"explosionPoolSize": explosion_pool.size(),
+		"explosionEvents": explosion_events_seen,
+		"explosionVisibleCount": _visible_explosion_count(),
+		"lastExplosionX": last_explosion_pos.x,
+		"lastExplosionY": last_explosion_pos.y,
+		"lastExplosionZ": last_explosion_pos.z,
+		"explosionDynamicLights": 0,
+		"pass3VFXPass": "air_enemies_and_emissive_explosions",
 		"staticMatteBackdrop": false,
 		"decorativeBulletNodes": 0,
 		"enemyPoolRendered": (enemy_projectile_visual_pool.rendered_count if enemy_projectile_visual_pool != null else -1),
@@ -319,12 +340,21 @@ func note_boss_hits(hits: Array) -> void:
 	boss_impact_events_seen += hits.size()
 
 
+func get_air_enemy_state() -> Dictionary:
+	if enemy_squadron != null and enemy_squadron.has_method("get_bridge_state"):
+		return Dictionary(enemy_squadron.get_bridge_state())
+	return {"airEnemyEntities": false}
+
+
 func _weather_effect_with_boss_state(strip_runtime_vectors: bool) -> Dictionary:
 	var effect = get_weather_effect()
 	if boss_entity != null and boss_entity.has_method("get_bridge_state"):
 		var boss_state = boss_entity.get_bridge_state()
 		for key in boss_state.keys():
 			effect[key] = boss_state[key]
+	var air_state := get_air_enemy_state()
+	for air_key in air_state.keys():
+		effect[air_key] = air_state[air_key]
 	if strip_runtime_vectors:
 		effect.erase("turbulence")
 		effect.erase("bossPartHitboxes")
@@ -560,6 +590,19 @@ func set_projectile_manager(manager: Node) -> void:
 	projectile_manager_ref = manager
 	if manager != null and manager.has_method("set_boss_entity"):
 		manager.set_boss_entity(boss_entity)
+	if manager != null and manager.has_method("set_enemy_squadron"):
+		manager.set_enemy_squadron(enemy_squadron)
+
+
+func _update_air_enemies(delta: float) -> void:
+	if enemy_squadron == null or not enemy_squadron.has_method("update_squadron"):
+		return
+	enemy_squadron.update_squadron(delta, last_player_corridor, stage_threat * 0.5 + storm_hazard * 0.3)
+	# Every destroyed unit becomes one explosion: no visual without a state change.
+	if enemy_squadron.has_method("consume_death_events"):
+		for event_value in enemy_squadron.consume_death_events():
+			var event: Dictionary = event_value
+			spawn_explosion(event.get("pos", Vector3.ZERO), float(event.get("scale", 1.0)))
 
 
 func _find_node3d(root: Node, node_name: String) -> Node3D:
@@ -662,6 +705,136 @@ func _phase3_debug_status() -> String:
 	if boss_entity != null and boss_impact_events_seen > 0:
 		return "boss_entity_causality_locked"
 	return "phase3_debug_waiting_for_runtime_events"
+
+
+func _create_enemy_squadron() -> void:
+	enemy_squadron = ENEMY_SQUADRON_SCRIPT.new()
+	add_child(enemy_squadron)
+	if enemy_squadron.has_method("setup"):
+		enemy_squadron.setup()
+	enemy_squadron.position = Vector3.ZERO
+
+
+func _create_explosion_pool() -> void:
+	# Pass 3, item 2: flash + fireball + smoke + debris, emissive only.
+	# No dynamic light is created per explosion.
+	explosion_pool.clear()
+	for i in range(10):
+		var root := Node3D.new()
+		root.name = "Explosion_%02d" % i
+		root.visible = false
+		add_child(root)
+		var flash := _explosion_quad("ExplosionFlash_%02d" % i, Vector2(1.5, 1.5), explosion_texture, Color(1.0, 0.94, 0.78, 1.0), 5.0)
+		var fireball := _explosion_quad("ExplosionFireball_%02d" % i, Vector2(1.5, 1.5), explosion_texture, Color(1.0, 0.44, 0.10, 1.0), 5.0)
+		var smoke := _vfx_quad("ExplosionSmoke_%02d" % i, Vector3(0.0, 0.6, 0.0), Vector2(1.8, 1.8), smoke_texture, Color(0.20, 0.17, 0.17, 0.8), 0.0)
+		root.add_child(flash)
+		root.add_child(fireball)
+		root.add_child(smoke)
+		var debris: Array = []
+		for d in range(5):
+			var shard := _explosion_quad("ExplosionDebris_%02d_%d" % [i, d], Vector2(0.22, 0.46), explosion_texture, Color(1.0, 0.62, 0.24, 1.0), 4.0)
+			root.add_child(shard)
+			debris.append(shard)
+		explosion_pool.append({
+			"root": root,
+			"flash": flash,
+			"fireball": fireball,
+			"smoke": smoke,
+			"debris": debris,
+			"timer": 0.0,
+			"life": 1.0,
+			"scale": 1.0,
+			"dirs": []
+		})
+
+
+func _reset_explosions() -> void:
+	for entry in explosion_pool:
+		entry["timer"] = 0.0
+		var root: Node3D = entry["root"]
+		root.visible = false
+
+
+func spawn_explosion(world_pos: Vector3, scale_mul: float = 1.0) -> void:
+	if explosion_pool.is_empty():
+		return
+	var entry: Dictionary = explosion_pool[explosion_cursor % explosion_pool.size()]
+	explosion_cursor += 1
+	explosion_events_seen += 1
+	var root: Node3D = entry["root"]
+	root.position = world_pos
+	root.visible = true
+	last_explosion_pos = world_pos
+	entry["timer"] = 0.0
+	entry["life"] = 1.55 + scale_mul * 0.45
+	entry["scale"] = scale_mul
+	var dirs: Array = []
+	for i in range(entry["debris"].size()):
+		var angle: float = rng.randf_range(0.0, TAU)
+		dirs.append(Vector3(cos(angle), 0.0, sin(angle)) * rng.randf_range(4.5, 9.0) * scale_mul)
+	entry["dirs"] = dirs
+
+
+func _explosion_quad(node_name: String, size: Vector2, texture: Texture2D, tint: Color, emission_energy: float) -> MeshInstance3D:
+	# Additive, unshaded, billboarded: an explosion must add light to the frame
+	# without any dynamic light being created for it.
+	var quad := _vfx_quad(node_name, Vector3.ZERO, size, texture, tint, emission_energy)
+	var mat := quad.material_override as StandardMaterial3D
+	if mat != null:
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		mat.disable_receive_shadows = true
+	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return quad
+
+
+func _visible_explosion_count() -> int:
+	var count := 0
+	for entry in explosion_pool:
+		var root: Node3D = entry["root"]
+		if root != null and root.visible:
+			count += 1
+	return count
+
+
+func _update_explosions(delta: float) -> void:
+	for entry in explosion_pool:
+		var root: Node3D = entry["root"]
+		if not root.visible:
+			continue
+		entry["timer"] = float(entry["timer"]) + delta
+		var life: float = float(entry["life"])
+		var t: float = clampf(float(entry["timer"]) / maxf(0.08, life), 0.0, 1.0)
+		var scale_mul: float = float(entry["scale"])
+		var flash: MeshInstance3D = entry["flash"]
+		var fireball: MeshInstance3D = entry["fireball"]
+		var smoke: MeshInstance3D = entry["smoke"]
+		var flash_t: float = clampf(float(entry["timer"]) / 0.22, 0.0, 1.0)
+		flash.visible = flash_t < 1.0
+		flash.scale = Vector3.ONE * (0.45 + flash_t * 0.75) * scale_mul
+		_set_vfx_alpha(flash, (1.0 - flash_t) * 0.9)
+		fireball.scale = Vector3.ONE * (0.40 + t * 1.15) * scale_mul
+		_set_vfx_alpha(fireball, pow(1.0 - t, 1.05) * 1.0)
+		smoke.scale = Vector3.ONE * (0.5 + t * 1.5) * scale_mul
+		smoke.position.y = 0.4 + t * 2.4
+		_set_vfx_alpha(smoke, (1.0 - t) * 0.6)
+		var dirs: Array = entry["dirs"]
+		for i in range(entry["debris"].size()):
+			var shard: MeshInstance3D = entry["debris"][i]
+			if i >= dirs.size():
+				continue
+			var dir: Vector3 = dirs[i]
+			shard.position = dir * t + Vector3(0.0, 1.4 * t - 3.4 * t * t, 0.0)
+			shard.scale = Vector3.ONE * (1.0 - t * 0.5) * scale_mul
+			_set_vfx_alpha(shard, (1.0 - t) * 0.9)
+		if t >= 1.0:
+			root.visible = false
+
+
+func _set_vfx_alpha(node: MeshInstance3D, alpha: float) -> void:
+	var mat := node.material_override as StandardMaterial3D
+	if mat == null:
+		return
+	mat.albedo_color = Color(mat.albedo_color.r, mat.albedo_color.g, mat.albedo_color.b, clampf(alpha, 0.0, 1.0))
 
 
 func _create_projectile_visual_pools() -> void:
