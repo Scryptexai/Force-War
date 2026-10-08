@@ -24,7 +24,7 @@ const sparticuzBin = join(root, 'node_modules', '@sparticuz', 'chromium', 'bin')
 const port = Number(process.env.QA_PASS3_PORT || 9500 + Math.floor(Math.random() * 400));
 const screenshotDir = join(root, 'qa', 'screenshots');
 const summaryPath = join(screenshotDir, 'pass3_vfx_qa_summary.json');
-const HUNT_MS = Number(process.env.QA_PASS3_HUNT || 110000);
+const HUNT_MS = Number(process.env.QA_PASS3_HUNT || 150000);
 
 function fail(message) {
   console.error(`Pass 3 VFX QA failed: ${message}`);
@@ -98,6 +98,10 @@ function assertEnemyContract(state, label) {
   // No per-explosion dynamic light is allowed; the VFX is emissive only.
   expect(num(state?.explosionDynamicLights) === 0, `[${label}] explosions created dynamic lights: ${state?.explosionDynamicLights}`);
   expect(num(state?.explosionPoolSize) > 0, `[${label}] explosion pool missing: ${state?.explosionPoolSize}`);
+  expect(state?.missileVisualModel === 'fire_head_plus_white_smoke_trail',
+    `[${label}] missile visual model: ${state?.missileVisualModel}`);
+  expect(state?.missileTracking === false, `[${label}] missiles are homing: ${state?.missileTracking}`);
+  expect(num(state?.missileVisualPoolSize) > 0, `[${label}] missile visual pool missing: ${state?.missileVisualPoolSize}`);
   // Pass 1 contract must still hold with the Pass 3 content switched on.
   expect(state?.pass1CausalityContract === 'boss_entity_owns_state_bullets_from_visible_muzzles',
     `[${label}] pass 1 causality contract lost: ${state?.pass1CausalityContract}`);
@@ -136,11 +140,13 @@ async function main() {
       let midfieldShots = 0;
       let killShots = 0;
       let kindsSeen = new Set();
+      let missileShots = 0;
+      let seenMissilesFired = 0;
       let seenFireEvents = 0;
       let seenHits = 0;
       const started = Date.now();
       let sweep = 0;
-      while (Date.now() - started < HUNT_MS && (midfieldShots < 2 || killShots < 2)) {
+      while (Date.now() - started < HUNT_MS && (midfieldShots < 2 || killShots < 2 || missileShots < 1)) {
         sweep += 1;
         await page.mouse.move(360 + Math.sin(sweep * 0.35) * 170, 930 + Math.cos(sweep * 0.5) * 70);
         const state = await page.evaluate(() => window.ForceWarBridge?.state || null);
@@ -186,6 +192,23 @@ async function main() {
           lastKills = kills;
         }
 
+        if (num(state.activeMissiles) > 0 && missileShots < 1) {
+          // Let the missile fly for a moment so its smoke trail has been laid
+          // down, then keep the frame only if a missile is still airborne.
+          await page.waitForTimeout(320);
+          const path = join(screenshotDir, 'pass3_missile_1.png');
+          await page.screenshot({ path, fullPage: false });
+          const flightState = await page.evaluate(() => window.ForceWarBridge?.state || null);
+          if (num(flightState?.activeMissiles) > 0) {
+            missileShots += 1;
+            writeFileSync(path.replace(/\.png$/, '_state.json'), JSON.stringify(flightState, null, 2));
+            captures.push({ label: 'missile_1', path, activeMissiles: num(flightState.activeMissiles), missilesFired: num(flightState.missilesFired) });
+            assertEnemyContract(flightState, 'missile_1');
+            console.log(`captured ${path} (active missiles ${num(flightState.activeMissiles)}, fired ${num(flightState.missilesFired)})`);
+          }
+        }
+        seenMissilesFired = Math.max(seenMissilesFired, num(state.missilesFired));
+
         if (num(state.airEnemyLiveCount) > 0 && nearestZ > -24 && midfieldShots < 2) {
           midfieldShots += 1;
           const path = join(screenshotDir, `pass3_air_enemy_${midfieldShots}.png`);
@@ -195,7 +218,27 @@ async function main() {
           assertEnemyContract(state, `air_enemy_${midfieldShots}`);
           console.log(`captured ${path} (live ${num(state.airEnemyLiveCount)}, nearest z ${nearestZ.toFixed(1)})`);
         }
-        await page.waitForTimeout(140);
+        await page.waitForTimeout(90);
+      }
+
+      for (let attempt = 0; attempt < 6 && missileShots === 0; attempt += 1) {
+        // Polling the bridge from the test loop can simply miss a two second
+        // flight; waitForFunction samples far faster than the loop does.
+        await page.waitForFunction(() => Number(window.ForceWarBridge?.state?.activeMissiles || 0) > 0,
+          null, { timeout: 60000, polling: 30 });
+        // Read the state that satisfied the wait, then grab the frame: at the
+        // sandbox's low headless frame rate the screenshot itself takes longer
+        // than one game frame, so a post-shot read can miss the flight.
+        const flightState = await page.evaluate(() => window.ForceWarBridge?.state || null);
+        const path = join(screenshotDir, 'pass3_missile_1.png');
+        await page.screenshot({ path, fullPage: false });
+        if (num(flightState?.activeMissiles) <= 0) continue;
+        missileShots += 1;
+        seenMissilesFired = Math.max(seenMissilesFired, num(flightState?.missilesFired));
+        writeFileSync(path.replace(/\.png$/, '_state.json'), JSON.stringify(flightState, null, 2));
+        captures.push({ label: 'missile_1', path, activeMissiles: num(flightState?.activeMissiles), missilesFired: num(flightState?.missilesFired) });
+        assertEnemyContract(flightState, 'missile_1');
+        console.log(`captured ${path} (active missiles ${num(flightState?.activeMissiles)}, fired ${num(flightState?.missilesFired)}, lead x=${num(flightState?.missileLeadX).toFixed(1)} z=${num(flightState?.missileLeadZ).toFixed(1)} trail=${num(flightState?.missileLeadTrail)})`);
       }
       await page.mouse.up();
 
@@ -209,6 +252,8 @@ async function main() {
       expect(kindsSeen.size >= 2, `only one air enemy silhouette was ever live: ${[...kindsSeen].join(',')}`);
       expect(seenFireEvents > 0, 'air enemies never fired from their muzzles');
       expect(seenHits > 0, 'player shots never damaged an air enemy');
+      expect(seenMissilesFired > 0, 'no gunship ever launched a missile');
+      expect(missileShots >= 1, 'no frame captured a missile in flight');
       expect(num(finalState.explosionEvents) >= num(finalState.airEnemyKilled),
         `kills without an explosion: ${num(finalState.airEnemyKilled)} kills vs ${num(finalState.explosionEvents)} explosions`);
 
@@ -220,6 +265,8 @@ async function main() {
         airEnemyKilled: num(finalState.airEnemyKilled),
         airEnemyFireEvents: seenFireEvents,
         airEnemyHitsLanded: seenHits,
+        missilesFired: num(finalState.missilesFired),
+        missileImpacts: num(finalState.missileImpacts),
         explosionEvents: num(finalState.explosionEvents),
         explosionDynamicLights: num(finalState.explosionDynamicLights),
         captures: captures.map((capture) => ({ ...capture, bytes: statSync(capture.path).size }))

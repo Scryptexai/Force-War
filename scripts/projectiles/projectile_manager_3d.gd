@@ -48,6 +48,12 @@ var boss_entity: Node3D
 var enemy_squadron: Node3D
 var air_enemy_hit_count := 0
 var air_enemy_damage_total := 0.0
+var missile_pool: Array = []
+var max_missiles := 12
+var missiles_fired := 0
+var missile_impacts := 0
+var missile_player_hits := 0
+var recent_missile_impacts: Array = []
 var muzzle_spawn_events := 0
 var blocked_shots := 0
 
@@ -123,6 +129,7 @@ func update_logic(delta: float, player_xz: Vector2, weather_effect: Dictionary, 
 	_spawn_from_boss_fire_events()
 	_update_player_fire(delta, overcharged)
 	_update_enemy_bullets(delta, player_xz, wind, boost_amount, overcharged)
+	_update_missiles(delta, player_xz, boost_amount, overcharged)
 	_update_player_bullets(delta, wind)
 	return recent_damage
 
@@ -141,6 +148,16 @@ func consume_player_hit_events() -> Array:
 
 func get_enemy_bullets() -> Array:
 	return enemy_pool
+
+
+func get_missiles() -> Array:
+	return missile_pool
+
+
+func consume_missile_impacts() -> Array:
+	var events: Array = recent_missile_impacts.duplicate(true)
+	recent_missile_impacts.clear()
+	return events
 
 
 func get_player_bullets() -> Array:
@@ -177,6 +194,16 @@ func get_bridge_state() -> Dictionary:
 		"bossPatternDrivenProjectiles": true,
 		"enemyBulletSourceModel": "boss_and_air_enemy_muzzle_fire_events_only",
 		"airEnemyHitsLanded": air_enemy_hit_count,
+		"missilePoolSize": missile_pool.size(),
+		"activeMissiles": _active_missile_count(),
+		"missilesFired": missiles_fired,
+		"missileImpacts": missile_impacts,
+		"missilePlayerHits": missile_player_hits,
+		"missileTracking": false,
+		"missileLeadX": _lead_missile_pos().x,
+		"missileLeadZ": _lead_missile_pos().z,
+		"missileLeadTrail": _lead_missile_trail_size(),
+		"missileVisualModel": "fire_head_plus_white_smoke_trail",
 		"airEnemyDamageDealt": air_enemy_damage_total,
 		"enemyBulletsWithoutVisibleSource": 0,
 		"bossProjectileAimingModel": "fixed_angle_formation_no_tracking",
@@ -212,6 +239,20 @@ func _reset_pools() -> void:
 			"damage": float(enemy_data.get("damage", 8.0)),
 			"part": "core"
 		})
+	missile_pool.clear()
+	for i in range(max_missiles):
+		missile_pool.append({
+			"active": false,
+			"pos": Vector3.ZERO,
+			"vel": Vector3.ZERO,
+			"life": 0.0,
+			"age": 0.0,
+			"radius": 0.5,
+			"damage": 14.0,
+			"trail": [],
+			"prev_pos": Vector3.ZERO,
+			"trail_timer": 0.0
+		})
 	player_pool.clear()
 	for i in range(max_player_bullets):
 		player_pool.append({
@@ -246,6 +287,9 @@ func _spawn_from_boss_fire_events() -> void:
 			dir = Vector3(0.0, 0.0, 1.0)
 		dir = dir.normalized()
 		var speed: float = float(event.get("speed", 38.0))
+		if str(event.get("kind", "bolt")) == "missile":
+			_spawn_missile(origin, dir, speed, float(event.get("damage", 14.0)))
+			continue
 		var bullet: Dictionary = enemy_pool[index]
 		bullet["active"] = true
 		bullet["pos"] = origin
@@ -298,6 +342,76 @@ func _player_hardpoint_origin(sequence: int) -> Vector3:
 		if center_value is Vector3:
 			return center_value
 	return Vector3(0.0, CombatSpace.PLANE_Y, 0.0)
+
+
+func _spawn_missile(origin: Vector3, dir: Vector3, speed: float, damage: float) -> void:
+	for i in range(missile_pool.size()):
+		var missile: Dictionary = missile_pool[i]
+		if bool(missile.get("active", false)):
+			continue
+		missile["active"] = true
+		missile["pos"] = origin
+		missile["vel"] = dir * speed
+		missile["life"] = 4.6
+		missile["age"] = 0.0
+		missile["damage"] = damage
+		missile["radius"] = 0.5
+		missile["trail"] = [origin]
+		missile["prev_pos"] = origin
+		missile["trail_timer"] = 0.02
+		missile_pool[i] = missile
+		missiles_fired += 1
+		return
+
+
+func _update_missiles(delta: float, player_xz: Vector2, boost_amount: float, overcharged: bool) -> void:
+	# Missiles are slow, heavy and still not homing: the heading is fixed at launch.
+	var player_hitbox: float = 0.42 + boost_amount * 0.05
+	for i in range(missile_pool.size()):
+		var missile: Dictionary = missile_pool[i]
+		if not bool(missile.get("active", false)):
+			continue
+		var pos: Vector3 = missile["pos"]
+		var vel: Vector3 = missile["vel"]
+		pos += vel * delta
+		pos.y = CombatSpace.PLANE_Y
+		missile["pos"] = pos
+		missile["age"] = float(missile.get("age", 0.0)) + delta
+		missile["life"] = float(missile.get("life", 0.0)) - delta
+		# Smoke trail: the exhaust is a record of where the missile has been.
+		# Points are laid down per distance travelled, interpolated across the
+		# frame, so the trail looks the same at 60 fps and at 5 fps.
+		var prev_pos: Vector3 = missile.get("prev_pos", pos)
+		var trail: Array = missile["trail"]
+		var segment: Vector3 = pos - prev_pos
+		var segment_length: float = segment.length()
+		if segment_length > 0.001:
+			var steps: int = clampi(int(floor(segment_length / 0.9)), 1, 14)
+			for step_index in range(steps):
+				var point: Vector3 = prev_pos + segment * (float(step_index + 1) / float(steps))
+				trail.push_front(point)
+			while trail.size() > 14:
+				trail.pop_back()
+			missile["trail"] = trail
+		missile["prev_pos"] = pos
+		var hit_player := false
+		if invulnerable_timer <= 0.0:
+			var radius: float = float(missile.get("radius", 0.5)) + player_hitbox
+			if Vector2(pos.x, pos.z).distance_squared_to(player_xz) <= radius * radius:
+				var damage: float = float(missile.get("damage", 14.0)) * (0.72 if overcharged else 1.0)
+				recent_damage += damage
+				total_damage_to_player += damage
+				player_hit_count += 1
+				missile_player_hits += 1
+				invulnerable_timer = 0.85
+				recent_player_hits.append({"x": pos.x, "z": pos.z, "damage": damage})
+				hit_player = true
+		var expired: bool = hit_player or float(missile["life"]) <= 0.0 or pos.z > 3.6 or absf(pos.x) > 26.0
+		if expired:
+			missile["active"] = false
+			missile_impacts += 1
+			recent_missile_impacts.append({"x": pos.x, "y": pos.y, "z": pos.z, "hitPlayer": hit_player})
+		missile_pool[i] = missile
 
 
 func _update_enemy_bullets(delta: float, player_xz: Vector2, wind: float, boost_amount: float, overcharged: bool) -> void:
@@ -395,6 +509,28 @@ func _first_inactive_player_index() -> int:
 		if not bool(player_pool[i].get("active", false)):
 			return i
 	return -1
+
+
+func _lead_missile_pos() -> Vector3:
+	for missile in missile_pool:
+		if bool(missile.get("active", false)):
+			return missile.get("pos", Vector3.ZERO)
+	return Vector3.ZERO
+
+
+func _lead_missile_trail_size() -> int:
+	for missile in missile_pool:
+		if bool(missile.get("active", false)):
+			return (missile.get("trail", []) as Array).size()
+	return 0
+
+
+func _active_missile_count() -> int:
+	var count := 0
+	for missile in missile_pool:
+		if bool(missile.get("active", false)):
+			count += 1
+	return count
 
 
 func _active_enemy_count() -> int:

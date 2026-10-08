@@ -32,6 +32,7 @@ var wave_index := 0
 var spawned_count := 0
 var killed_count := 0
 var fire_event_count := 0
+var missiles_launched := 0
 var escaped_count := 0
 var max_units := 6
 var density_scale := 1.0
@@ -61,6 +62,7 @@ func start_mission(_stage_data: Dictionary) -> void:
 	killed_count = 0
 	escaped_count = 0
 	fire_event_count = 0
+	missiles_launched = 0
 	fire_events.clear()
 	death_events.clear()
 	hit_events.clear()
@@ -150,6 +152,24 @@ func _fire(unit: Dictionary, player_xz: Vector2) -> void:
 	var to_player := Vector2(player_xz.x - root.position.x, player_xz.y - root.position.z)
 	var angle: float = clampf(atan2(to_player.x, maxf(1.0, to_player.y)), -0.42, 0.42)
 	var spread: Array = unit["spread"]
+	unit["volley_index"] = int(unit.get("volley_index", 0)) + 1
+	if str(unit["kind"]) == GUNSHIP and int(unit["volley_index"]) % 2 == 1:
+		# Gunship heavy option: one slow missile from the centre line, fire head
+		# and smoke trail drawn by the arena director. Heading is locked here.
+		var centre: Vector3 = root.position + Vector3(0.0, 0.0, 1.1 * float(root.scale.z))
+		centre.y = CombatSpace.PLANE_Y
+		fire_events.append({
+			"origin": centre,
+			"dir": Vector3(sin(angle), 0.0, cos(angle)),
+			"speed": 9.5,
+			"damage": 16.0,
+			"part": "gunship_missile",
+			"kind": "missile"
+		})
+		fire_event_count += 1
+		missiles_launched += 1
+		unit["muzzle_flash"] = 0.16
+		return
 	for muzzle_value in muzzles:
 		var muzzle: Node3D = muzzle_value
 		if muzzle == null or not muzzle.is_inside_tree():
@@ -264,6 +284,7 @@ func get_bridge_state() -> Dictionary:
 		"airEnemyKilled": killed_count,
 		"airEnemyEscaped": escaped_count,
 		"airEnemyFireEvents": fire_event_count,
+		"airEnemyMissilesLaunched": missiles_launched,
 		"airEnemyMuzzleCount": get_live_muzzle_positions().size(),
 		"airEnemyHitboxModel": "per_unit_world_box_on_combat_plane",
 		"airEnemyThreatMarker": "red_eye_emissive",
@@ -275,17 +296,18 @@ func get_bridge_state() -> Dictionary:
 # -------------------------------------------------------------------- spawns
 func _spawn_wave(pressure: float) -> void:
 	wave_index += 1
-	var want: int = 2 if wave_index % 2 == 1 else 3
-	want = int(round(float(want) * density_scale))
-	want = max(1, want)
-	var kind: String = DRONE if wave_index % 2 == 1 else GUNSHIP
+	# Mixed waves: every wave carries at least one gunship, so the heavy
+	# missile option is a regular part of the pressure, not a rare event.
+	var composition: Array = [DRONE, DRONE, GUNSHIP] if wave_index % 2 == 1 else [GUNSHIP, DRONE, GUNSHIP]
+	var want: int = int(round(float(composition.size()) * density_scale))
+	want = clampi(want, 1, composition.size())
 	var spread_x: float = 4.6
 	for i in range(want):
 		var unit := _free_unit()
 		if unit.is_empty():
 			return
 		var lane: float = (float(i) - float(want - 1) * 0.5) * spread_x
-		_deploy(unit, kind, lane, pressure)
+		_deploy(unit, str(composition[i]), lane, pressure)
 
 
 func _free_unit() -> Dictionary:
@@ -316,7 +338,7 @@ func _deploy(unit: Dictionary, kind: String, lane_x: float, pressure: float) -> 
 		unit["spread"] = [0.0]
 		unit["hitbox"] = Vector3(1.0, 0.6, 1.15)
 	else:
-		unit["hp"] = 128.0
+		unit["hp"] = 220.0
 		unit["speed"] = 5.6 + pressure * 1.4
 		unit["weave_rate"] = 1.05
 		unit["weave_width"] = 1.4
@@ -327,8 +349,11 @@ func _deploy(unit: Dictionary, kind: String, lane_x: float, pressure: float) -> 
 		unit["spread"] = [-9.0, 9.0]
 		unit["hitbox"] = Vector3(1.7, 0.7, 1.5)
 	unit["max_hp"] = float(unit["hp"])
-	unit["fire_timer"] = float(unit["fire_interval"]) * 0.65
+	# A gunship opens with its missile almost immediately, so the heavy threat
+	# is on screen even if the player shreds it a second later.
+	unit["fire_timer"] = 0.6 if kind == GUNSHIP else float(unit["fire_interval"]) * 0.65
 	unit["telegraphing"] = false
+	unit["volley_index"] = 0
 	root.position = Vector3(float(unit["lane_x"]), CombatSpace.PLANE_Y, CombatSpace.BOSS_Z + 11.0 - rng.randf_range(0.0, 4.0))
 	root.rotation = Vector3.ZERO
 	root.scale = Vector3.ONE * (0.34 if kind == DRONE else 0.60)
@@ -458,6 +483,7 @@ func _create_unit(index: int) -> Dictionary:
 		"telegraph": 0.35,
 		"telegraphing": false,
 		"muzzle_flash": 0.0,
+		"volley_index": 0,
 		"bullet_speed": 28.0,
 		"bullet_damage": 7.0,
 		"spread": [0.0],

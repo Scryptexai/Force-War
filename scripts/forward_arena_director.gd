@@ -59,6 +59,7 @@ var boss_entity: Node3D
 var enemy_squadron: Node3D
 var explosion_pool: Array = []
 var explosion_cursor := 0
+var missile_visuals: Array = []
 var explosion_events_seen := 0
 var last_explosion_pos := Vector3.ZERO
 var projectile_manager_ref: Node
@@ -168,6 +169,7 @@ func setup() -> void:
 	_create_boss_entity()
 	_create_enemy_squadron()
 	_create_explosion_pool()
+	_create_missile_visual_pool()
 	_create_visual_lock_composition_layer()
 	_create_storm_hazard_cells()
 	is_setup = true
@@ -227,6 +229,7 @@ func update_arena(delta: float, player_corridor: Vector2, travel_speed: float) -
 	_update_visual_lock_composition(delta, travel_speed)
 	_update_boss_phase_logic(delta)
 	_update_air_enemies(delta)
+	_update_missile_feedback()
 	_update_explosions(delta)
 	_update_storm_cells(delta, travel_speed, player_corridor)
 	_update_lightning_nodes()
@@ -257,6 +260,8 @@ func get_weather_effect() -> Dictionary:
 		"combatPlaneY": CombatSpace.PLANE_Y,
 		"underworldY": CombatSpace.UNDERWORLD_Y,
 		"singlePlayfieldPlane": true,
+		"missileVisualPoolSize": missile_visuals.size(),
+		"missileTrailModel": "pooled_white_smoke_puffs_behind_fire_head",
 		"explosionPoolSize": explosion_pool.size(),
 		"explosionEvents": explosion_events_seen,
 		"explosionVisibleCount": _visible_explosion_count(),
@@ -746,6 +751,78 @@ func _create_explosion_pool() -> void:
 			"scale": 1.0,
 			"dirs": []
 		})
+
+
+func _create_missile_visual_pool() -> void:
+	# Pass 3, item 3: every logical missile gets a fire head and a white smoke
+	# trail. Both are pooled quads - nothing is instanced at fire time.
+	missile_visuals.clear()
+	for i in range(12):
+		var root := Node3D.new()
+		root.name = "Missile_%02d" % i
+		root.visible = false
+		add_child(root)
+		var head := _explosion_quad("MissileHead_%02d" % i, Vector2(1.15, 1.15), explosion_texture, Color(1.0, 0.78, 0.34, 1.0), 6.0)
+		var flame := _explosion_quad("MissileFlame_%02d" % i, Vector2(0.8, 1.7), explosion_texture, Color(1.0, 0.36, 0.06, 1.0), 4.5)
+		flame.position = Vector3(0.0, 0.0, -0.95)
+		root.add_child(head)
+		root.add_child(flame)
+		var puffs: Array = []
+		for p in range(12):
+			var puff := _vfx_quad("MissileSmoke_%02d_%02d" % [i, p], Vector3.ZERO, Vector2(0.85, 0.85), smoke_texture, Color(0.96, 0.94, 0.92, 0.7), 0.0)
+			puff.visible = false
+			add_child(puff)
+			puffs.append(puff)
+		missile_visuals.append({"root": root, "head": head, "flame": flame, "puffs": puffs})
+
+
+func render_missiles(missiles: Array) -> void:
+	for i in range(missile_visuals.size()):
+		var entry: Dictionary = missile_visuals[i]
+		var root: Node3D = entry["root"]
+		var puffs: Array = entry["puffs"]
+		if i >= missiles.size() or not bool((missiles[i] as Dictionary).get("active", false)):
+			root.visible = false
+			for puff_value in puffs:
+				(puff_value as MeshInstance3D).visible = false
+			continue
+		var missile: Dictionary = missiles[i]
+		var pos: Vector3 = missile.get("pos", Vector3.ZERO)
+		root.position = pos
+		root.visible = pos.z <= 2.0
+		var head: MeshInstance3D = entry["head"]
+		var flame: MeshInstance3D = entry["flame"]
+		var flicker: float = 0.82 + 0.18 * sin(forward_time * 26.0 + float(i))
+		head.scale = Vector3.ONE * flicker
+		flame.scale = Vector3(1.0, 1.0, 1.0) * (0.85 + 0.3 * (1.0 - flicker))
+		var trail: Array = missile.get("trail", [])
+		for p in range(puffs.size()):
+			var puff: MeshInstance3D = puffs[p]
+			if p >= trail.size():
+				puff.visible = false
+				continue
+			var fade: float = 1.0 - float(p) / float(puffs.size())
+			var puff_pos: Vector3 = trail[p]
+			# A puff that drifts past the player would fill the screen as a
+			# billboard right in front of the camera: cull it instead.
+			if puff_pos.z > 1.0:
+				puff.visible = false
+				continue
+			puff.visible = true
+			puff.position = puff_pos
+			puff.scale = Vector3.ONE * (0.55 + (1.0 - fade) * 0.95)
+			_set_vfx_alpha(puff, fade * 0.72)
+
+
+func _update_missile_feedback() -> void:
+	if projectile_manager_ref == null:
+		return
+	if projectile_manager_ref.has_method("get_missiles"):
+		render_missiles(projectile_manager_ref.get_missiles())
+	if projectile_manager_ref.has_method("consume_missile_impacts"):
+		for impact_value in projectile_manager_ref.consume_missile_impacts():
+			var impact: Dictionary = impact_value
+			spawn_explosion(Vector3(float(impact.get("x", 0.0)), CombatSpace.PLANE_Y, float(impact.get("z", 0.0))), 0.75)
 
 
 func _reset_explosions() -> void:
