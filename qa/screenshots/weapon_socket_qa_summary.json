@@ -1,0 +1,47 @@
+{
+  "generatedAt": "2026-10-09T06:14:25.150Z",
+  "contract": "position_from_socket_direction_from_aim",
+  "gunSocketIds": [
+    "gun_left",
+    "gun_right"
+  ],
+  "gunWorldOrder": [
+    "gun_left",
+    "gun_right"
+  ],
+  "missileSockets": 2,
+  "convergenceDistance": 26,
+  "muzzleClearance": 0.55,
+  "socketFailures": 0,
+  "banking": [
+    {
+      "label": "bank_left",
+      "roll": 11.7824929598114,
+      "socket": "gun_left",
+      "socketX": -3.35670328140259,
+      "spawnX": -3.52213168144226,
+      "dirX": -0.0279307570308447,
+      "dirY": 0,
+      "gunWorldOrder": [
+        "gun_left",
+        "gun_right"
+      ],
+      "path": "/home/user/Force-War/qa/screenshots/weapon_bank_left.png"
+    },
+    {
+      "label": "bank_right",
+      "roll": -9.73589849200333,
+      "socket": "gun_right",
+      "socketX": 5.34067058563232,
+      "spawnX": 4.79440498352051,
+      "dirX": -0.0568292513489723,
+      "dirY": 0,
+      "gunWorldOrder": [
+        "gun_left",
+        "gun_right"
+      ],
+      "path": "/home/user/Force-War/qa/screenshots/weapon_bank_right.png"
+    }
+  ],
+  "gizmoScreenshot": "/home/user/Force-War/qa/screenshots/weapon_socket_gizmo.png"
+}

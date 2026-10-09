@@ -12,7 +12,8 @@
     "qa:forward": "node qa/forward-flight-browser-qa.mjs",
     "qa:pass1": "node qa/pass1-causality-qa.mjs",
     "qa:probe": "node qa/pass1-probe.mjs",
-    "qa:pass3": "node qa/pass3-vfx-qa.mjs"
+    "qa:pass3": "node qa/pass3-vfx-qa.mjs",
+    "qa:weapons": "node qa/weapon-socket-qa.mjs"
   },
   "engines": {
     "node": ">=20"

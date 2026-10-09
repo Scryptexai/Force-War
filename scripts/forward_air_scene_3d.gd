@@ -35,6 +35,14 @@ var player_model_alignment := "unknown"
 var runtime_afterburner_boxes := false
 var weapon_hardpoint_binding := "runtime_fallback"
 var glb_weapon_sockets_found := false
+var gun_sockets: Array = []
+var missile_sockets: Array = []
+var weapon_socket_error := ""
+var player_projectile_data: Dictionary = {}
+var weapon_gizmo_visible := false
+var weapon_gizmo_nodes: Array = []
+var aim_convergence_point := Vector3.ZERO
+var gun_world_order: Array = []
 var muzzle_center: Node3D
 var muzzle_left: Node3D
 var muzzle_right: Node3D
@@ -184,7 +192,20 @@ func get_bridge_state() -> Dictionary:
 		"runtimeAfterburnerBoxes": runtime_afterburner_boxes,
 		"playerWeaponHardpointBinding": weapon_hardpoint_binding,
 		"playerGLBWeaponSocketsFound": glb_weapon_sockets_found,
-		"playerShotSpawnOrigin": "glb_muzzle_socket" if glb_weapon_sockets_found else "runtime_fallback_socket",
+		"playerShotSpawnOrigin": "glb_muzzle_socket" if glb_weapon_sockets_found else "socket_resolution_failed",
+		"playerGunSocketCount": gun_sockets.size(),
+		"playerGunSocketIds": _gun_socket_ids(),
+		"playerMissileSocketCount": missile_sockets.size(),
+		"playerWeaponSocketError": weapon_socket_error,
+		"playerWeaponSocketResolution": "by_name_from_glb_no_origin_fallback",
+		"playerShotDirectionModel": "aim_convergence_on_play_plane_not_socket_rotation",
+		"playerShotConvergenceDistance": float(player_projectile_data.get("convergence_distance", 26.0)),
+		"playerShotMuzzleClearance": float(player_projectile_data.get("muzzle_clearance", 0.55)),
+		"playerRollDegrees": rad_to_deg(player_rig.rotation.z) if player_rig != null else 0.0,
+		"weaponDebugGizmoVisible": weapon_gizmo_visible,
+		"playerGunWorldOrder": gun_world_order,
+		"playerAimPointX": aim_convergence_point.x,
+		"playerAimPointZ": aim_convergence_point.z,
 		"playerMuzzleCenterZ": _muzzle_world_position(muzzle_center).z,
 		"playerMuzzleForwardZLocked": _muzzle_world_position(muzzle_center).z < 0.0,
 		"socketMuzzleVFX": socket_muzzle_vfx_mode,
@@ -371,6 +392,7 @@ func _create_player_rig() -> void:
 	player_rig.name = "PlayerRig3D_ForwardAircraft"
 	player_rig.position = Vector3(0.0, CombatSpace.PLANE_Y, 0.0)
 	add_child(player_rig)
+	player_projectile_data = _load_player_projectile_data()
 	_load_player_model()
 	_create_afterburners()
 	_create_socket_muzzle_vfx()
@@ -504,19 +526,67 @@ func _create_weapon_hardpoints() -> void:
 	player_rig.add_child(muzzle_right)
 
 
+func _load_player_projectile_data() -> Dictionary:
+	var file := FileAccess.open("res://data/projectiles/player_cyan_plasma.json", FileAccess.READ)
+	if file == null:
+		push_error("Force War: player projectile config missing")
+		return {}
+	var parsed = JSON.parse_string(file.get_as_text())
+	return parsed if parsed is Dictionary else {}
+
+
 func _bind_glb_weapon_hardpoints() -> void:
+	# Weapon sockets are resolved BY NAME from the GLB, never by hard-coded
+	# coordinates: moving an Empty in Blender and re-exporting moves the gun.
+	# Prefixes follow the agreed scheme (MZ_ muzzle, HP_ hardpoint, EX_ exhaust)
+	# with the current asset's legacy names kept as aliases.
+	gun_sockets.clear()
+	missile_sockets.clear()
+	weapon_socket_error = ""
 	if player_model == null:
+		weapon_socket_error = "player model missing, weapon sockets cannot be resolved"
+		push_error("Force War: " + weapon_socket_error)
+		glb_weapon_sockets_found = false
+		weapon_hardpoint_binding = "socket_resolution_failed"
 		return
-	muzzle_left = _find_node3d(player_model, "Muzzle_Left")
-	muzzle_right = _find_node3d(player_model, "Muzzle_Right")
-	engine_socket = _find_node3d(player_model, "Engine_Core")
+
+	var gun_config: Array = player_projectile_data.get("gun_sockets", [])
+	for entry_value in gun_config:
+		var entry: Dictionary = entry_value
+		var socket := _resolve_socket(entry.get("socket_names", []))
+		if socket == null:
+			# No silent fallback to the hull origin - that is the classic bug
+			# where shots appear to come out of the middle of the aircraft.
+			weapon_socket_error = "missing gun socket for %s (%s)" % [str(entry.get("id", "?")), str(entry.get("socket_names", []))]
+			push_error("Force War: " + weapon_socket_error)
+			continue
+		gun_sockets.append({"id": str(entry.get("id", socket.name)), "node": socket})
+
+	var missile_config: Array = player_projectile_data.get("missile_sockets", [])
+	for entry_value in missile_config:
+		var entry: Dictionary = entry_value
+		var socket := _resolve_socket(entry.get("socket_names", []))
+		if socket != null:
+			missile_sockets.append({"id": str(entry.get("id", socket.name)), "node": socket})
+
+	engine_socket = _resolve_socket(["EX_C", "Engine_Core"])
+	muzzle_left = gun_sockets[0]["node"] if gun_sockets.size() > 0 else null
+	muzzle_right = gun_sockets[1]["node"] if gun_sockets.size() > 1 else null
+	glb_weapon_sockets_found = gun_sockets.size() >= 2 and weapon_socket_error == ""
+	weapon_hardpoint_binding = "glb_socket_runtime" if glb_weapon_sockets_found else "socket_resolution_failed"
 	if muzzle_left != null and muzzle_right != null:
-		glb_weapon_sockets_found = true
-		weapon_hardpoint_binding = "glb_socket_runtime"
 		muzzle_center = Node3D.new()
 		muzzle_center.name = "MuzzleForward_Center_FromGLBSockets"
 		muzzle_center.position = (muzzle_left.position + muzzle_right.position) * 0.5
 		muzzle_left.get_parent().add_child(muzzle_center)
+
+
+func _resolve_socket(names) -> Node3D:
+	for socket_name in names:
+		var found := _find_node3d(player_model, str(socket_name))
+		if found != null:
+			return found
+	return null
 
 
 func _find_node3d(root: Node, node_name: String) -> Node3D:
@@ -662,9 +732,38 @@ func _update_corridor_position(delta: float, input_state: Dictionary, effect: Di
 
 
 func _sync_player_weapon_hardpoints_to_arena() -> void:
+	# Position comes from the socket, direction comes from the aiming system:
+	# the aircraft banks, so a barrel-axis direction would throw shots off the
+	# play plane. The convergence point is always on the play plane.
+	var convergence: float = float(player_projectile_data.get("convergence_distance", 26.0))
+	aim_convergence_point = Vector3(corridor_pos.x, CombatSpace.PLANE_Y, player_rig.position.z - convergence) if player_rig != null else Vector3.ZERO
+
+	var gun_list: Array = []
+	for socket_entry_value in gun_sockets:
+		var socket_entry: Dictionary = socket_entry_value
+		var node: Node3D = socket_entry["node"]
+		if node == null or not node.is_inside_tree():
+			continue
+		var world_pos: Vector3 = node.global_transform.origin
+		world_pos.y = CombatSpace.PLANE_Y
+		gun_list.append({"id": str(socket_entry["id"]), "pos": world_pos})
+	# Firing order follows world left to right, taken from the live socket
+	# positions rather than from the order the sockets happened to resolve in.
+	gun_list.sort_custom(func(a, b): return float(a["pos"].x) < float(b["pos"].x))
+	gun_world_order.clear()
+	for gun_value in gun_list:
+		var gun_entry: Dictionary = gun_value
+		gun_world_order.append(str(gun_entry["id"]))
+
 	var hardpoint_state := {
 		"binding": weapon_hardpoint_binding,
 		"sockets_found": glb_weapon_sockets_found,
+		"socket_error": weapon_socket_error,
+		"guns": gun_list,
+		"aim_point": aim_convergence_point,
+		"aim_model": str(player_projectile_data.get("aim_model", "convergence_point_on_play_plane")),
+		"convergence_distance": convergence,
+		"muzzle_clearance": float(player_projectile_data.get("muzzle_clearance", 0.55)),
 		"center": _muzzle_world_position(muzzle_center),
 		"left": _muzzle_world_position(muzzle_left),
 		"right": _muzzle_world_position(muzzle_right),
@@ -675,6 +774,61 @@ func _sync_player_weapon_hardpoints_to_arena() -> void:
 		arena_director.set_player_weapon_hardpoints(hardpoint_state)
 	if projectile_manager != null and projectile_manager.has_method("set_player_weapon_hardpoints"):
 		projectile_manager.set_player_weapon_hardpoints(hardpoint_state)
+	_update_weapon_gizmo(gun_list)
+
+
+func set_weapon_gizmo_visible(value: bool) -> void:
+	weapon_gizmo_visible = value
+	for node_value in weapon_gizmo_nodes:
+		var node: Node3D = node_value
+		node.visible = value
+
+
+func _update_weapon_gizmo(gun_list: Array) -> void:
+	# Debug gizmo: socket markers plus the line each stream will actually take.
+	if weapon_gizmo_nodes.is_empty():
+		for i in range(4):
+			var marker := MeshInstance3D.new()
+			marker.name = "WeaponGizmo_%02d" % i
+			var marker_mesh := BoxMesh.new()
+			marker_mesh.size = Vector3(0.12, 0.12, 0.12) if i < 2 else Vector3(0.03, 0.03, 1.0)
+			marker.mesh = marker_mesh
+			var gizmo_mat := StandardMaterial3D.new()
+			gizmo_mat.albedo_color = Color(0.45, 1.0, 0.55, 1.0) if i < 2 else Color(1.0, 0.95, 0.35, 0.85)
+			gizmo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			gizmo_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			gizmo_mat.no_depth_test = true
+			marker.material_override = gizmo_mat
+			marker.visible = false
+			add_child(marker)
+			weapon_gizmo_nodes.append(marker)
+	if not weapon_gizmo_visible:
+		return
+	for i in range(2):
+		var dot: MeshInstance3D = weapon_gizmo_nodes[i]
+		var line: MeshInstance3D = weapon_gizmo_nodes[i + 2]
+		if i >= gun_list.size():
+			dot.visible = false
+			line.visible = false
+			continue
+		var gun: Dictionary = gun_list[i]
+		var origin: Vector3 = gun["pos"]
+		dot.visible = true
+		dot.position = origin
+		var to_aim: Vector3 = aim_convergence_point - origin
+		var distance: float = max(0.2, to_aim.length())
+		line.visible = true
+		line.position = origin + to_aim * 0.5
+		line.scale = Vector3(1.0, 1.0, distance)
+		line.look_at(aim_convergence_point, Vector3.UP)
+
+
+func _gun_socket_ids() -> Array:
+	var ids: Array = []
+	for socket_entry_value in gun_sockets:
+		var socket_entry: Dictionary = socket_entry_value
+		ids.append(str(socket_entry["id"]))
+	return ids
 
 
 func _muzzle_world_position(socket: Node3D) -> Vector3:

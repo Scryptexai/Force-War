@@ -17,5 +17,55 @@
   "renderer": "multimesh_visual_pool",
   "logic_pool_count": 80,
   "fire_interval": 0.12,
-  "boss_hit_z": -96.0
+  "boss_hit_z": -96.0,
+  "gun_sockets": [
+    {
+      "id": "gun_left",
+      "socket_names": [
+        "MZ_Gun_L",
+        "Muzzle_Left"
+      ],
+      "order": 0
+    },
+    {
+      "id": "gun_right",
+      "socket_names": [
+        "MZ_Gun_R",
+        "Muzzle_Right"
+      ],
+      "order": 1
+    }
+  ],
+  "missile_sockets": [
+    {
+      "id": "pylon_left",
+      "socket_names": [
+        "HP_L1",
+        "Missile_Left"
+      ],
+      "order": 0
+    },
+    {
+      "id": "pylon_right",
+      "socket_names": [
+        "HP_R1",
+        "Missile_Right"
+      ],
+      "order": 1
+    }
+  ],
+  "exhaust_sockets": [
+    {
+      "id": "exhaust_center",
+      "socket_names": [
+        "EX_C",
+        "Engine_Core"
+      ],
+      "order": 0
+    }
+  ],
+  "aim_model": "convergence_point_on_play_plane",
+  "convergence_distance": 26.0,
+  "muzzle_clearance": 0.55,
+  "require_sockets": true
 }

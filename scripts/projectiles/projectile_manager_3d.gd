@@ -43,7 +43,13 @@ var recent_player_hits: Array = []
 var last_boss_hit_part := "shield"
 var player_weapon_hardpoints: Dictionary = {}
 var player_hardpoint_binding := "pending"
-var player_shot_spawn_origin := "runtime_fallback_socket"
+var player_shot_spawn_origin := "socket_resolution_pending"
+var player_shot_socket_failures := 0
+var last_player_shot_socket := "none"
+var last_player_shot_origin := Vector3.ZERO
+var last_player_shot_spawn := Vector3.ZERO
+var last_player_shot_dir := Vector3.ZERO
+var last_player_shot_aim := Vector3.ZERO
 var boss_entity: Node3D
 var enemy_squadron: Node3D
 var air_enemy_hit_count := 0
@@ -112,7 +118,7 @@ func stop_mission() -> void:
 func set_player_weapon_hardpoints(state: Dictionary) -> void:
 	player_weapon_hardpoints = state.duplicate(true)
 	player_hardpoint_binding = str(player_weapon_hardpoints.get("binding", "pending"))
-	player_shot_spawn_origin = "glb_muzzle_socket" if bool(player_weapon_hardpoints.get("sockets_found", false)) else "runtime_fallback_socket"
+	player_shot_spawn_origin = "glb_muzzle_socket" if bool(player_weapon_hardpoints.get("sockets_found", false)) else "socket_resolution_failed"
 
 
 func update_logic(delta: float, player_xz: Vector2, weather_effect: Dictionary, boost_amount: float) -> float:
@@ -219,6 +225,19 @@ func get_bridge_state() -> Dictionary:
 		"playerInvulnerableSeconds": invulnerable_timer,
 		"logicalPlayerHardpointBinding": player_hardpoint_binding,
 		"logicalPlayerShotOrigin": player_shot_spawn_origin,
+		"playerShotSocketFailures": player_shot_socket_failures,
+		"playerShotOriginFallbackUsed": false,
+		"playerShotSubFrameSpacing": true,
+		"lastPlayerShotSocket": last_player_shot_socket,
+		"lastPlayerShotSocketX": last_player_shot_origin.x,
+		"lastPlayerShotSocketZ": last_player_shot_origin.z,
+		"lastPlayerShotSpawnX": last_player_shot_spawn.x,
+		"lastPlayerShotSpawnZ": last_player_shot_spawn.z,
+		"lastPlayerShotDirX": last_player_shot_dir.x,
+		"lastPlayerShotDirY": last_player_shot_dir.y,
+		"lastPlayerShotDirZ": last_player_shot_dir.z,
+		"lastPlayerShotAimX": last_player_shot_aim.x,
+		"lastPlayerShotAimZ": last_player_shot_aim.z,
 		"playerProjectileHits": boss_hit_count,
 		"playerProjectileMisses": blocked_shots,
 		"playerBossDamage": total_damage_to_boss,
@@ -307,41 +326,60 @@ func _update_player_fire(delta: float, overcharged: bool) -> void:
 	var overcharge_bonus: float = 0.72 if overcharged else 1.0
 	player_spawn_timer -= delta
 	while player_spawn_timer <= 0.0:
-		_spawn_player_bullet(overcharged)
+		# The gun fires faster than the frame rate, so each shot is advanced by
+		# the time that already passed since it left the barrel. Without this the
+		# burst clumps into one blob at the muzzle.
+		_spawn_player_bullet(overcharged, -player_spawn_timer)
 		player_spawn_timer += player_fire_interval * overcharge_bonus
 
 
-func _spawn_player_bullet(overcharged: bool) -> void:
+func _spawn_player_bullet(overcharged: bool, age: float = 0.0) -> void:
+	var guns: Array = player_weapon_hardpoints.get("guns", [])
+	if guns.is_empty():
+		# Hard stop: a missing socket must never silently become a shot from the
+		# hull centre. The error is already pushed by the scene that owns the GLB.
+		player_shot_socket_failures += 1
+		return
 	var index: int = _first_inactive_player_index()
 	if index < 0:
 		return
 	var shot_sequence := player_lane_index
 	player_lane_index += 1
-	var shot_origin := _player_hardpoint_origin(shot_sequence)
+	var gun: Dictionary = guns[shot_sequence % guns.size()]
+	var shot_origin: Vector3 = gun.get("pos", Vector3.ZERO)
 	shot_origin.y = CombatSpace.PLANE_Y
+
+	# Direction from the aiming system, never from the barrel axis: the aircraft
+	# banks and a barrel-axis shot would leave the play plane.
+	var aim_point: Vector3 = player_weapon_hardpoints.get("aim_point", shot_origin + Vector3(0.0, 0.0, -1.0))
+	aim_point.y = CombatSpace.PLANE_Y
+	var dir: Vector3 = aim_point - shot_origin
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		dir = Vector3(0.0, 0.0, -1.0)
+	dir = dir.normalized()
+
 	var speed: float = float(player_data.get("speed", 96.0)) * (1.12 if overcharged else 1.0)
+	var clearance: float = float(player_weapon_hardpoints.get("muzzle_clearance", 0.55))
+	var velocity: Vector3 = dir * speed
+	# Spawn just ahead of the barrel so the tracer never pokes through the wing,
+	# then catch up on the sub-frame age of the shot.
+	var spawn_pos: Vector3 = shot_origin + dir * clearance + velocity * clampf(age, 0.0, player_fire_interval)
+
 	var bullet: Dictionary = player_pool[index]
 	bullet["active"] = true
-	bullet["pos"] = shot_origin
-	bullet["vel"] = Vector3(0.0, 0.0, -speed)
+	bullet["pos"] = spawn_pos
+	bullet["vel"] = velocity
 	bullet["life"] = float(player_data.get("lifetime", 1.9))
 	bullet["radius"] = float(player_data.get("radius", 0.26))
 	bullet["damage"] = float(player_data.get("damage", 18.0)) * (1.45 if overcharged else 1.0)
 	player_pool[index] = bullet
 	player_shots_spawned += 1
-
-
-func _player_hardpoint_origin(sequence: int) -> Vector3:
-	var key := "left" if sequence % 2 == 0 else "right"
-	if player_weapon_hardpoints.has(key):
-		var value = player_weapon_hardpoints[key]
-		if value is Vector3:
-			return value
-	if player_weapon_hardpoints.has("center"):
-		var center_value = player_weapon_hardpoints["center"]
-		if center_value is Vector3:
-			return center_value
-	return Vector3(0.0, CombatSpace.PLANE_Y, 0.0)
+	last_player_shot_socket = str(gun.get("id", "?"))
+	last_player_shot_origin = shot_origin
+	last_player_shot_spawn = spawn_pos
+	last_player_shot_dir = dir
+	last_player_shot_aim = aim_point
 
 
 func _spawn_missile(origin: Vector3, dir: Vector3, speed: float, damage: float) -> void:

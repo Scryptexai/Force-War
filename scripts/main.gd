@@ -225,6 +225,9 @@ func _input(event: InputEvent) -> void:
 
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F2:
 		debug_hud = not debug_hud
+		# The weapon socket gizmo rides the same debug toggle as the debug HUD.
+		if forward_scene != null and forward_scene.has_method("set_weapon_gizmo_visible"):
+			forward_scene.set_weapon_gizmo_visible(debug_hud)
 		return
 
 	if (event is InputEventScreenTouch or event is InputEventMouseButton) and event.pressed and state == GameState.PLAYING and using_forward_air_scene():
