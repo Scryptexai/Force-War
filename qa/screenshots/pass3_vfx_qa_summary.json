@@ -1,19 +1,19 @@
 {
-  "generatedAt": "2026-10-09T06:12:48.556Z",
+  "generatedAt": "2026-10-09T09:29:34.568Z",
   "pass": "pass3_air_enemies_and_explosions",
   "kindsSeen": [
     "drone",
     "gunship"
   ],
-  "airEnemySpawned": 12,
-  "airEnemyKilled": 5,
-  "airEnemyFireEvents": 21,
-  "airEnemyHitsLanded": 21,
-  "missilesFired": 7,
-  "missileImpacts": 5,
-  "explosionEvents": 10,
+  "airEnemySpawned": 21,
+  "airEnemyKilled": 10,
+  "airEnemyFireEvents": 42,
+  "airEnemyHitsLanded": 44,
+  "missilesFired": 12,
+  "missileImpacts": 12,
+  "explosionEvents": 30,
   "explosionDynamicLights": 0,
-  "underworldScrollDistance": 567.496160000001,
+  "underworldScrollDistance": 973.309120000001,
   "underworldCliffCount": 12,
   "underworldWreckCount": 12,
   "underworldCityBlockCount": 30,
@@ -24,42 +24,42 @@
       "label": "explosion_1",
       "path": "/home/user/Force-War/qa/screenshots/pass3_explosion_1.png",
       "kills": 1,
-      "explosionEvents": 1,
-      "explosionVisibleCount": 1,
-      "explosionX": 0.0422487407922745,
-      "explosionZ": -25.2605247497559,
-      "bytes": 612251
+      "explosionEvents": 2,
+      "explosionVisibleCount": 2,
+      "explosionX": -2.12964010238647,
+      "explosionZ": -21.4492321014404,
+      "bytes": 589003
+    },
+    {
+      "label": "air_enemy_1",
+      "path": "/home/user/Force-War/qa/screenshots/pass3_air_enemy_1.png",
+      "nearestZ": 8.30268859863281,
+      "live": 2,
+      "bytes": 555269
+    },
+    {
+      "label": "explosion_2",
+      "path": "/home/user/Force-War/qa/screenshots/pass3_explosion_2.png",
+      "kills": 3,
+      "explosionEvents": 8,
+      "explosionVisibleCount": 5,
+      "explosionX": -4.04992055892944,
+      "explosionZ": -16.8030166625977,
+      "bytes": 598068
+    },
+    {
+      "label": "air_enemy_2",
+      "path": "/home/user/Force-War/qa/screenshots/pass3_air_enemy_2.png",
+      "nearestZ": -18.0113182067871,
+      "live": 1,
+      "bytes": 591782
     },
     {
       "label": "missile_1",
       "path": "/home/user/Force-War/qa/screenshots/pass3_missile_1.png",
       "activeMissiles": 2,
-      "missilesFired": 3,
-      "bytes": 580549
-    },
-    {
-      "label": "air_enemy_1",
-      "path": "/home/user/Force-War/qa/screenshots/pass3_air_enemy_1.png",
-      "nearestZ": -22.8884334564209,
-      "live": 2,
-      "bytes": 614044
-    },
-    {
-      "label": "explosion_2",
-      "path": "/home/user/Force-War/qa/screenshots/pass3_explosion_2.png",
-      "kills": 2,
-      "explosionEvents": 5,
-      "explosionVisibleCount": 2,
-      "explosionX": 1.81096291542053,
-      "explosionZ": 3.68258619308472,
-      "bytes": 603221
-    },
-    {
-      "label": "air_enemy_2",
-      "path": "/home/user/Force-War/qa/screenshots/pass3_air_enemy_2.png",
-      "nearestZ": 0.0988017842173576,
-      "live": 2,
-      "bytes": 560646
+      "missilesFired": 12,
+      "bytes": 561239
     }
   ]
 }

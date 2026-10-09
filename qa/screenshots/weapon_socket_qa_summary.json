@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T06:14:25.150Z",
+  "generatedAt": "2026-10-09T09:20:14.576Z",
   "contract": "position_from_socket_direction_from_aim",
   "gunSocketIds": [
     "gun_left",
@@ -9,18 +9,43 @@
     "gun_left",
     "gun_right"
   ],
-  "missileSockets": 2,
+  "missileSockets": 6,
+  "missileFireOrder": [
+    "pylon_l3",
+    "pylon_r3",
+    "pylon_l2",
+    "pylon_r2",
+    "pylon_l1",
+    "pylon_r1"
+  ],
+  "missileFireOrderRule": "config_socket_list_outer_to_inner_left_then_right",
+  "pylonMissileMeshes": 6,
+  "pylonMissilesLaunched": 10,
+  "pylonReloads": 1,
+  "pylonsFiredFrom": [
+    "pylon_l3",
+    "pylon_r3",
+    "pylon_l2",
+    "pylon_r2",
+    "pylon_l1",
+    "pylon_r1"
+  ],
+  "missilePhasesSeen": [
+    "ignited"
+  ],
+  "muzzleFlashOffsetFromBarrel": 0.261701971292496,
+  "muzzleFlashAtBarrel": true,
   "convergenceDistance": 26,
   "muzzleClearance": 0.55,
   "socketFailures": 0,
   "banking": [
     {
       "label": "bank_left",
-      "roll": 11.7824929598114,
-      "socket": "gun_left",
-      "socketX": -3.35670328140259,
-      "spawnX": -3.52213168144226,
-      "dirX": -0.0279307570308447,
+      "roll": 13.8484655280684,
+      "socket": "gun_right",
+      "socketX": -4.52195978164673,
+      "spawnX": -4.55614948272705,
+      "dirX": -0.0123107125982642,
       "dirY": 0,
       "gunWorldOrder": [
         "gun_left",
@@ -30,11 +55,11 @@
     },
     {
       "label": "bank_right",
-      "roll": -9.73589849200333,
-      "socket": "gun_right",
-      "socketX": 5.34067058563232,
-      "spawnX": 4.79440498352051,
-      "dirX": -0.0568292513489723,
+      "roll": -9.7347219919188,
+      "socket": "gun_left",
+      "socketX": 3.63822770118713,
+      "spawnX": 3.64701271057129,
+      "dirX": 0.0127761457115412,
       "dirY": 0,
       "gunWorldOrder": [
         "gun_left",

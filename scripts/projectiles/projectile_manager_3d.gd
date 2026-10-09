@@ -50,6 +50,7 @@ var last_player_shot_origin := Vector3.ZERO
 var last_player_shot_spawn := Vector3.ZERO
 var last_player_shot_dir := Vector3.ZERO
 var last_player_shot_aim := Vector3.ZERO
+var last_shot_by_gun: Dictionary = {}
 var boss_entity: Node3D
 var enemy_squadron: Node3D
 var air_enemy_hit_count := 0
@@ -60,6 +61,17 @@ var missiles_fired := 0
 var missile_impacts := 0
 var missile_player_hits := 0
 var recent_missile_impacts: Array = []
+var player_missile_pool: Array = []
+var max_player_missiles := 6
+var player_missiles_fired := 0
+var player_missile_impacts := 0
+var player_missile_kills := 0
+var player_missile_damage_total := 0.0
+var last_player_missile_socket := "none"
+var last_player_missile_launch := Vector3.ZERO
+var recent_player_missile_impacts: Array = []
+var player_missile_drop_steps := 0
+var player_missile_ignitions := 0
 var muzzle_spawn_events := 0
 var blocked_shots := 0
 
@@ -111,6 +123,8 @@ func stop_mission() -> void:
 		enemy_pool[i]["active"] = false
 	for i in range(player_pool.size()):
 		player_pool[i]["active"] = false
+	for i in range(player_missile_pool.size()):
+		player_missile_pool[i]["active"] = false
 	recent_boss_hits.clear()
 	recent_player_hits.clear()
 
@@ -136,6 +150,7 @@ func update_logic(delta: float, player_xz: Vector2, weather_effect: Dictionary, 
 	_update_player_fire(delta, overcharged)
 	_update_enemy_bullets(delta, player_xz, wind, boost_amount, overcharged)
 	_update_missiles(delta, player_xz, boost_amount, overcharged)
+	_update_player_missiles(delta)
 	_update_player_bullets(delta, wind)
 	return recent_damage
 
@@ -164,6 +179,179 @@ func consume_missile_impacts() -> Array:
 	var events: Array = recent_missile_impacts.duplicate(true)
 	recent_missile_impacts.clear()
 	return events
+
+
+func get_player_missiles() -> Array:
+	return player_missile_pool
+
+
+func consume_player_missile_impacts() -> Array:
+	var events: Array = recent_player_missile_impacts.duplicate(true)
+	recent_player_missile_impacts.clear()
+	return events
+
+
+func launch_player_missile(request: Dictionary) -> bool:
+	# Position and heading come from the pylon socket the scene detached the
+	# missile mesh from. The missile is inert while it drops away from the wing;
+	# it only becomes a weapon once the motor ignites.
+	if not active:
+		return false
+	for i in range(player_missile_pool.size()):
+		var missile: Dictionary = player_missile_pool[i]
+		if bool(missile.get("active", false)):
+			continue
+		var origin: Vector3 = request.get("pos", Vector3.ZERO)
+		var forward: Vector3 = request.get("dir", Vector3(0.0, 0.0, -1.0))
+		forward.y = 0.0
+		if forward.length() < 0.01:
+			forward = Vector3(0.0, 0.0, -1.0)
+		forward = forward.normalized()
+		missile["active"] = true
+		missile["phase"] = "drop"
+		missile["socket"] = str(request.get("socket", "?"))
+		missile["pos"] = origin
+		missile["vel"] = forward * float(request.get("launch_speed", 14.0))
+		missile["drop"] = float(request.get("drop_seconds", 0.22))
+		missile["speed"] = float(request.get("speed", 62.0))
+		missile["turn"] = deg_to_rad(float(request.get("turn_rate_deg", 185.0)))
+		missile["damage"] = float(request.get("damage", 96.0))
+		missile["radius"] = float(request.get("radius", 0.55))
+		missile["life"] = float(request.get("lifetime", 3.2))
+		missile["age"] = 0.0
+		missile["trail"] = []
+		missile["prev_pos"] = origin
+		player_missile_pool[i] = missile
+		player_missiles_fired += 1
+		last_player_missile_socket = missile["socket"]
+		last_player_missile_launch = origin
+		return true
+	return false
+
+
+func _player_missile_target(from: Vector3) -> Vector3:
+	# Homing target: the nearest living air enemy, otherwise the boss hull.
+	var best: Vector3 = Vector3.ZERO
+	var best_distance := -1.0
+	if enemy_squadron != null and enemy_squadron.has_method("get_live_unit_positions"):
+		for value in enemy_squadron.get_live_unit_positions():
+			var unit_pos: Vector3 = value
+			if unit_pos.z > from.z:
+				continue   # already behind the missile
+			var distance: float = from.distance_to(unit_pos)
+			if best_distance < 0.0 or distance < best_distance:
+				best_distance = distance
+				best = unit_pos
+	if best_distance >= 0.0:
+		return best
+	if boss_entity != null and boss_entity.is_inside_tree():
+		return Vector3(boss_entity.global_position.x, CombatSpace.PLANE_Y, boss_entity.global_position.z)
+	return Vector3(from.x, CombatSpace.PLANE_Y, CombatSpace.BOSS_Z)
+
+
+func _update_player_missiles(delta: float) -> void:
+	for i in range(player_missile_pool.size()):
+		var missile: Dictionary = player_missile_pool[i]
+		if not bool(missile.get("active", false)):
+			continue
+		var pos: Vector3 = missile["pos"]
+		var vel: Vector3 = missile["vel"]
+		var prev_pos: Vector3 = pos
+		var age: float = float(missile.get("age", 0.0)) + delta
+		missile["age"] = age
+		# Sub-stepped like the gun: when one rendered frame is longer than the
+		# drop time, the missile still gets its drop before the motor lights
+		# instead of arming inside the aircraft.
+		var drop_time: float = float(missile.get("drop", 0.22))
+		var previous_age: float = age - delta
+		var drop_dt: float = clampf(drop_time - previous_age, 0.0, delta)
+		var flight_dt: float = delta - drop_dt
+		var armed: bool = flight_dt > 0.0
+		if drop_dt > 0.0:
+			missile["phase"] = "drop"
+			player_missile_drop_steps += 1
+			vel.y -= 9.8 * drop_dt
+			pos += vel * drop_dt
+		if flight_dt > 0.0:
+			if str(missile.get("phase", "")) != "ignited":
+				player_missile_ignitions += 1
+			missile["phase"] = "ignited"
+			var target: Vector3 = _player_missile_target(pos)
+			var desired: Vector3 = target - pos
+			desired.y = 0.0
+			if desired.length() < 0.05:
+				desired = Vector3(0.0, 0.0, -1.0)
+			desired = desired.normalized()
+			var heading: Vector3 = vel
+			heading.y = 0.0
+			if heading.length() < 0.05:
+				heading = Vector3(0.0, 0.0, -1.0)
+			heading = heading.normalized()
+			var max_turn: float = float(missile.get("turn", 3.2)) * flight_dt
+			var angle: float = heading.signed_angle_to(desired, Vector3.UP)
+			heading = heading.rotated(Vector3.UP, clampf(angle, -max_turn, max_turn))
+			var speed: float = lerpf(vel.length(), float(missile.get("speed", 62.0)), clampf(flight_dt * 5.0, 0.0, 1.0))
+			vel = heading * speed
+			pos += vel * flight_dt
+			# Back onto the play plane once the motor is lit: a missile that
+			# damages things must live on the same plane as everything else.
+			pos.y = lerpf(pos.y, CombatSpace.PLANE_Y, clampf(flight_dt * 7.0, 0.0, 1.0))
+		missile["pos"] = pos
+		missile["vel"] = vel
+		missile["life"] = float(missile.get("life", 0.0)) - delta
+
+		var trail: Array = missile.get("trail", [])
+		var segment: Vector3 = pos - prev_pos
+		var segment_length: float = segment.length()
+		if segment_length > 0.001:
+			var steps: int = clampi(int(floor(segment_length / 0.8)), 1, 12)
+			for step_index in range(steps):
+				trail.push_front(prev_pos + segment * (float(step_index + 1) / float(steps)))
+			while trail.size() > 12:
+				trail.pop_back()
+		missile["trail"] = trail
+		missile["prev_pos"] = pos
+
+		var hit_label := ""
+		var hit_pos: Vector3 = pos
+		if armed and enemy_squadron != null and enemy_squadron.has_method("query_hit"):
+			var samples: int = clampi(int(ceil(segment_length / 0.6)), 1, 12)
+			for sample_index in range(samples):
+				var sample_pos: Vector3 = prev_pos + segment * (float(sample_index + 1) / float(samples))
+				var unit_index: int = int(enemy_squadron.query_hit(sample_pos, float(missile.get("radius", 0.55))))
+				if unit_index >= 0:
+					var applied: float = float(enemy_squadron.apply_hit(unit_index, float(missile.get("damage", 96.0)), sample_pos))
+					if applied > 0.0:
+						player_missile_damage_total += applied
+						air_enemy_hit_count += 1
+						air_enemy_damage_total += applied
+					hit_label = "air_enemy"
+					hit_pos = sample_pos
+					break
+		if armed and hit_label == "" and boss_entity != null and boss_entity.has_method("query_hit"):
+			var part: String = str(boss_entity.query_hit(pos, float(missile.get("radius", 0.55))))
+			if part != "":
+				var boss_applied: float = float(boss_entity.apply_hit(part, float(missile.get("damage", 96.0)), pos))
+				if boss_applied > 0.0:
+					boss_hit_count += 1
+					total_damage_to_boss += boss_applied
+					last_boss_hit_part = part
+					player_missile_damage_total += boss_applied
+					recent_boss_hits.append({"part": part, "damage": boss_applied, "x": pos.x, "y": pos.y, "z": pos.z})
+				hit_label = part
+
+		var expired: bool = hit_label != "" or float(missile["life"]) <= 0.0 or pos.z < CombatSpace.BOSS_Z - 12.0
+		if expired:
+			missile["active"] = false
+			missile["phase"] = "spent"
+			player_missile_impacts += 1
+			if hit_label != "":
+				player_missile_kills += 1
+			recent_player_missile_impacts.append({
+				"x": hit_pos.x, "y": CombatSpace.PLANE_Y, "z": hit_pos.z,
+				"hit": hit_label, "socket": str(missile.get("socket", "?"))
+			})
+		player_missile_pool[i] = missile
 
 
 func get_player_bullets() -> Array:
@@ -210,6 +398,19 @@ func get_bridge_state() -> Dictionary:
 		"missileLeadZ": _lead_missile_pos().z,
 		"missileLeadTrail": _lead_missile_trail_size(),
 		"missileVisualModel": "fire_head_plus_white_smoke_trail",
+		"playerMissilePoolSize": player_missile_pool.size(),
+		"playerMissilesFired": player_missiles_fired,
+		"playerMissileImpacts": player_missile_impacts,
+		"playerMissileHits": player_missile_kills,
+		"playerMissileDamage": player_missile_damage_total,
+		"playerMissileActive": _active_player_missile_count(),
+		"playerMissilePhases": _player_missile_phases(),
+		"playerMissileDropSteps": player_missile_drop_steps,
+		"playerMissileIgnitions": player_missile_ignitions,
+		"lastPlayerMissileSocket": last_player_missile_socket,
+		"lastPlayerMissileLaunchX": last_player_missile_launch.x,
+		"lastPlayerMissileLaunchZ": last_player_missile_launch.z,
+		"playerMissileModel": "pylon_detach_drop_ignite_home",
 		"airEnemyDamageDealt": air_enemy_damage_total,
 		"enemyBulletsWithoutVisibleSource": 0,
 		"bossProjectileAimingModel": "fixed_angle_formation_no_tracking",
@@ -242,6 +443,7 @@ func get_bridge_state() -> Dictionary:
 		"playerProjectileMisses": blocked_shots,
 		"playerBossDamage": total_damage_to_boss,
 		"playerProjectileHitModel": "boss_entity_query_hit_world_aabb",
+		"playerGunShotSamples": last_shot_by_gun.values(),
 		"lastBossHitPart": last_boss_hit_part
 	}
 
@@ -271,6 +473,24 @@ func _reset_pools() -> void:
 			"trail": [],
 			"prev_pos": Vector3.ZERO,
 			"trail_timer": 0.0
+		})
+	player_missile_pool.clear()
+	for i in range(max_player_missiles):
+		player_missile_pool.append({
+			"active": false,
+			"phase": "idle",
+			"socket": "",
+			"pos": Vector3.ZERO,
+			"vel": Vector3.ZERO,
+			"life": 0.0,
+			"age": 0.0,
+			"drop": 0.0,
+			"speed": 62.0,
+			"turn": 3.2,
+			"radius": 0.55,
+			"damage": 96.0,
+			"trail": [],
+			"prev_pos": Vector3.ZERO
 		})
 	player_pool.clear()
 	for i in range(max_player_bullets):
@@ -380,6 +600,20 @@ func _spawn_player_bullet(overcharged: bool, age: float = 0.0) -> void:
 	last_player_shot_spawn = spawn_pos
 	last_player_shot_dir = dir
 	last_player_shot_aim = aim_point
+	# Per-gun record: with several shots per rendered frame, a single "last
+	# shot" sample hides one of the two streams from any observer.
+	last_shot_by_gun[str(gun.get("id", "?"))] = {
+		"id": str(gun.get("id", "?")),
+		"socketX": shot_origin.x,
+		"socketZ": shot_origin.z,
+		"spawnX": spawn_pos.x,
+		"spawnZ": spawn_pos.z,
+		"dirX": dir.x,
+		"dirY": dir.y,
+		"dirZ": dir.z,
+		"aimX": aim_point.x,
+		"aimZ": aim_point.z
+	}
 
 
 func _spawn_missile(origin: Vector3, dir: Vector3, speed: float, damage: float) -> void:
@@ -561,6 +795,22 @@ func _lead_missile_trail_size() -> int:
 		if bool(missile.get("active", false)):
 			return (missile.get("trail", []) as Array).size()
 	return 0
+
+
+func _active_player_missile_count() -> int:
+	var count := 0
+	for missile in player_missile_pool:
+		if bool(missile.get("active", false)):
+			count += 1
+	return count
+
+
+func _player_missile_phases() -> Array:
+	var phases: Array = []
+	for missile in player_missile_pool:
+		if bool(missile.get("active", false)):
+			phases.append(str(missile.get("phase", "idle")))
+	return phases
 
 
 func _active_missile_count() -> int:

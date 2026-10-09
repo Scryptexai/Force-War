@@ -252,7 +252,9 @@ async function main() {
 
       // The under-world must actually scroll: sample the travelled distance twice.
       const scrollBefore = num(await page.evaluate(() => window.ForceWarBridge?.state?.underworldScrollDistance));
-      await page.waitForTimeout(1200);
+      // Headless software rendering runs at ~1 fps here, so a short sample can
+      // fall entirely between two game frames.
+      await page.waitForTimeout(4000);
       const scrollAfter = num(await page.evaluate(() => window.ForceWarBridge?.state?.underworldScrollDistance));
       expect(scrollAfter > scrollBefore,
         `under-world is not scrolling: ${scrollBefore} -> ${scrollAfter}`);

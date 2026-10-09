@@ -38,20 +38,48 @@
   ],
   "missile_sockets": [
     {
-      "id": "pylon_left",
+      "id": "pylon_l3",
       "socket_names": [
-        "HP_L1",
-        "Missile_Left"
+        "HP_L3"
       ],
       "order": 0
     },
     {
-      "id": "pylon_right",
+      "id": "pylon_r3",
+      "socket_names": [
+        "HP_R3"
+      ],
+      "order": 1
+    },
+    {
+      "id": "pylon_l2",
+      "socket_names": [
+        "HP_L2"
+      ],
+      "order": 2
+    },
+    {
+      "id": "pylon_r2",
+      "socket_names": [
+        "HP_R2"
+      ],
+      "order": 3
+    },
+    {
+      "id": "pylon_l1",
+      "socket_names": [
+        "HP_L1",
+        "Missile_Left"
+      ],
+      "order": 4
+    },
+    {
+      "id": "pylon_r1",
       "socket_names": [
         "HP_R1",
         "Missile_Right"
       ],
-      "order": 1
+      "order": 5
     }
   ],
   "exhaust_sockets": [
@@ -67,5 +95,24 @@
   "aim_model": "convergence_point_on_play_plane",
   "convergence_distance": 26.0,
   "muzzle_clearance": 0.55,
-  "require_sockets": true
+  "require_sockets": true,
+  "missile_fire_order": [
+    "pylon_l3",
+    "pylon_r3",
+    "pylon_l2",
+    "pylon_r2",
+    "pylon_l1",
+    "pylon_r1"
+  ],
+  "missile_fire_order_rule": "config_socket_list_outer_to_inner_left_then_right",
+  "missile_speed": 62.0,
+  "missile_launch_speed": 14.0,
+  "missile_drop_seconds": 0.22,
+  "missile_turn_rate_deg": 185.0,
+  "missile_damage": 96.0,
+  "missile_salvo_interval": 1.9,
+  "missile_shot_interval": 0.14,
+  "missile_reload_seconds": 3.4,
+  "missile_lifetime": 3.2,
+  "missile_radius": 0.55
 }

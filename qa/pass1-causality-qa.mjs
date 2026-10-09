@@ -120,7 +120,10 @@ function assertBulletCausality(state, frame) {
   // 3. Player shots leave visible gun points.
   expect(state?.logicalPlayerShotOrigin === 'glb_muzzle_socket', `[f${frame}] player shot origin: ${state?.logicalPlayerShotOrigin}`);
   expect(state?.playerShotVisibleFromSocket === true, `[f${frame}] player muzzle VFX missing: ${state?.playerShotVisibleFromSocket}`);
-  expect(num(state?.playerMuzzleCenterZ) < -0.1, `[f${frame}] player muzzle is not forward of the hull: ${state?.playerMuzzleCenterZ}`);
+  // Forward OF THE HULL: the aircraft drifts along the corridor, so the muzzle
+  // offset is what must stay negative, not its absolute world Z.
+  expect(num(state?.playerMuzzleForwardOffset) < -0.1,
+    `[f${frame}] player muzzle is not forward of the hull: ${state?.playerMuzzleForwardOffset}`);
 
   // 4. Damage in both directions is caused by a bullet that was on screen.
   expect(num(state?.playerDamageEvents) === num(state?.playerDamageEventsWithVisibleSource),

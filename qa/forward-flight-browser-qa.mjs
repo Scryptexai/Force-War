@@ -109,14 +109,16 @@ async function main() {
       if (result.state?.playerModelAssetAuthenticity !== 'uploaded_glb_blender_prepared_runtime_instance') fail(`player GLB authenticity failed: ${result.state?.playerModelAssetAuthenticity}`);
       if (result.state?.playerModelOriginalSource !== 'res://assets/models/enemy_hero_jet.glb') fail(`player original GLB source contract failed: ${result.state?.playerModelOriginalSource}`);
       if (result.state?.playerForwardAxis !== 'negative_z') fail(`player forward axis contract missing: ${result.state?.playerForwardAxis}`);
-      if (result.state?.playerModelAlignment !== 'uploaded_glb_socket_muzzle_forward_world_negative_z') fail(`player GLB socket/yaw alignment missing: ${result.state?.playerModelAlignment}`);
+      // The hull is now authored in Blender with the nose already on the Godot
+      // forward axis, so the engine applies no corrective rotation at all.
+      if (result.state?.playerModelAlignment !== 'blender_authored_nose_on_forward_axis_no_engine_rotation') fail(`player GLB alignment contract missing: ${result.state?.playerModelAlignment}`);
       if (result.state?.runtimeAfterburnerBoxes !== false) fail(`runtime fallback afterburner boxes should be disabled: ${result.state?.runtimeAfterburnerBoxes}`);
       if (result.state?.playerWeaponHardpointBinding !== 'glb_socket_runtime') fail(`player weapon hardpoint binding missing: ${result.state?.playerWeaponHardpointBinding}`);
       if (result.state?.playerGLBWeaponSocketsFound !== true) fail(`player GLB weapon sockets were not found: ${result.state?.playerGLBWeaponSocketsFound}`);
       if (result.state?.playerShotSpawnOrigin !== 'glb_muzzle_socket') fail(`player shot spawn origin not bound to GLB socket: ${result.state?.playerShotSpawnOrigin}`);
       if (result.state?.logicalPlayerShotOrigin !== 'glb_muzzle_socket') fail(`logical player shot origin not bound to GLB socket: ${result.state?.logicalPlayerShotOrigin}`);
       if (typeof result.state?.playerMuzzleCenterZ !== 'number') fail(`player muzzle center bridge missing: ${result.state?.playerMuzzleCenterZ}`);
-      if (Number(result.state?.playerMuzzleCenterZ) >= -0.1) fail(`player muzzle socket is not ahead in world -Z: ${result.state?.playerMuzzleCenterZ}`);
+      if (Number(result.state?.playerMuzzleForwardOffset) >= -0.1) fail(`player muzzle socket is not ahead of the hull: ${result.state?.playerMuzzleForwardOffset}`);
       if (result.state?.playerMuzzleForwardZLocked !== true) fail(`player muzzle forward-Z lock missing: ${result.state?.playerMuzzleForwardZLocked}`);
       if (result.state?.socketMuzzleVFX !== 'glb_socket_cyan_forward_burst') fail(`socket muzzle VFX mode missing: ${result.state?.socketMuzzleVFX}`);
       if (result.state?.socketMuzzleVFXActive !== true) fail(`socket muzzle VFX not active: ${result.state?.socketMuzzleVFXActive}`);

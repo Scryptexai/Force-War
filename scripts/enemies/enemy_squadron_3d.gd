@@ -257,6 +257,18 @@ func get_live_muzzle_positions() -> Array:
 	return positions
 
 
+func get_live_unit_positions() -> Array:
+	# Homing targets for player missiles: only living units, real node positions.
+	var positions: Array = []
+	for unit in units:
+		if not bool(unit["alive"]):
+			continue
+		var root: Node3D = unit["root"]
+		if root != null and root.is_inside_tree():
+			positions.append(root.global_position)
+	return positions
+
+
 func _nearest_unit_z() -> float:
 	var nearest := -999.0
 	for unit in units:
@@ -415,8 +427,9 @@ func _create_unit(index: int) -> Dictionary:
 		var model := model_scene.instantiate() as Node3D
 		if model != null:
 			model.name = "EnemyJetModel"
-			# The GLB nose points -Z; these enemies fly toward the player (+Z).
-			model.rotation_degrees = Vector3(90.0, 0.0, 0.0)
+			# The authored GLB arrives nose on -Z (Blender +Y); these enemies fly
+			# toward the player, so they are turned to face +Z.
+			model.rotation_degrees = Vector3(0.0, 180.0, 0.0)
 			# The GLB's Blender root is offset by (-1.35, 1.05, -0.1); zero it so the
 			# hull is centred on the unit origin and the eye/thruster/muzzle points line up.
 			for inner_child in model.get_children():

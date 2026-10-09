@@ -42,6 +42,19 @@ var player_projectile_data: Dictionary = {}
 var weapon_gizmo_visible := false
 var weapon_gizmo_nodes: Array = []
 var aim_convergence_point := Vector3.ZERO
+var pylon_missiles: Array = []          # one entry per HP_ socket: mesh + loaded flag
+var missile_fire_order: Array = []
+var missile_salvo_timer := 0.0
+var missile_shot_timer := 0.0
+var missile_reload_timer := 0.0
+var missile_cursor := 0
+var missiles_launched := 0
+var missile_reloads := 0
+var last_missile_pylon := "none"
+var pylons_fired_from: Array = []
+var missile_launch_log: Array = []
+var muzzle_flash_positions: Array = []
+var muzzle_flash_offset_max := 0.0
 var gun_world_order: Array = []
 var muzzle_center: Node3D
 var muzzle_left: Node3D
@@ -142,6 +155,16 @@ func start_mission(stage_data: Dictionary, loadout_data: Dictionary, aircraft_da
 		camera.position = Vector3(0.0, CombatSpace.PLANE_Y + CombatSpace.CAMERA_OFFSET.y, CombatSpace.CAMERA_OFFSET.z)
 		camera.look_at(CombatSpace.CAMERA_LOOK, Vector3.UP)
 	_reset_depth_nodes()
+	missiles_launched = 0
+	missile_cursor = 0
+	pylons_fired_from.clear()
+	missile_launch_log.clear()
+	missile_salvo_timer = float(player_projectile_data.get("missile_salvo_interval", 1.9))
+	missile_shot_timer = 0.0
+	missile_reload_timer = 0.0
+	last_missile_pylon = "none"
+	_reload_pylons()
+	missile_reloads = 0
 	_sync_player_weapon_hardpoints_to_arena()
 
 
@@ -173,6 +196,7 @@ func update_forward(delta: float, input_state: Dictionary) -> void:
 	_update_player_pose(delta, input_state, weather_effect)
 	_sync_player_weapon_hardpoints_to_arena()
 	_update_socket_muzzle_vfx(delta)
+	_update_pylon_missiles(delta)
 	_update_projectile_logic(delta, weather_effect)
 	_update_weather_damage(delta, weather_effect)
 	_update_forward_markers(delta)
@@ -196,6 +220,16 @@ func get_bridge_state() -> Dictionary:
 		"playerGunSocketCount": gun_sockets.size(),
 		"playerGunSocketIds": _gun_socket_ids(),
 		"playerMissileSocketCount": missile_sockets.size(),
+		"playerMissileSocketIds": missile_fire_order,
+		"playerPylonMissileMeshes": pylon_missiles.size(),
+		"playerPylonMissilesLoaded": _loaded_pylon_count(),
+		"playerPylonMissilesLaunched": missiles_launched,
+		"playerPylonReloads": missile_reloads,
+		"playerPylonAmmoIndicator": "missing_mesh_on_fired_pylon",
+		"lastMissilePylon": last_missile_pylon,
+		"playerPylonsFiredFrom": pylons_fired_from,
+		"playerMissileLaunchLog": missile_launch_log,
+		"playerMissileFireOrderRule": str(player_projectile_data.get("missile_fire_order_rule", "config_socket_list")),
 		"playerWeaponSocketError": weapon_socket_error,
 		"playerWeaponSocketResolution": "by_name_from_glb_no_origin_fallback",
 		"playerShotDirectionModel": "aim_convergence_on_play_plane_not_socket_rotation",
@@ -207,9 +241,20 @@ func get_bridge_state() -> Dictionary:
 		"playerAimPointX": aim_convergence_point.x,
 		"playerAimPointZ": aim_convergence_point.z,
 		"playerMuzzleCenterZ": _muzzle_world_position(muzzle_center).z,
-		"playerMuzzleForwardZLocked": _muzzle_world_position(muzzle_center).z < 0.0,
+		# Measured against the hull, not against world zero: the aircraft itself
+		# moves up and down the corridor.
+		"playerMuzzleForwardOffset": _muzzle_world_position(muzzle_center).z - (player_rig.position.z if player_rig != null else 0.0),
+		"playerMuzzleForwardZLocked": (_muzzle_world_position(muzzle_center).z - (player_rig.position.z if player_rig != null else 0.0)) < 0.0,
 		"socketMuzzleVFX": socket_muzzle_vfx_mode,
 		"socketMuzzleVFXActive": socket_muzzle_vfx_active,
+		"muzzleFlashCount": muzzle_flash_positions.size(),
+		"muzzleFlashOffsetFromBarrel": muzzle_flash_offset_max,
+		"muzzleFlashAtBarrel": muzzle_flash_positions.size() >= 2 and muzzle_flash_offset_max <= float(player_projectile_data.get("muzzle_clearance", 0.55)),
+		"muzzleFlashLeftX": float(muzzle_flash_positions[0].x) if muzzle_flash_positions.size() > 0 else 0.0,
+		"muzzleFlashLeftZ": float(muzzle_flash_positions[0].z) if muzzle_flash_positions.size() > 0 else 0.0,
+		"muzzleFlashRightX": float(muzzle_flash_positions[1].x) if muzzle_flash_positions.size() > 1 else 0.0,
+		"muzzleFlashRightZ": float(muzzle_flash_positions[1].z) if muzzle_flash_positions.size() > 1 else 0.0,
+		"muzzleFlashModel": "continuous_socket_flash_covers_first_bullet_frame",
 		"socketMuzzleVFXCount": socket_muzzle_flash_nodes.size() + socket_muzzle_tracer_nodes.size(),
 		"playerShotVisibleFromSocket": socket_muzzle_vfx_active,
 		"playerForwardAxis": "negative_z",
@@ -466,8 +511,10 @@ func _load_player_model() -> void:
 		# source path remains tracked separately; Web keeps the prepared derivative to avoid
 		# reintroducing the slow oversized PCK.
 		player_model.scale = Vector3(0.78, 0.78, 0.78)
-		player_model.rotation_degrees = Vector3(90.0, 180.0, 0.0)
-		player_model_alignment = "uploaded_glb_socket_muzzle_forward_world_negative_z"
+		# The aircraft is authored in Blender with wings on X and the nose on +Y,
+		# which exports to glTF -Z: Godot's forward. No corrective rotation.
+		player_model.rotation_degrees = Vector3.ZERO
+		player_model_alignment = "blender_authored_nose_on_forward_axis_no_engine_rotation"
 		player_model_source = PLAYER_MODEL_PATH
 		player_model_original_source = PLAYER_ORIGINAL_SOURCE_PATH
 		player_model_authenticity = "uploaded_glb_blender_prepared_runtime_instance"
@@ -570,6 +617,7 @@ func _bind_glb_weapon_hardpoints() -> void:
 			missile_sockets.append({"id": str(entry.get("id", socket.name)), "node": socket})
 
 	engine_socket = _resolve_socket(["EX_C", "Engine_Core"])
+	_create_pylon_missiles()
 	muzzle_left = gun_sockets[0]["node"] if gun_sockets.size() > 0 else null
 	muzzle_right = gun_sockets[1]["node"] if gun_sockets.size() > 1 else null
 	glb_weapon_sockets_found = gun_sockets.size() >= 2 and weapon_socket_error == ""
@@ -579,6 +627,136 @@ func _bind_glb_weapon_hardpoints() -> void:
 		muzzle_center.name = "MuzzleForward_Center_FromGLBSockets"
 		muzzle_center.position = (muzzle_left.position + muzzle_right.position) * 0.5
 		muzzle_left.get_parent().add_child(muzzle_center)
+
+
+func _create_pylon_missiles() -> void:
+	# A visible missile hangs under every resolved HP_ pylon. The mesh IS the
+	# ammo indicator: it disappears when that pylon fires and comes back on
+	# reload. Nothing here is positioned by hand - it is parented to the socket.
+	for entry_value in pylon_missiles:
+		var old: Node3D = (entry_value as Dictionary).get("mesh", null)
+		if old != null and is_instance_valid(old):
+			old.queue_free()
+	pylon_missiles.clear()
+	var body_mat := _make_material(Color(0.62, 0.68, 0.76, 1.0), Color(0.05, 0.22, 0.34, 1.0), 0.35)
+	var tip_mat := _make_material(Color(0.20, 0.78, 1.0, 1.0), Color(0.15, 0.85, 1.0, 1.0), 0.0)
+	for socket_entry_value in missile_sockets:
+		var socket_entry: Dictionary = socket_entry_value
+		var socket: Node3D = socket_entry["node"]
+		if socket == null:
+			continue
+		var missile := Node3D.new()
+		missile.name = "PylonMissile_%s" % str(socket_entry["id"])
+		var body := _box_mesh("Body", Vector3.ZERO, Vector3(0.09, 0.09, 0.62), body_mat)
+		var tip := _box_mesh("Seeker", Vector3(0.0, 0.0, -0.37), Vector3(0.07, 0.07, 0.14), tip_mat)
+		var fin := _box_mesh("Fin", Vector3(0.0, 0.0, 0.26), Vector3(0.26, 0.02, 0.12), body_mat)
+		missile.add_child(body)
+		missile.add_child(tip)
+		missile.add_child(fin)
+		socket.add_child(missile)
+		# The socket inherits the GLB import rotation, the missile must point
+		# along the aircraft forward axis in scene space.
+		missile.rotation = Vector3.ZERO   # sockets inherit the hull axes already
+		pylon_missiles.append({"id": str(socket_entry["id"]), "node": socket, "mesh": missile, "loaded": true})
+
+	missile_fire_order.clear()
+	var configured: Array = player_projectile_data.get("missile_fire_order", [])
+	for id_value in configured:
+		for entry_value2 in pylon_missiles:
+			var entry: Dictionary = entry_value2
+			if str(entry["id"]) == str(id_value):
+				missile_fire_order.append(str(id_value))
+	if missile_fire_order.is_empty():
+		for entry_value3 in pylon_missiles:
+			missile_fire_order.append(str((entry_value3 as Dictionary)["id"]))
+
+
+func _pylon_entry(pylon_id: String) -> Dictionary:
+	for entry_value in pylon_missiles:
+		var entry: Dictionary = entry_value
+		if str(entry["id"]) == pylon_id:
+			return entry
+	return {}
+
+
+func _loaded_pylon_count() -> int:
+	var count := 0
+	for entry_value in pylon_missiles:
+		if bool((entry_value as Dictionary).get("loaded", false)):
+			count += 1
+	return count
+
+
+func _reload_pylons() -> void:
+	for entry_value in pylon_missiles:
+		var entry: Dictionary = entry_value
+		entry["loaded"] = true
+		var mesh: Node3D = entry.get("mesh", null)
+		if mesh != null and is_instance_valid(mesh):
+			mesh.visible = true
+	missile_cursor = 0
+	missile_reloads += 1
+
+
+func _update_pylon_missiles(delta: float) -> void:
+	if pylon_missiles.is_empty() or projectile_manager == null:
+		return
+	if _loaded_pylon_count() <= 0:
+		missile_reload_timer -= delta
+		if missile_reload_timer <= 0.0:
+			_reload_pylons()
+		return
+	missile_salvo_timer -= delta
+	missile_shot_timer -= delta
+	if missile_salvo_timer > 0.0 or missile_shot_timer > 0.0:
+		return
+	# Fire order comes from the config socket list: outer pylon first, left
+	# then right, working inwards.
+	for attempt in range(missile_fire_order.size()):
+		var pylon_id: String = str(missile_fire_order[(missile_cursor + attempt) % missile_fire_order.size()])
+		var entry: Dictionary = _pylon_entry(pylon_id)
+		if entry.is_empty() or not bool(entry.get("loaded", false)):
+			continue
+		var socket: Node3D = entry["node"]
+		if socket == null or not socket.is_inside_tree():
+			continue
+		# Detach keeping the world transform: the missile leaves exactly where
+		# it hung, then drops before the motor lights.
+		var launch_pos: Vector3 = socket.global_transform.origin
+		var aim: Vector3 = aim_convergence_point - launch_pos
+		aim.y = 0.0
+		var launched: bool = bool(projectile_manager.launch_player_missile({
+			"pos": launch_pos,
+			"dir": aim,
+			"socket": pylon_id,
+			"launch_speed": float(player_projectile_data.get("missile_launch_speed", 14.0)),
+			"drop_seconds": float(player_projectile_data.get("missile_drop_seconds", 0.22)),
+			"speed": float(player_projectile_data.get("missile_speed", 62.0)),
+			"turn_rate_deg": float(player_projectile_data.get("missile_turn_rate_deg", 185.0)),
+			"damage": float(player_projectile_data.get("missile_damage", 96.0)),
+			"radius": float(player_projectile_data.get("missile_radius", 0.55)),
+			"lifetime": float(player_projectile_data.get("missile_lifetime", 3.2))
+		}))
+		if not launched:
+			return
+		entry["loaded"] = false
+		var mesh: Node3D = entry.get("mesh", null)
+		if mesh != null and is_instance_valid(mesh):
+			mesh.visible = false       # missing missile = spent round
+		missiles_launched += 1
+		last_missile_pylon = pylon_id
+		if not pylons_fired_from.has(pylon_id):
+			pylons_fired_from.append(pylon_id)
+		missile_launch_log.append(pylon_id)
+		while missile_launch_log.size() > 12:
+			missile_launch_log.pop_front()
+		missile_cursor = (missile_cursor + attempt + 1) % missile_fire_order.size()
+		missile_shot_timer = float(player_projectile_data.get("missile_shot_interval", 0.14))
+		if _loaded_pylon_count() <= 0:
+			missile_reload_timer = float(player_projectile_data.get("missile_reload_seconds", 3.4))
+		else:
+			missile_salvo_timer = float(player_projectile_data.get("missile_salvo_interval", 1.9))
+		return
 
 
 func _resolve_socket(names) -> Node3D:
@@ -839,6 +1017,8 @@ func _muzzle_world_position(socket: Node3D) -> Vector3:
 
 func _update_socket_muzzle_vfx(delta: float) -> void:
 	var sockets: Array = [muzzle_left, muzzle_right]
+	muzzle_flash_positions.clear()
+	muzzle_flash_offset_max = 0.0
 	socket_muzzle_vfx_mode = "glb_socket_cyan_forward_burst" if glb_weapon_sockets_found else "fallback_disabled"
 	socket_muzzle_vfx_active = active and glb_weapon_sockets_found and socket_muzzle_vfx_ready
 	if not socket_muzzle_vfx_active:
@@ -861,6 +1041,11 @@ func _update_socket_muzzle_vfx(delta: float) -> void:
 		tracer.global_position = origin + FORWARD_DIR * (1.85 + pulse * 0.24)
 		flash.rotation_degrees = Vector3(90.0, 0.0, 0.0)
 		tracer.rotation_degrees = Vector3(90.0, 0.0, 0.0)
+		# The flash sits on the barrel itself, within the muzzle clearance the
+		# first bullet is spawned at, so the very first frame of a shot already
+		# shows fire at the gun.
+		muzzle_flash_positions.append(flash.global_position)
+		muzzle_flash_offset_max = maxf(muzzle_flash_offset_max, flash.global_position.distance_to(origin))
 		flash.scale = Vector3.ONE * (0.72 + pulse * 0.46 + overcharge_boost)
 		tracer.scale = Vector3(0.82 + pulse * 0.08, 0.92 + pulse * 0.22 + overcharge_boost, 1.0)
 

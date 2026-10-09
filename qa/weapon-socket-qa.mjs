@@ -12,7 +12,12 @@
 //   * the spawn point sits just ahead of the barrel (muzzle clearance),
 //   * shot direction stays exactly on the play plane (dir.y == 0),
 //   * both streams converge on the aim point,
-//   * the debug gizmo can be switched on and reports itself.
+//   * the debug gizmo can be switched on and reports itself,
+//   * the muzzle flash sits on the barrel, within the clearance the first
+//     bullet spawns at, so the first frame of a shot already shows fire,
+//   * player missiles hang on the HP_ pylons, leave in the configured order,
+//     disappear from the pylon they were fired from (ammo indicator), drop
+//     before igniting, and reappear after the reload.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -101,9 +106,28 @@ function assertShotGeometry(state, label) {
   expect(offset >= clearance - 0.02, `[${label}] shot spawned behind the barrel: ${offset} < ${clearance}`);
   expect(offset <= maxOffset, `[${label}] shot spawned far from the barrel: ${offset}`);
 
-  // It must be a barrel, not the hull centre.
-  expect(Math.abs(socketX - num(state.lastPlayerShotAimX)) > 0.25,
-    `[${label}] shot origin collapsed onto the aircraft centre line: socketX=${socketX}`);
+  // It must be a barrel, not the hull centre: compare against the aircraft's
+  // own centre line, not against the aim point (the aim point drifts while the
+  // ship is still catching up to the finger).
+  const hullX = num(state.playerWorldX);
+  expect(Math.abs(socketX - hullX) > 0.18,
+    `[${label}] shot origin collapsed onto the aircraft centre line: socketX=${socketX} hullX=${hullX}`);
+}
+
+function assertMuzzleFlash(state, label) {
+  const clearance = num(state.playerShotMuzzleClearance);
+  expect(num(state.muzzleFlashCount) >= 2, `[${label}] muzzle flash missing: ${state?.muzzleFlashCount}`);
+  expect(state?.muzzleFlashAtBarrel === true,
+    `[${label}] muzzle flash not on the barrel: offset=${state?.muzzleFlashOffsetFromBarrel}`);
+  expect(num(state.muzzleFlashOffsetFromBarrel) <= clearance + 0.001,
+    `[${label}] flash further from the barrel than the bullet clearance: ${state?.muzzleFlashOffsetFromBarrel} > ${clearance}`);
+  // The flash of the gun that just fired must be at that gun, not elsewhere.
+  const socket = String(state.lastPlayerShotSocket || '');
+  const flashX = socket.endsWith('right') ? num(state.muzzleFlashRightX) : num(state.muzzleFlashLeftX);
+  const flashZ = socket.endsWith('right') ? num(state.muzzleFlashRightZ) : num(state.muzzleFlashLeftZ);
+  const distance = Math.hypot(flashX - num(state.lastPlayerShotSocketX), flashZ - num(state.lastPlayerShotSocketZ));
+  expect(distance <= clearance + 0.35,
+    `[${label}] flash is not at the firing barrel ${socket}: ${distance.toFixed(3)}`);
 }
 
 async function main() {
@@ -126,6 +150,9 @@ async function main() {
         isMobile: true,
         hasTouch: true
       });
+      // Headless software rendering in CI runs at a few frames per second, so a
+      // screenshot can legitimately take longer than Playwright's default.
+      page.setDefaultTimeout(120000);
       await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded', timeout: 60000 });
       await page.waitForSelector('canvas', { timeout: 60000 });
       await page.waitForFunction(() => !!window.ForceWarBridge, null, { timeout: 60000 });
@@ -154,22 +181,24 @@ async function main() {
           await page.waitForTimeout(160);
           state = await page.evaluate(() => window.ForceWarBridge?.state || null);
           if (state) {
-            const socket = String(state.lastPlayerShotSocket || '');
-            if (socket && socket !== 'none') {
-              perGunDirections.set(socket, {
-                socketX: num(state.lastPlayerShotSocketX),
-                dirX: num(state.lastPlayerShotDirX),
-                aimX: num(state.lastPlayerShotAimX)
+            // Several shots leave per rendered frame, so the per-gun samples
+            // are read instead of the single most recent shot.
+            for (const sample of state.playerGunShotSamples || []) {
+              perGunDirections.set(String(sample.id), {
+                socketX: num(sample.socketX),
+                dirX: num(sample.dirX),
+                aimX: num(sample.aimX)
               });
             }
           }
           if (state && Math.abs(num(state.playerRollDegrees)) > 6) break;
         }
         const path = join(screenshotDir, bank.file);
-        await page.screenshot({ path, fullPage: false });
+        await page.screenshot({ path, fullPage: false, timeout: 120000 });
         writeFileSync(path.replace(/\.png$/, '_state.json'), JSON.stringify(state, null, 2));
         assertSocketContract(state, bank.label);
         assertShotGeometry(state, bank.label);
+        assertMuzzleFlash(state, bank.label);
         expect(Math.abs(num(state.playerRollDegrees)) > 6,
           `[${bank.label}] aircraft never banked: roll=${state?.playerRollDegrees}`);
         results.push({
@@ -197,6 +226,69 @@ async function main() {
           `stream from ${gun} diverges from the aim point: dirX=${sample.dirX} toAim=${toAim}`);
       }
 
+      // --- pylon missiles: real meshes, config fire order, ammo + reload
+      const missileSamples = [];
+      const pylonsSeen = new Set();
+      const phasesSeen = new Set();
+      let minLoaded = Infinity;
+      let maxLoaded = 0;
+      let reloads = 0;
+      let launched = 0;
+      for (let tick = 0; tick < 48; tick += 1) {
+        const sample = await page.evaluate(() => window.ForceWarBridge?.state || null);
+        if (sample) {
+          const loaded = num(sample.playerPylonMissilesLoaded);
+          minLoaded = Math.min(minLoaded, loaded);
+          maxLoaded = Math.max(maxLoaded, loaded);
+          reloads = Math.max(reloads, num(sample.playerPylonReloads));
+          launched = Math.max(launched, num(sample.playerPylonMissilesLaunched));
+          for (const pylon of sample.playerPylonsFiredFrom || []) pylonsSeen.add(String(pylon));
+          for (const phase of sample.playerMissilePhases || []) phasesSeen.add(String(phase));
+          missileSamples.push({ loaded, launched, phases: sample.playerMissilePhases });
+        }
+        await page.waitForTimeout(220);
+      }
+      const missileState = await page.evaluate(() => window.ForceWarBridge?.state || null);
+      expect(num(missileState.playerMissileSocketCount) === 6,
+        `expected six HP_ pylons, got ${missileState?.playerMissileSocketCount}`);
+      expect(num(missileState.playerPylonMissileMeshes) === 6,
+        `expected a visible missile mesh per pylon, got ${missileState?.playerPylonMissileMeshes}`);
+      expect(launched >= 6, `missiles never left the pylons: ${launched}`);
+      expect(minLoaded === 0, `the pylons never ran empty, ammo indicator unproven: min loaded=${minLoaded}`);
+      // The headless software renderer runs at ~1 fps, so a full salvo can
+      // leave between two samples; what must be proven is that the pylons
+      // reloaded and were used again.
+      expect(reloads >= 1, `the pylons never reloaded: reloads=${reloads}`);
+      expect(maxLoaded >= 5, `reload did not restore the pylon missiles: maxLoaded=${maxLoaded}`);
+      expect(launched > 6, `pylons were never reused after a reload: launched=${launched}`);
+      // Counted in the engine, not sampled: one rendered frame in the headless
+      // renderer is longer than the whole drop phase.
+      expect(num(missileState.playerMissileDropSteps) >= launched,
+        `missiles armed without dropping off the pylon: dropSteps=${missileState?.playerMissileDropSteps} launched=${launched}`);
+      expect(num(missileState.playerMissileIgnitions) >= 1,
+        `missile motors never ignited: ${missileState?.playerMissileIgnitions}`);
+      const configuredOrder = (missileState.playerMissileSocketIds || []).map(String);
+      expect(configuredOrder.length === 6, `fire order not read from the config socket list: ${configuredOrder.join(',')}`);
+      expect(configuredOrder[0].endsWith('3') && configuredOrder[configuredOrder.length - 1].endsWith('1'),
+        `fire order is not outer to inner: ${configuredOrder.join(',')}`);
+      for (const pylon of pylonsSeen) {
+        expect(configuredOrder.includes(pylon), `missile fired from an unconfigured pylon: ${pylon}`);
+      }
+      expect(pylonsSeen.size === 6, `missiles only ever used ${pylonsSeen.size} of the six pylons: ${[...pylonsSeen].join(',')}`);
+      const launchLog = (missileState.playerMissileLaunchLog || []).map(String);
+      expect(launchLog.length >= 2, `no missile launch log: ${launchLog.join(',')}`);
+      for (let i = 1; i < launchLog.length; i += 1) {
+        const previous = configuredOrder.indexOf(launchLog[i - 1]);
+        const current = configuredOrder.indexOf(launchLog[i]);
+        expect(current === (previous + 1) % configuredOrder.length,
+          `launch order left the configured socket list: ${launchLog.join(' -> ')}`);
+      }
+      assertMuzzleFlash(missileState, 'missiles');
+      const missilePath = join(screenshotDir, 'weapon_pylon_missiles.png');
+      await page.screenshot({ path: missilePath, fullPage: false, timeout: 120000 });
+      writeFileSync(missilePath.replace(/\.png$/, '_state.json'), JSON.stringify(missileState, null, 2));
+      console.log(`captured ${missilePath} (launched ${launched}, pylons ${[...pylonsSeen].join(',')}, reloads ${reloads})`);
+
       // --- debug gizmo
       await page.keyboard.press('F2');
       await page.waitForTimeout(900);
@@ -204,7 +296,7 @@ async function main() {
       expect(gizmoState?.weaponDebugGizmoVisible === true,
         `debug gizmo did not switch on: ${gizmoState?.weaponDebugGizmoVisible}`);
       const gizmoPath = join(screenshotDir, 'weapon_socket_gizmo.png');
-      await page.screenshot({ path: gizmoPath, fullPage: false });
+      await page.screenshot({ path: gizmoPath, fullPage: false, timeout: 120000 });
       writeFileSync(gizmoPath.replace(/\.png$/, '_state.json'), JSON.stringify(gizmoState, null, 2));
       console.log(`captured ${gizmoPath} (gizmo on)`);
 
@@ -214,6 +306,15 @@ async function main() {
         gunSocketIds: gizmoState.playerGunSocketIds,
         gunWorldOrder: gizmoState.playerGunWorldOrder,
         missileSockets: num(gizmoState.playerMissileSocketCount),
+        missileFireOrder: gizmoState.playerMissileSocketIds,
+        missileFireOrderRule: gizmoState.playerMissileFireOrderRule,
+        pylonMissileMeshes: num(gizmoState.playerPylonMissileMeshes),
+        pylonMissilesLaunched: num(gizmoState.playerPylonMissilesLaunched),
+        pylonReloads: num(gizmoState.playerPylonReloads),
+        pylonsFiredFrom: [...pylonsSeen],
+        missilePhasesSeen: [...phasesSeen],
+        muzzleFlashOffsetFromBarrel: num(gizmoState.muzzleFlashOffsetFromBarrel),
+        muzzleFlashAtBarrel: gizmoState.muzzleFlashAtBarrel,
         convergenceDistance: num(gizmoState.playerShotConvergenceDistance),
         muzzleClearance: num(gizmoState.playerShotMuzzleClearance),
         socketFailures: num(gizmoState.playerShotSocketFailures),

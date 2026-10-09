@@ -67,6 +67,7 @@ var enemy_squadron: Node3D
 var explosion_pool: Array = []
 var explosion_cursor := 0
 var missile_visuals: Array = []
+var player_missile_visuals: Array = []
 var explosion_events_seen := 0
 var last_explosion_pos := Vector3.ZERO
 var projectile_manager_ref: Node
@@ -181,6 +182,7 @@ func setup() -> void:
 	_create_enemy_squadron()
 	_create_explosion_pool()
 	_create_missile_visual_pool()
+	_create_player_missile_visual_pool()
 	_create_visual_lock_composition_layer()
 	_create_storm_hazard_cells()
 	is_setup = true
@@ -273,6 +275,7 @@ func get_weather_effect() -> Dictionary:
 		"underworldY": CombatSpace.UNDERWORLD_Y,
 		"singlePlayfieldPlane": true,
 		"missileVisualPoolSize": missile_visuals.size(),
+		"playerMissileVisualPoolSize": player_missile_visuals.size(),
 		"missileTrailModel": "pooled_white_smoke_puffs_behind_fire_head",
 		"explosionPoolSize": explosion_pool.size(),
 		"explosionEvents": explosion_events_seen,
@@ -923,6 +926,65 @@ func _create_explosion_pool() -> void:
 		})
 
 
+func _create_player_missile_visual_pool() -> void:
+	# Player missiles read as player ordnance: cyan-white motor flame, white
+	# smoke. Same pooled construction as the enemy missiles, different colour
+	# code so the faction is never ambiguous.
+	player_missile_visuals.clear()
+	for i in range(6):
+		var root := Node3D.new()
+		root.name = "PlayerMissile_%02d" % i
+		root.visible = false
+		add_child(root)
+		var head := _explosion_quad("PlayerMissileHead_%02d" % i, Vector2(0.85, 0.85), explosion_texture, Color(0.74, 0.97, 1.0, 1.0), 5.0)
+		var flame := _explosion_quad("PlayerMissileFlame_%02d" % i, Vector2(0.6, 1.3), explosion_texture, Color(0.30, 0.86, 1.0, 1.0), 4.0)
+		flame.position = Vector3(0.0, 0.0, 0.8)
+		root.add_child(head)
+		root.add_child(flame)
+		var puffs: Array = []
+		for p in range(6):
+			var puff := _vfx_quad("PlayerMissileSmoke_%02d_%02d" % [i, p], Vector3.ZERO, Vector2(0.7, 0.7), smoke_texture, Color(0.94, 0.96, 1.0, 0.62), 0.0)
+			puff.visible = false
+			add_child(puff)
+			puffs.append(puff)
+		player_missile_visuals.append({"root": root, "head": head, "flame": flame, "puffs": puffs})
+
+
+func render_player_missiles(missiles: Array) -> void:
+	for i in range(player_missile_visuals.size()):
+		var entry: Dictionary = player_missile_visuals[i]
+		var root: Node3D = entry["root"]
+		var puffs: Array = entry["puffs"]
+		var missile: Dictionary = missiles[i] if i < missiles.size() else {}
+		if not bool(missile.get("active", false)):
+			root.visible = false
+			for puff_value in puffs:
+				(puff_value as MeshInstance3D).visible = false
+			continue
+		var pos: Vector3 = missile.get("pos", Vector3.ZERO)
+		root.position = pos
+		root.visible = true
+		var ignited: bool = str(missile.get("phase", "drop")) == "ignited"
+		var head: MeshInstance3D = entry["head"]
+		var flame: MeshInstance3D = entry["flame"]
+		var flicker: float = 0.85 + 0.15 * sin(forward_time * 30.0 + float(i))
+		head.scale = Vector3.ONE * (flicker if ignited else 0.35)
+		# No motor flame while the missile is still dropping off the pylon.
+		flame.visible = ignited
+		flame.scale = Vector3.ONE * (0.9 + 0.35 * (1.0 - flicker))
+		var trail: Array = missile.get("trail", [])
+		for p in range(puffs.size()):
+			var puff: MeshInstance3D = puffs[p]
+			if not ignited or p >= trail.size():
+				puff.visible = false
+				continue
+			var fade: float = 1.0 - float(p) / float(puffs.size())
+			puff.visible = true
+			puff.position = trail[p]
+			puff.scale = Vector3.ONE * (0.45 + (1.0 - fade) * 0.8)
+			_set_vfx_alpha(puff, fade * 0.6)
+
+
 func _create_missile_visual_pool() -> void:
 	# Pass 3, item 3: every logical missile gets a fire head and a white smoke
 	# trail. Both are pooled quads - nothing is instanced at fire time.
@@ -989,6 +1051,14 @@ func _update_missile_feedback() -> void:
 		return
 	if projectile_manager_ref.has_method("get_missiles"):
 		render_missiles(projectile_manager_ref.get_missiles())
+	if projectile_manager_ref.has_method("get_player_missiles"):
+		render_player_missiles(projectile_manager_ref.get_player_missiles())
+	if projectile_manager_ref.has_method("consume_player_missile_impacts"):
+		for player_impact_value in projectile_manager_ref.consume_player_missile_impacts():
+			var player_impact: Dictionary = player_impact_value
+			if str(player_impact.get("hit", "")) == "":
+				continue
+			spawn_explosion(Vector3(float(player_impact.get("x", 0.0)), CombatSpace.PLANE_Y, float(player_impact.get("z", 0.0))), 0.95)
 	if projectile_manager_ref.has_method("consume_missile_impacts"):
 		for impact_value in projectile_manager_ref.consume_missile_impacts():
 			var impact: Dictionary = impact_value
