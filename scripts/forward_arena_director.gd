@@ -47,6 +47,13 @@ var active_weather_kind = "storm"
 var far_sky_banks: Array = []
 var mid_cloud_banks: Array = []
 var warzone_chunks: Array = []
+var underworld_chunks: Array = []
+var underworld_wrecks: Array = []
+var underworld_cliffs: Array = []
+var underworld_city_blocks: Array = []
+var underworld_streaks: Array = []
+var underworld_embers: Array = []
+var underworld_scroll_distance := 0.0
 var ocean_floor_planes: Array = []
 var smoke_columns: Array = []
 var fire_pockets: Array = []
@@ -132,6 +139,9 @@ var storm_cloud_mat: StandardMaterial3D
 var deep_cloud_mat: StandardMaterial3D
 var ocean_mat: StandardMaterial3D
 var city_mat: StandardMaterial3D
+var cliff_mat: StandardMaterial3D
+var wreck_mat: StandardMaterial3D
+var foam_streak_mat: StandardMaterial3D
 var smoke_mat: StandardMaterial3D
 var fire_mat: StandardMaterial3D
 var rain_mat: StandardMaterial3D
@@ -164,6 +174,7 @@ func setup() -> void:
 	_create_far_sky_layer()
 	_create_mid_cloud_layer()
 	_create_warzone_layer()
+	_create_underworld_speed_layer()
 	_create_near_weather_layer()
 	_create_distant_battle_layer()
 	_create_boss_entity()
@@ -224,6 +235,7 @@ func update_arena(delta: float, player_corridor: Vector2, travel_speed: float) -
 	_update_ocean_floor(delta, travel_speed)
 	_update_mid_clouds(delta, travel_speed)
 	_update_warzone(delta, travel_speed)
+	_update_underworld_speed_layer(delta, travel_speed)
 	_update_near_weather(delta, travel_speed)
 	_update_distant_battle(delta, travel_speed)
 	_update_visual_lock_composition(delta, travel_speed)
@@ -269,7 +281,16 @@ func get_weather_effect() -> Dictionary:
 		"lastExplosionY": last_explosion_pos.y,
 		"lastExplosionZ": last_explosion_pos.z,
 		"explosionDynamicLights": 0,
-		"pass3VFXPass": "air_enemies_and_emissive_explosions",
+		"underworldSpeedLayer": true,
+		"underworldScrollDistance": underworld_scroll_distance,
+		"underworldChunkCount": underworld_chunks.size(),
+		"underworldCliffCount": underworld_cliffs.size(),
+		"underworldWreckCount": underworld_wrecks.size(),
+		"underworldCityBlockCount": underworld_city_blocks.size(),
+		"underworldSmokeColumnCount": smoke_columns.size(),
+		"underworldSpeedStreakCount": underworld_streaks.size(),
+		"underworldInteractive": false,
+		"pass3VFXPass": "air_enemies_explosions_missiles_scrolling_underworld",
 		"staticMatteBackdrop": false,
 		"decorativeBulletNodes": 0,
 		"enemyPoolRendered": (enemy_projectile_visual_pool.rendered_count if enemy_projectile_visual_pool != null else -1),
@@ -409,6 +430,9 @@ func _create_materials() -> void:
 		ocean_mat = _make_textured_material(storm_ocean_texture, Color(0.135, 0.175, 0.235, 1.0), Color(0.0, 0.012, 0.025, 1.0), 1.0, false, false, 0.14)
 	else:
 		ocean_mat = _make_material(Color(0.02, 0.09, 0.15, 1.0), Color(0.00, 0.04, 0.08, 1.0), 0.05, 1.0)
+	cliff_mat = _make_material(Color(0.055, 0.058, 0.072, 1.0), Color(0.0, 0.0, 0.0, 1.0), 0.0, 1.0)
+	wreck_mat = _make_material(Color(0.062, 0.055, 0.052, 1.0), Color(0.0, 0.0, 0.0, 1.0), 0.0, 1.0)
+	foam_streak_mat = _make_material(Color(0.30, 0.34, 0.40, 0.55), Color(0.0, 0.0, 0.0, 1.0), 0.0, 0.55)
 	city_mat = _make_material(Color(0.10, 0.13, 0.18, 1.0), Color(0.03, 0.06, 0.10, 1.0), 0.18, 1.0)
 	smoke_mat = _make_material(Color(0.22, 0.24, 0.26, 0.42), Color(0.02, 0.02, 0.02, 1.0), 0.0, 0.42)
 	fire_mat = _make_material(Color(1.0, 0.32, 0.06, 0.92), Color(1.0, 0.20, 0.02, 1.0), 0.0, 0.92)
@@ -498,6 +522,152 @@ func _create_warzone_layer() -> void:
 			smoke_columns.append(smoke)
 		add_child(chunk)
 		warzone_chunks.append(chunk)
+
+
+func _create_underworld_speed_layer() -> void:
+	# Pass 3, item 4: the under-world is the speed cue. Cliff ridges, capsized
+	# wrecks, a burning coastal city and its smoke columns scroll past below the
+	# play plane at three different rates, so forward motion is readable even
+	# when nothing is shooting. Nothing here is interactive.
+	for i in range(6):
+		var chunk := Node3D.new()
+		chunk.name = "UnderworldSpeedChunk_%02d" % i
+		chunk.position = Vector3(0.0, CombatSpace.UNDERWORLD_DECOR_Y, -18.0 - i * 26.0)
+		chunk.set_meta("speed_mul", 1.0)
+		add_child(chunk)
+		underworld_chunks.append(chunk)
+
+		# Cliff ridges frame the corridor left and right.
+		for side in [-1.0, 1.0]:
+			var ridge := _cliff_ridge_mesh("UnderworldCliff_%02d_%s" % [i, "L" if side < 0.0 else "R"], 26.0, 9, 2.6, 6.2, side)
+			ridge.position = Vector3(side * 11.0, 0.0, 0.0)
+			chunk.add_child(ridge)
+			underworld_cliffs.append(ridge)
+
+		# Capsized wrecks: the same battle-deck asset, tipped over and burnt out.
+		for w in range(2):
+			var wreck_x: float = rng.randf_range(-8.8, -5.4) if w % 2 == 0 else rng.randf_range(5.4, 8.8)
+			var wreck := Node3D.new()
+			wreck.name = "UnderworldWreck_%02d_%d" % [i, w]
+			wreck.position = Vector3(wreck_x, -0.45, rng.randf_range(-9.0, 9.0))
+			wreck.rotation_degrees = Vector3(rng.randf_range(-9.0, 9.0), rng.randf_range(-40.0, 40.0), rng.randf_range(18.0, 38.0) * (1.0 if w % 2 == 0 else -1.0))
+			if arena_deck_cluster_scene:
+				var hull = arena_deck_cluster_scene.instantiate()
+				hull.name = "WreckHullGLB"
+				var wreck_scale: float = rng.randf_range(0.6, 0.95)
+				hull.scale = Vector3(wreck_scale, wreck_scale, wreck_scale)
+				wreck.add_child(hull)
+				_neutralize_underworld_decor(hull)
+				_burn_out_wreck(hull)
+			var ember := _vfx_quad("WreckEmber_%02d_%d" % [i, w], Vector3(0.0, 0.5, 0.0), Vector2(0.7, 0.42), explosion_texture, Color(0.58, 0.20, 0.05, 0.15), 0.3)
+			wreck.add_child(ember)
+			underworld_embers.append(ember)
+			chunk.add_child(wreck)
+			underworld_wrecks.append(wreck)
+
+		# Burning coastal city, outboard of the cliffs so it never crowds the fight.
+		for c in range(5):
+			var city_side: float = -1.0 if c % 2 == 0 else 1.0
+			var block_h: float = rng.randf_range(1.6, 5.4)
+			var block := _box_mesh(
+				"UnderworldCityBlock_%02d_%d" % [i, c],
+				Vector3(city_side * rng.randf_range(14.0, 20.0), block_h * 0.5, rng.randf_range(-11.0, 11.0)),
+				Vector3(rng.randf_range(1.0, 2.2), block_h, rng.randf_range(1.0, 2.2)),
+				city_mat)
+			chunk.add_child(block)
+			underworld_city_blocks.append(block)
+			if c % 2 == 0:
+				var glow := _vfx_quad("CityFireGlow_%02d_%d" % [i, c], Vector3(block.position.x, 0.7, block.position.z + 1.2), Vector2(1.7, 1.0), explosion_texture, Color(0.54, 0.18, 0.05, 0.14), 0.3)
+				chunk.add_child(glow)
+				underworld_embers.append(glow)
+				var column := _smoke_column("UnderworldCitySmoke_%02d_%d" % [i, c], Vector3(block.position.x, block_h * 0.8, block.position.z))
+				column.scale = Vector3(1.5, 2.1, 1.5)
+				chunk.add_child(column)
+				smoke_columns.append(column)
+
+	# Fast foam streaks: the nearest, quickest moving element, pure speed read.
+	for i in range(22):
+		var streak := _box_mesh(
+			"UnderworldSpeedStreak_%02d" % i,
+			Vector3(rng.randf_range(-9.5, 9.5), CombatSpace.UNDERWORLD_DECOR_Y + 0.25, rng.randf_range(-110.0, 12.0)),
+			Vector3(0.09, 0.02, rng.randf_range(2.4, 5.2)),
+			foam_streak_mat)
+		streak.set_meta("speed_mul", 1.55)
+		add_child(streak)
+		underworld_streaks.append(streak)
+
+
+func _cliff_ridge_mesh(node_name: String, length: float, segments: int, height_min: float, height_max: float, face_sign: float) -> MeshInstance3D:
+	# A real ridge silhouette: one jagged crest line extruded into a wall with a
+	# top ribbon, built as an ArrayMesh rather than a pile of boxes.
+	var depth: float = 3.2 * face_sign
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var crest: Array = []
+	for i in range(segments + 1):
+		crest.append(rng.randf_range(height_min, height_max))
+	for i in range(segments):
+		var z0: float = -length * 0.5 + length * float(i) / float(segments)
+		var z1: float = -length * 0.5 + length * float(i + 1) / float(segments)
+		var h0: float = float(crest[i])
+		var h1: float = float(crest[i + 1])
+		var face_a := [Vector3(0.0, 0.0, z0), Vector3(0.0, h0, z0), Vector3(0.0, h1, z1), Vector3(0.0, 0.0, z0), Vector3(0.0, h1, z1), Vector3(0.0, 0.0, z1)]
+		var top := [Vector3(0.0, h0, z0), Vector3(depth, h0 * 0.55, z0), Vector3(depth, h1 * 0.55, z1), Vector3(0.0, h0, z0), Vector3(depth, h1 * 0.55, z1), Vector3(0.0, h1, z1)]
+		for triangle in [face_a, top]:
+			var corner_list: Array = triangle
+			for t in range(0, corner_list.size(), 3):
+				var a: Vector3 = corner_list[t]
+				var b: Vector3 = corner_list[t + 1]
+				var c: Vector3 = corner_list[t + 2]
+				var normal: Vector3 = (b - a).cross(c - a).normalized()
+				if face_sign < 0.0:
+					vertices.append(a)
+					vertices.append(b)
+					vertices.append(c)
+				else:
+					vertices.append(a)
+					vertices.append(c)
+					vertices.append(b)
+					normal = -normal
+				normals.append(normal)
+				normals.append(normal)
+				normals.append(normal)
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var instance := MeshInstance3D.new()
+	instance.name = node_name
+	instance.mesh = mesh
+	instance.material_override = cliff_mat
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return instance
+
+
+func _burn_out_wreck(node: Node) -> void:
+	if node is MeshInstance3D:
+		(node as MeshInstance3D).material_override = wreck_mat
+	for child in node.get_children():
+		_burn_out_wreck(child)
+
+
+func _update_underworld_speed_layer(delta: float, travel_speed: float) -> void:
+	underworld_scroll_distance += travel_speed * delta
+	for chunk_value in underworld_chunks:
+		var chunk: Node3D = chunk_value
+		chunk.position.z += travel_speed * float(chunk.get_meta("speed_mul", 1.0)) * delta
+		if chunk.position.z > 26.0:
+			chunk.position.z -= 156.0
+	for streak_value in underworld_streaks:
+		var streak: Node3D = streak_value
+		streak.position.z += travel_speed * float(streak.get_meta("speed_mul", 1.55)) * delta
+		if streak.position.z > 14.0:
+			streak.position = Vector3(rng.randf_range(-9.5, 9.5), CombatSpace.UNDERWORLD_DECOR_Y + 0.25, -112.0 - rng.randf_range(0.0, 20.0))
+	for ember_value in underworld_embers:
+		var ember: Node3D = ember_value
+		ember.scale.y = 1.0 + sin(forward_time * 7.5 + ember.position.x) * 0.22
 
 
 func _neutralize_underworld_decor(node: Node) -> void:
@@ -1164,7 +1334,7 @@ func _smoke_column(node_name: String, pos: Vector3) -> Node3D:
 	root.position = pos
 	for i in range(5):
 		var puff_size = 1.0 + i * 0.34
-		var puff = _vfx_quad("SmokePuff_%02d" % i, Vector3(rng.randf_range(-0.28, 0.28), i * 0.62, rng.randf_range(-0.25, 0.25)), Vector2(puff_size, puff_size), smoke_texture, Color(0.74, 0.78, 0.82, 0.30), 0.25)
+		var puff = _vfx_quad("SmokePuff_%02d" % i, Vector3(rng.randf_range(-0.28, 0.28), i * 0.62, rng.randf_range(-0.25, 0.25)), Vector2(puff_size, puff_size), explosion_texture, Color(0.30, 0.30, 0.32, 0.26), 0.0)
 		puff.rotation_degrees = Vector3(rng.randf_range(-12.0, 12.0), rng.randf_range(0.0, 360.0), rng.randf_range(-12.0, 12.0))
 		root.add_child(puff)
 	return root

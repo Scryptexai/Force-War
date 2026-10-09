@@ -1,18 +1,24 @@
 {
-  "generatedAt": "2026-10-08T14:23:26.061Z",
+  "generatedAt": "2026-10-09T05:32:33.257Z",
   "pass": "pass3_air_enemies_and_explosions",
   "kindsSeen": [
     "drone",
     "gunship"
   ],
   "airEnemySpawned": 12,
-  "airEnemyKilled": 5,
-  "airEnemyFireEvents": 9,
+  "airEnemyKilled": 6,
+  "airEnemyFireEvents": 12,
   "airEnemyHitsLanded": 22,
-  "missilesFired": 4,
+  "missilesFired": 6,
   "missileImpacts": 4,
-  "explosionEvents": 9,
+  "explosionEvents": 10,
   "explosionDynamicLights": 0,
+  "underworldScrollDistance": 539.15792,
+  "underworldCliffCount": 12,
+  "underworldWreckCount": 12,
+  "underworldCityBlockCount": 30,
+  "underworldSmokeColumnCount": 34,
+  "underworldSpeedStreakCount": 22,
   "captures": [
     {
       "label": "explosion_1",
@@ -20,16 +26,16 @@
       "kills": 1,
       "explosionEvents": 1,
       "explosionVisibleCount": 1,
-      "explosionX": 1.76146245002747,
-      "explosionZ": -23.1413993835449,
-      "bytes": 551299
+      "explosionX": -0.309137463569641,
+      "explosionZ": -25.6887855529785,
+      "bytes": 555471
     },
     {
       "label": "air_enemy_1",
       "path": "/home/user/Force-War/qa/screenshots/pass3_air_enemy_1.png",
-      "nearestZ": -22.7953720092773,
+      "nearestZ": -23.9428558349609,
       "live": 2,
-      "bytes": 607365
+      "bytes": 605271
     },
     {
       "label": "explosion_2",
@@ -37,23 +43,23 @@
       "kills": 4,
       "explosionEvents": 5,
       "explosionVisibleCount": 2,
-      "explosionX": 4.16546297073364,
-      "explosionZ": -20.9115428924561,
-      "bytes": 584384
+      "explosionX": 1.57724869251251,
+      "explosionZ": -16.0877380371094,
+      "bytes": 574367
     },
     {
       "label": "missile_1",
       "path": "/home/user/Force-War/qa/screenshots/pass3_missile_1.png",
       "activeMissiles": 1,
       "missilesFired": 4,
-      "bytes": 547115
+      "bytes": 578292
     },
     {
       "label": "air_enemy_2",
       "path": "/home/user/Force-War/qa/screenshots/pass3_air_enemy_2.png",
-      "nearestZ": -17.7789821624756,
+      "nearestZ": -21.0966339111328,
       "live": 1,
-      "bytes": 557301
+      "bytes": 587182
     }
   ]
 }

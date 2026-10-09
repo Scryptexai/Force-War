@@ -102,6 +102,14 @@ function assertEnemyContract(state, label) {
     `[${label}] missile visual model: ${state?.missileVisualModel}`);
   expect(state?.missileTracking === false, `[${label}] missiles are homing: ${state?.missileTracking}`);
   expect(num(state?.missileVisualPoolSize) > 0, `[${label}] missile visual pool missing: ${state?.missileVisualPoolSize}`);
+  // Pass 3, item 4: the under-world is populated and non-interactive.
+  expect(state?.underworldSpeedLayer === true, `[${label}] under-world speed layer missing: ${state?.underworldSpeedLayer}`);
+  expect(state?.underworldInteractive === false, `[${label}] under-world became interactive: ${state?.underworldInteractive}`);
+  expect(num(state?.underworldCliffCount) > 0, `[${label}] no cliffs: ${state?.underworldCliffCount}`);
+  expect(num(state?.underworldWreckCount) > 0, `[${label}] no wrecks: ${state?.underworldWreckCount}`);
+  expect(num(state?.underworldCityBlockCount) > 0, `[${label}] no burning city: ${state?.underworldCityBlockCount}`);
+  expect(num(state?.underworldSmokeColumnCount) > 0, `[${label}] no smoke columns: ${state?.underworldSmokeColumnCount}`);
+  expect(num(state?.underworldSpeedStreakCount) > 0, `[${label}] no speed streaks: ${state?.underworldSpeedStreakCount}`);
   // Pass 1 contract must still hold with the Pass 3 content switched on.
   expect(state?.pass1CausalityContract === 'boss_entity_owns_state_bullets_from_visible_muzzles',
     `[${label}] pass 1 causality contract lost: ${state?.pass1CausalityContract}`);
@@ -242,6 +250,14 @@ async function main() {
       }
       await page.mouse.up();
 
+      // The under-world must actually scroll: sample the travelled distance twice.
+      const scrollBefore = num(await page.evaluate(() => window.ForceWarBridge?.state?.underworldScrollDistance));
+      await page.waitForTimeout(1200);
+      const scrollAfter = num(await page.evaluate(() => window.ForceWarBridge?.state?.underworldScrollDistance));
+      expect(scrollAfter > scrollBefore,
+        `under-world is not scrolling: ${scrollBefore} -> ${scrollAfter}`);
+      console.log(`under-world scroll ${scrollBefore.toFixed(1)} -> ${scrollAfter.toFixed(1)}`);
+
       const finalState = await page.evaluate(() => window.ForceWarBridge?.state || null);
       assertEnemyContract(finalState, 'final');
       expect(midfieldShots >= 2, `hostile aircraft never reached the midfield (captured ${midfieldShots})`);
@@ -269,6 +285,12 @@ async function main() {
         missileImpacts: num(finalState.missileImpacts),
         explosionEvents: num(finalState.explosionEvents),
         explosionDynamicLights: num(finalState.explosionDynamicLights),
+        underworldScrollDistance: num(finalState.underworldScrollDistance),
+        underworldCliffCount: num(finalState.underworldCliffCount),
+        underworldWreckCount: num(finalState.underworldWreckCount),
+        underworldCityBlockCount: num(finalState.underworldCityBlockCount),
+        underworldSmokeColumnCount: num(finalState.underworldSmokeColumnCount),
+        underworldSpeedStreakCount: num(finalState.underworldSpeedStreakCount),
         captures: captures.map((capture) => ({ ...capture, bytes: statSync(capture.path).size }))
       };
       writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
