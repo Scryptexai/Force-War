@@ -12,7 +12,13 @@ class_name EnemySquadron3D
 #
 # Everything lives on the single combat plane (CombatSpace.PLANE_Y).
 
-const ENEMY_MODEL_PATH := "res://assets/models/enemy_hero_jet_blender_ready.glb"
+# Two uploaded airframes, one per enemy type, so the silhouettes differ at a
+# glance: a swing-wing strike jet for the fast DRONE, a long blended-body
+# interceptor for the heavy GUNSHIP.
+const ENEMY_MODEL_PATHS := {
+	"drone": "res://assets/models/enemy_tornado_blender_ready.glb",
+	"gunship": "res://assets/models/enemy_sr71_blender_ready.glb"
+}
 
 const ENEMY_VISUAL_LAYER := 1 << 1
 
@@ -128,7 +134,9 @@ func _update_unit(unit: Dictionary, delta: float, player_xz: Vector2) -> void:
 		unit["fire_timer"] = float(unit["fire_interval"])
 		unit["telegraphing"] = false
 
-	if pos.z > 9.0:
+	# Retire behind the player but well in front of the camera (z +12): a 3 m
+	# airframe passing the lens blacks out the lower half of the frame.
+	if pos.z > 4.5:
 		escaped_count += 1
 		_retire_unit(unit, false)
 
@@ -269,6 +277,13 @@ func get_live_unit_positions() -> Array:
 	return positions
 
 
+func _muzzle_source() -> String:
+	for unit in units:
+		if bool(unit["alive"]):
+			return str(unit.get("muzzle_source", "runtime_fallback"))
+	return "idle"
+
+
 func _nearest_unit_z() -> float:
 	var nearest := -999.0
 	for unit in units:
@@ -287,6 +302,8 @@ func get_bridge_state() -> Dictionary:
 	return {
 		"airEnemyEntities": true,
 		"airEnemyModelLoaded": model_loaded,
+		"airEnemyModels": ENEMY_MODEL_PATHS,
+		"airEnemyMuzzleSource": _muzzle_source(),
 		"airEnemyTypes": [DRONE, GUNSHIP],
 		"airEnemyLiveCount": live,
 		"airEnemyNearestZ": _nearest_unit_z(),
@@ -368,7 +385,9 @@ func _deploy(unit: Dictionary, kind: String, lane_x: float, pressure: float) -> 
 	unit["volley_index"] = 0
 	root.position = Vector3(float(unit["lane_x"]), CombatSpace.PLANE_Y, CombatSpace.BOSS_Z + 11.0 - rng.randf_range(0.0, 4.0))
 	root.rotation = Vector3.ZERO
-	root.scale = Vector3.ONE * (0.34 if kind == DRONE else 0.60)
+	# Real airframes are slimmer than the old placeholder hull, so the units are
+	# scaled up until the silhouette reads on a phone: ~1.8 m drone, ~3.1 m gunship.
+	root.scale = Vector3.ONE * (0.55 if kind == DRONE else 0.95)
 	root.visible = true
 	_apply_kind_visual(unit, kind)
 	spawned_count += 1
@@ -422,22 +441,26 @@ func _create_unit(index: int) -> Dictionary:
 	body.name = "Body"
 	root.add_child(body)
 
-	var model_scene: PackedScene = load(ENEMY_MODEL_PATH) as PackedScene
-	if model_scene != null:
+	# Both silhouettes are built once per pooled unit and switched on respawn.
+	var models: Dictionary = {}
+	var model_muzzles: Dictionary = {}
+	for kind in ENEMY_MODEL_PATHS.keys():
+		var model_scene: PackedScene = load(str(ENEMY_MODEL_PATHS[kind])) as PackedScene
+		if model_scene == null:
+			continue
 		var model := model_scene.instantiate() as Node3D
-		if model != null:
-			model.name = "EnemyJetModel"
-			# The authored GLB arrives nose on -Z (Blender +Y); these enemies fly
-			# toward the player, so they are turned to face +Z.
-			model.rotation_degrees = Vector3(0.0, 180.0, 0.0)
-			# The GLB's Blender root is offset by (-1.35, 1.05, -0.1); zero it so the
-			# hull is centred on the unit origin and the eye/thruster/muzzle points line up.
-			for inner_child in model.get_children():
-				if inner_child is Node3D:
-					(inner_child as Node3D).position = Vector3.ZERO
-			body.add_child(model)
-			_force_material(model, hull_mat)
-			model_loaded = true
+		if model == null:
+			continue
+		model.name = "EnemyModel_%s" % str(kind)
+		# The authored GLBs arrive nose on -Z (Blender +Y) with the origin on the
+		# hitbox centre; these enemies fly toward the player, so they face +Z.
+		model.rotation_degrees = Vector3(0.0, 180.0, 0.0)
+		model.visible = false
+		body.add_child(model)
+		_force_material(model, hull_mat)
+		models[kind] = model
+		model_muzzles[kind] = _model_muzzles(model)
+		model_loaded = true
 
 	var eye_mesh := SphereMesh.new()
 	eye_mesh.radius = 0.2
@@ -465,6 +488,7 @@ func _create_unit(index: int) -> Dictionary:
 		root.add_child(thruster)
 		thrusters.append(thruster)
 
+	# Fallback muzzles only: used if an airframe has no MZ_ sockets at all.
 	var muzzles: Array = []
 	for side in [-1.0, 1.0]:
 		var muzzle := Node3D.new()
@@ -476,9 +500,13 @@ func _create_unit(index: int) -> Dictionary:
 	return {
 		"root": root,
 		"body": body,
+		"models": models,
+		"model_muzzles": model_muzzles,
 		"eye": eye,
 		"thrusters": thrusters,
 		"muzzles": muzzles,
+		"fallback_muzzles": muzzles,
+		"muzzle_source": "runtime_fallback",
 		"kind": DRONE,
 		"alive": false,
 		"wreck": false,
@@ -505,10 +533,46 @@ func _create_unit(index: int) -> Dictionary:
 	}
 
 
+func _model_muzzles(model: Node3D) -> Array:
+	# Muzzle points come from the MZ_ sockets authored in Blender, by name.
+	var found: Array = []
+	for socket_name in ["MZ_Gun_L", "MZ_Gun_R"]:
+		var node := _find_node3d(model, socket_name)
+		if node != null:
+			found.append(node)
+	return found
+
+
+func _find_node3d(root: Node, node_name: String) -> Node3D:
+	if root == null:
+		return null
+	if root.name == node_name and root is Node3D:
+		return root
+	for child in root.get_children():
+		var found := _find_node3d(child, node_name)
+		if found != null:
+			return found
+	return null
+
+
 func _apply_kind_visual(unit: Dictionary, kind: String) -> void:
 	var body: Node3D = unit["body"]
 	if body == null:
 		return
+	# Swap the silhouette: only the airframe for this kind is visible, and its
+	# own MZ_ sockets become the muzzles its bullets are spawned from.
+	var models: Dictionary = unit.get("models", {})
+	for model_kind in models.keys():
+		var model: Node3D = models[model_kind]
+		if model != null:
+			model.visible = str(model_kind) == kind
+	var kind_muzzles: Array = (unit.get("model_muzzles", {}) as Dictionary).get(kind, [])
+	if kind_muzzles.size() >= 2:
+		unit["muzzles"] = kind_muzzles
+		unit["muzzle_source"] = "glb_mz_sockets"
+	else:
+		unit["muzzles"] = unit.get("fallback_muzzles", unit["muzzles"])
+		unit["muzzle_source"] = "runtime_fallback"
 	_force_material(body, hull_mat)
 	var eye: MeshInstance3D = unit["eye"]
 	if eye != null:
@@ -520,7 +584,9 @@ func _apply_kind_visual(unit: Dictionary, kind: String) -> void:
 		var thruster: MeshInstance3D = thruster_value
 		var side: float = -1.0 if thruster.name.ends_with("L") else 1.0
 		thruster.position = Vector3(side * (0.5 if kind == DRONE else 0.78), 0.02, -1.0)
-	body.scale = Vector3(1.0, 1.0, 1.0) if kind == DRONE else Vector3(1.55, 0.86, 1.0)
+	# No stretching: the two airframes are different models, not one model
+	# squashed to pretend to be two.
+	body.scale = Vector3.ONE
 
 
 func _force_material(node: Node, material: StandardMaterial3D) -> void:

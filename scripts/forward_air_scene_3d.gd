@@ -5,10 +5,10 @@ class_name ForwardAirScene3D
 # GLB aircraft, chase camera behind/slightly above, forward motion in 3D,
 # and a layered storm battlefield driven by ForwardArenaDirector.
 
-const PLAYER_MODEL_PATH = "res://assets/models/enemy_hero_jet_blender_ready.glb"
-const PLAYER_ORIGINAL_SOURCE_PATH = "res://assets/models/enemy_hero_jet.glb"
+const PLAYER_MODEL_PATH = "res://assets/models/player_mig29_blender_ready.glb"
+const PLAYER_ORIGINAL_SOURCE_PATH = "res://source_assets/HERO_fighter_jet.glb"
 const PLAYER_FALLBACK_MODEL_PATH = "res://assets/models/player_stormhawk.glb"
-const PLAYER_MODEL_SCENE = preload("res://assets/models/enemy_hero_jet_blender_ready.glb")
+const PLAYER_MODEL_SCENE = preload("res://assets/models/player_mig29_blender_ready.glb")
 const PLAYER_FALLBACK_MODEL_SCENE = preload("res://assets/models/player_stormhawk.glb")
 const HERO_SHOT_TEXTURE = preload("res://assets/vfx/hero_cyan_shot.png")
 const FORWARD_DIR = Vector3(0.0, 0.0, -1.0)
@@ -218,6 +218,10 @@ func get_bridge_state() -> Dictionary:
 		"playerGLBWeaponSocketsFound": glb_weapon_sockets_found,
 		"playerShotSpawnOrigin": "glb_muzzle_socket" if glb_weapon_sockets_found else "socket_resolution_failed",
 		"playerGunSocketCount": gun_sockets.size(),
+		# Authored half-separation of the wing-root barrels, straight out of the
+		# GLB sockets. QA compares the sampled shot origin against this instead
+		# of a magic number, so re-authoring the Empties never needs a test edit.
+		"playerGunLateralOffset": _gun_lateral_offset(),
 		"playerGunSocketIds": _gun_socket_ids(),
 		"playerMissileSocketCount": missile_sockets.size(),
 		"playerMissileSocketIds": missile_fire_order,
@@ -505,7 +509,7 @@ func _load_player_model() -> void:
 	var packed = PLAYER_MODEL_SCENE
 	if packed is PackedScene:
 		player_model = packed.instantiate()
-		player_model.name = "PlayerUploadedHeroJetBlenderPreparedGLB"
+		player_model.name = "PlayerUploadedMig29BlenderPreparedGLB"
 		# Foundation correction: keep the uploaded aircraft identity by using the Blender-prepared
 		# derivative of the user GLB, not the generated Stormhawk replacement. The original
 		# source path remains tracked separately; Web keeps the prepared derivative to avoid
@@ -999,6 +1003,13 @@ func _update_weapon_gizmo(gun_list: Array) -> void:
 		line.position = origin + to_aim * 0.5
 		line.scale = Vector3(1.0, 1.0, distance)
 		line.look_at(aim_convergence_point, Vector3.UP)
+
+
+func _gun_lateral_offset() -> float:
+	# Distance from the hull centre line to a gun socket, in world units.
+	if player_model == null or muzzle_left == null:
+		return 0.0
+	return absf(player_model.to_local(muzzle_left.global_position).x) * player_model.scale.x
 
 
 func _gun_socket_ids() -> Array:

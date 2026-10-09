@@ -114,7 +114,12 @@ function assertBulletCausality(state, frame) {
   expect(num(state?.unhittableMidfieldEntities) === 0, `[f${frame}] unhittable midfield props returned: ${state?.unhittableMidfieldEntities}`);
   expect(state?.bossProjectileTracking === false, `[f${frame}] enemy bullets are homing: ${state?.bossProjectileTracking}`);
   expect(state?.bossPatternDrivenProjectiles === true, `[f${frame}] enemy fire is not pattern driven: ${state?.bossPatternDrivenProjectiles}`);
-  expect(num(state?.bossLiveMuzzleCount) >= 3, `[f${frame}] live muzzle count too low: ${state?.bossLiveMuzzleCount}`);
+  // Three firing parts (two turret batteries plus the core). Destroyed parts
+  // must stop firing, so the live muzzle floor drops with them instead of
+  // being a fixed number the boss can never satisfy late in the fight.
+  const firingParts = Math.max(1, 3 - num(state?.bossDestroyedParts));
+  expect(num(state?.bossLiveMuzzleCount) >= firingParts,
+    `[f${frame}] live muzzle count too low: ${state?.bossLiveMuzzleCount} with ${state?.bossDestroyedParts} destroyed parts`);
   expect(state?.shotDirectionMode === 'xz_plane_velocity_aligned', `[f${frame}] bullet orientation model: ${state?.shotDirectionMode}`);
 
   // 3. Player shots leave visible gun points.

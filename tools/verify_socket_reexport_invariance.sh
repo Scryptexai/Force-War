@@ -19,7 +19,8 @@ cd "$(dirname "$0")/.."
 ROOT="$PWD"
 SOCKET="${SOCKET:-MZ_Gun_L}"
 NUDGE="${NUDGE:-0.0,-0.37,0.0}"           # Blender space: 0.37 m further forward
-SOURCE="${SOURCE:-assets/models/enemy_hero_jet_blender_ready.glb}"
+SOURCE="${SOURCE:-source_assets/HERO_fighter_jet.glb}"
+AUTHOR_OPTS="${AUTHOR_OPTS:---join-meshes --target-length 3.3 --texture-max 1024 --root-name PlayerMig29_BlenderRoot}"
 BPY_PYTHON="${BPY_PYTHON:-/tmp/forcewar-bpy-venv/bin/python}"
 BPY_LIBS="${BPY_LIBS:-/tmp/forcewar-bpy-libs}"
 GODOT_BIN="${GODOT_BIN:-/tmp/force-war-godot-4.6.2/Godot_v4.6.2-stable_linux.x86_64}"
@@ -30,7 +31,7 @@ echo "== 1. Blender: author the GLB unchanged, read the socket as the engine doe
 LD_LIBRARY_PATH="$BPY_LIBS" "$BPY_PYTHON" tools/blender_author_weapon_sockets.py -- \
   --source "$ROOT/$SOURCE" \
   --out "$WORK/base.glb" \
-  --report "$WORK/base_report.json" | grep -E "^Exported"
+  --report "$WORK/base_report.json" $AUTHOR_OPTS | grep -E "^Exported"
 BASE_JSON="$("$GODOT_BIN" --headless --script tools/socket_probe.gd -- "$WORK/base.glb" "$SOCKET" | tail -1)"
 echo "   $BASE_JSON"
 
@@ -38,7 +39,7 @@ echo "== 2. Blender: same source, same pipeline, only $SOCKET moved by $NUDGE"
 LD_LIBRARY_PATH="$BPY_LIBS" "$BPY_PYTHON" tools/blender_author_weapon_sockets.py -- \
   --source "$ROOT/$SOURCE" \
   --out "$WORK/nudged.glb" \
-  --report "$WORK/nudged_report.json" \
+  --report "$WORK/nudged_report.json" $AUTHOR_OPTS \
   --nudge "$SOCKET=$NUDGE" | grep -E "^nudged|^Exported"
 
 echo "== 3. re-exported GLB: same by-name lookup, no code change"

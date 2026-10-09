@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bj08n2ltuur4y"
-path="res://.godot/imported/enemy_hero_jet_futuristic+fighter+jet+3d+model_basecolor.jpg-db76fabfdcd3d55ea0a8237aff40113c.ctex"
+uid="uid://dfrmx5tj0q5d5"
+path="res://.godot/imported/enemy_tornado_blender_ready_Image_3.jpg-ef1ceae249c3088aee89dea646225285.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "18988d9912a4b9093772a768b5e2af74"
+"md5": "e3f18c7e80df23284cc466f2b40dedfb"
 }
 
 [deps]
 
-source_file="res://assets/models/enemy_hero_jet_futuristic+fighter+jet+3d+model_basecolor.jpg"
-dest_files=["res://.godot/imported/enemy_hero_jet_futuristic+fighter+jet+3d+model_basecolor.jpg-db76fabfdcd3d55ea0a8237aff40113c.ctex"]
+source_file="res://assets/models/enemy_tornado_blender_ready_Image_3.jpg"
+dest_files=["res://.godot/imported/enemy_tornado_blender_ready_Image_3.jpg-ef1ceae249c3088aee89dea646225285.ctex"]
 
 [params]
 

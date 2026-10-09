@@ -1,0 +1,94 @@
+{
+  "source": "/home/user/Force-War/source_assets/HERO_fighter_jet.glb",
+  "output": "/home/user/Force-War/assets/models/player_mig29_blender_ready.glb",
+  "method": "vertex_ring_average_cursor_to_selected_equivalent",
+  "origin": "mesh_bounding_box_centre_equals_hitbox_centre",
+  "spanAxis": "x",
+  "lengthAxis": "y",
+  "noseSign": 1.0,
+  "halfSpan": 1.0605,
+  "gunStationFraction": 0.17,
+  "meshSize": [
+    2.121,
+    3.3,
+    0.9034
+  ],
+  "lengthScaleFactor": 0.018674,
+  "polygons": 15291,
+  "axisAsymmetry": {
+    "x": 0.60042,
+    "y": 0.91976
+  },
+  "sockets": {
+    "EX_C": [
+      0.0,
+      -1.123,
+      -0.1048
+    ],
+    "Engine_Core": [
+      0.0,
+      -1.123,
+      -0.1048
+    ],
+    "HP_L1": [
+      -0.4878,
+      -0.3403,
+      -0.1822
+    ],
+    "HP_L2": [
+      -0.6575,
+      -0.5432,
+      -0.2054
+    ],
+    "HP_L3": [
+      -0.8272,
+      -0.6899,
+      -0.1571
+    ],
+    "HP_R1": [
+      0.4878,
+      -0.3403,
+      -0.1822
+    ],
+    "HP_R2": [
+      0.6575,
+      -0.5432,
+      -0.2054
+    ],
+    "HP_R3": [
+      0.8272,
+      -0.6899,
+      -0.1571
+    ],
+    "MZ_Gun_L": [
+      -0.1803,
+      0.5218,
+      0.043
+    ],
+    "MZ_Gun_R": [
+      0.1803,
+      0.5218,
+      0.043
+    ],
+    "Missile_Left": [
+      -0.4878,
+      -0.3403,
+      -0.1822
+    ],
+    "Missile_Right": [
+      0.4878,
+      -0.3403,
+      -0.1822
+    ],
+    "Muzzle_Left": [
+      -0.1803,
+      0.5218,
+      0.043
+    ],
+    "Muzzle_Right": [
+      0.1803,
+      0.5218,
+      0.043
+    ]
+  }
+}

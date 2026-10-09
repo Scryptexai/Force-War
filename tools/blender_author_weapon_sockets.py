@@ -53,6 +53,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source", default="assets/models/enemy_hero_jet_blender_ready.glb")
     parser.add_argument("--out", default="assets/models/enemy_hero_jet_blender_ready.glb")
     parser.add_argument("--report", default="docs/weapon_socket_report.json")
+    parser.add_argument("--join-meshes", action="store_true",
+                        help="join every mesh into one before measuring (multi-part models)")
+    parser.add_argument("--target-length", type=float, default=0.0,
+                        help="uniformly scale the hull so its length becomes this many metres")
+    parser.add_argument("--decimate", type=float, default=0.0,
+                        help="collapse ratio for a Decimate modifier, e.g. 0.25 (0 = off)")
+    parser.add_argument("--texture-max", type=int, default=0,
+                        help="downscale every texture larger than this many pixels (0 = off)")
+    parser.add_argument("--sockets", default="gun,pylon,exhaust",
+                        help="which socket groups to author")
+    parser.add_argument("--root-name", default="EnemyHeroJet_BlenderRoot")
+    parser.add_argument("--pylon-stations", default="",
+                        help="comma separated fractions of the half span, overrides the default")
     parser.add_argument(
         "--nudge",
         action="append",
@@ -71,6 +84,54 @@ def clear_scene() -> None:
                 block.remove(item)
 
 
+def join_meshes() -> None:
+    """Join every mesh into one object, keeping all materials.
+
+    The measurement code reads a single vertex cloud, and a model split into 75
+    little parts (hull, rivets, rails, lights) cannot be measured part by part.
+    """
+    meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    if len(meshes) <= 1:
+        return
+    for obj in bpy.context.scene.objects:
+        obj.select_set(obj.type == "MESH")
+    target = max(meshes, key=lambda o: len(o.data.vertices))
+    bpy.context.view_layer.objects.active = target
+    bpy.ops.object.join()
+    print(f"joined {len(meshes)} meshes into {target.name}")
+
+
+def decimate_mesh(mesh: bpy.types.Object, ratio: float) -> None:
+    before = len(mesh.data.polygons)
+    modifier = mesh.modifiers.new(name="ForceWarDecimate", type="DECIMATE")
+    modifier.ratio = ratio
+    bpy.context.view_layer.objects.active = mesh
+    bpy.ops.object.modifier_apply(modifier="ForceWarDecimate")
+    print(f"decimated {before} -> {len(mesh.data.polygons)} polygons (ratio {ratio})")
+
+
+def downscale_textures(limit: int) -> None:
+    for image in bpy.data.images:
+        if image.size[0] <= limit and image.size[1] <= limit:
+            continue
+        width, height = image.size
+        scale = limit / float(max(width, height))
+        image.scale(max(1, int(width * scale)), max(1, int(height * scale)))
+        print(f"texture {image.name}: {width}x{height} -> {image.size[0]}x{image.size[1]}")
+
+
+def normalise_length(mesh: bpy.types.Object, target: float) -> float:
+    """Scale the hull so its length matches the gameplay size budget."""
+    coords = [v.co for v in mesh.data.vertices]
+    length = max(c.y for c in coords) - min(c.y for c in coords)
+    if length <= 0.0001 or target <= 0.0:
+        return 1.0
+    factor = target / length
+    mesh.data.transform(Matrix.Scale(factor, 4))
+    print(f"scaled hull by {factor:.5f}: length {length:.3f} -> {target:.3f}")
+    return factor
+
+
 def main_mesh() -> bpy.types.Object:
     meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
     if not meshes:
@@ -78,7 +139,7 @@ def main_mesh() -> bpy.types.Object:
     return max(meshes, key=lambda o: len(o.data.vertices))
 
 
-def flatten_to_root(mesh: bpy.types.Object) -> bpy.types.Object:
+def flatten_to_root(mesh: bpy.types.Object, root_name: str = "EnemyHeroJet_BlenderRoot") -> bpy.types.Object:
     """Apply rotation/scale, drop the intermediate scaled empties, and put the
     root origin at the centre of the aircraft volume."""
     world = mesh.matrix_world.copy()
@@ -123,7 +184,7 @@ def flatten_to_root(mesh: bpy.types.Object) -> bpy.types.Object:
         if obj is not mesh:
             bpy.data.objects.remove(obj, do_unlink=True)
 
-    root = bpy.data.objects.new("EnemyHeroJet_BlenderRoot", None)
+    root = bpy.data.objects.new(root_name, None)
     root.empty_display_type = "ARROWS"
     root.empty_display_size = 0.45
     bpy.context.collection.objects.link(root)
@@ -140,21 +201,32 @@ def measure(mesh: bpy.types.Object) -> dict:
 
     # Which horizontal axis is the wing span? Not the wider one - on a delta
     # wing both are nearly equal - but the one the hull is MIRROR SYMMETRIC
-    # about. The symmetry is measured from a histogram of the vertices.
+    # about. A 1D histogram is too blunt for blended airframes, so the test is
+    # done on a 2D occupancy grid: mirror the cloud across the candidate plane
+    # and measure how badly the two halves disagree.
     def asymmetry(axis: str) -> float:
-        bins = 48
-        extent = max(abs(getattr(c, axis)) for c in coords) or 1.0
-        hist = [0] * (bins * 2)
+        other = "y" if axis == "x" else "x"
+        extent_a = max(abs(getattr(c, axis)) for c in coords) or 1.0
+        lo_b = min(getattr(c, other) for c in coords)
+        hi_b = max(getattr(c, other) for c in coords)
+        span_b = (hi_b - lo_b) or 1.0
+        bins = 28
+        grid = [[0] * bins for _ in range(bins * 2)]
         for c in coords:
-            value = getattr(c, axis) / extent
-            index = int((value * 0.5 + 0.5) * (bins * 2 - 1))
-            hist[max(0, min(bins * 2 - 1, index))] += 1
+            ia = int(((getattr(c, axis) / extent_a) * 0.5 + 0.5) * (bins * 2 - 1))
+            ib = int(((getattr(c, other) - lo_b) / span_b) * (bins - 1))
+            grid[max(0, min(bins * 2 - 1, ia))][max(0, min(bins - 1, ib))] += 1
         error = 0
         for i in range(bins):
-            error += abs(hist[i] - hist[bins * 2 - 1 - i])
+            for j in range(bins):
+                error += abs(grid[i][j] - grid[bins * 2 - 1 - i][j])
         return error / float(len(coords))
 
-    span_axis = "x" if asymmetry("x") <= asymmetry("y") else "y"
+    asymmetry_x = asymmetry("x")
+    asymmetry_y = asymmetry("y")
+    if abs(asymmetry_x - asymmetry_y) < 0.02 * max(asymmetry_x, asymmetry_y):
+        print(f"WARNING: span axis is ambiguous (x {asymmetry_x:.4f} vs y {asymmetry_y:.4f}) - check the export")
+    span_axis = "x" if asymmetry_x <= asymmetry_y else "y"
     length_axis = "y" if span_axis == "x" else "x"
     half_span = max(abs(getattr(c, span_axis)) for c in coords)
     length_lo = getattr(lo, length_axis)
@@ -178,7 +250,7 @@ def measure(mesh: bpy.types.Object) -> dict:
         "hi": hi,
         "size": size,
         "span_axis": span_axis,
-        "asymmetry": {"x": asymmetry("x"), "y": asymmetry("y")},
+        "asymmetry": {"x": asymmetry_x, "y": asymmetry_y},
         "length_axis": length_axis,
         "half_span": half_span,
         "nose_sign": nose_sign,
@@ -302,8 +374,13 @@ def measured_sockets(info: dict) -> dict:
         pylon_band = band_at(folded, station, half_span, 0.05)
         if len(pylon_band) < 8:
             continue
-        chord_mid = (percentile([c.y for c in pylon_band], 0.5))
-        underside = percentile([c.z for c in pylon_band], 0.03)
+        # At the outer stations a band can cut through BOTH the wing and the
+        # tailplane. Taking a plain median then drops the pylon between them,
+        # in mid air. The wing is the section with the longest chord, so the
+        # band is split into contiguous chord clusters and the longest wins.
+        chord = dominant_chord(pylon_band, length)
+        chord_mid = (min(c.y for c in chord) + max(c.y for c in chord)) * 0.5
+        underside = percentile([c.z for c in chord], 0.03)
         sockets[f"HP_L{index}"] = Vector((-station * half_span, chord_mid, underside - 0.05))
         sockets[f"HP_R{index}"] = mirrored(sockets[f"HP_L{index}"])
 
@@ -319,6 +396,18 @@ def measured_sockets(info: dict) -> dict:
 
     info["gun_station"] = gun_station
     return sockets
+
+
+def dominant_chord(band: list, length: float) -> list:
+    """Split a span band into contiguous chord sections and return the longest."""
+    ordered = sorted(band, key=lambda c: c.y)
+    gap = max(0.04, 0.045 * length)
+    clusters = [[ordered[0]]]
+    for point in ordered[1:]:
+        if point.y - clusters[-1][-1].y > gap:
+            clusters.append([])
+        clusters[-1].append(point)
+    return max(clusters, key=lambda cluster: cluster[-1].y - cluster[0].y)
 
 
 def ring_centre(points: list) -> Vector:
@@ -349,13 +438,30 @@ def main() -> None:
     out = Path(args.out).resolve()
     bpy.ops.import_scene.gltf(filepath=str(source))
 
+    if args.join_meshes:
+        join_meshes()
     mesh = main_mesh()
-    root = flatten_to_root(mesh)
+    if args.decimate > 0.0:
+        decimate_mesh(mesh, args.decimate)
+    if args.texture_max > 0:
+        downscale_textures(args.texture_max)
+    root = flatten_to_root(mesh, args.root_name)
     orient_nose_forward(mesh, measure(mesh))
+    scale_factor = normalise_length(mesh, args.target_length)
     info = measure(mesh)
     if info["length_axis"] != "y" or info["nose_sign"] < 0.0:
         raise SystemExit("hull could not be oriented nose +Y: %s %s" % (info["length_axis"], info["nose_sign"]))
+    if args.pylon_stations:
+        global PYLON_STATIONS
+        PYLON_STATIONS = tuple(float(v) for v in args.pylon_stations.split(","))
+    groups = [g.strip() for g in args.sockets.split(",") if g.strip()]
     sockets = measured_sockets(info)
+    if "gun" not in groups:
+        sockets = {k: v for k, v in sockets.items() if not k.startswith("MZ_")}
+    if "pylon" not in groups:
+        sockets = {k: v for k, v in sockets.items() if not k.startswith("HP_")}
+    if "exhaust" not in groups:
+        sockets = {k: v for k, v in sockets.items() if not k.startswith("EX_")}
 
     for nudge in args.nudge:
         name, _, values = nudge.partition("=")
@@ -405,6 +511,8 @@ def main() -> None:
         "halfSpan": round(info["half_span"], 4),
         "gunStationFraction": round(float(info.get("gun_station", 0.0)), 4),
         "meshSize": [round(v, 4) for v in info["size"]],
+        "lengthScaleFactor": round(scale_factor, 6),
+        "polygons": len(mesh.data.polygons),
         "axisAsymmetry": {k: round(v, 5) for k, v in info["asymmetry"].items()},
         "sockets": {name: [round(v, 4) for v in location] for name, location in sorted(sockets.items())},
     }

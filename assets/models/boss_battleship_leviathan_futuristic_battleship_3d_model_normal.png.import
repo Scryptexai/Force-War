@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dbf7s63e3ny7b"
-path="res://.godot/imported/enemy_hero_jet_futuristic+fighter+jet+3d+model_normal.png-f6f4980bff23c297790df4fae8128a7d.ctex"
+uid="uid://d0mvvq1ecwwqm"
+path="res://.godot/imported/boss_battleship_leviathan_futuristic_battleship_3d_model_normal.png-689b784871ec0051130fcc105c8dd45e.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "147f1650a647d77467abbc123b401346"
+"md5": "7b5cd291c2637a31f661882cb9ab948c"
 }
 
 [deps]
 
-source_file="res://assets/models/enemy_hero_jet_futuristic+fighter+jet+3d+model_normal.png"
-dest_files=["res://.godot/imported/enemy_hero_jet_futuristic+fighter+jet+3d+model_normal.png-f6f4980bff23c297790df4fae8128a7d.ctex"]
+source_file="res://assets/models/boss_battleship_leviathan_futuristic_battleship_3d_model_normal.png"
+dest_files=["res://.godot/imported/boss_battleship_leviathan_futuristic_battleship_3d_model_normal.png-689b784871ec0051130fcc105c8dd45e.ctex"]
 
 [params]
 

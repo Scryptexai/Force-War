@@ -109,9 +109,17 @@ function assertShotGeometry(state, label) {
   // It must be a barrel, not the hull centre: compare against the aircraft's
   // own centre line, not against the aim point (the aim point drifts while the
   // ship is still catching up to the finger).
+  // The authored wing-root station comes from the GLB itself
+  // (playerGunLateralOffset), so the assertion survives re-authoring: the shot
+  // must leave the barrel the Blender Empty defines, not the hull centre.
   const hullX = num(state.playerWorldX);
-  expect(Math.abs(socketX - hullX) > 0.18,
-    `[${label}] shot origin collapsed onto the aircraft centre line: socketX=${socketX} hullX=${hullX}`);
+  const authored = num(state.playerGunLateralOffset);
+  expect(authored > 0.05, `[${label}] authored gun offset collapsed onto the centre line: ${authored}`);
+  const lateral = Math.abs(socketX - hullX);
+  expect(lateral > authored * 0.5,
+    `[${label}] shot origin collapsed onto the aircraft centre line: socketX=${socketX} hullX=${hullX} authored=${authored}`);
+  expect(lateral < authored + 0.35,
+    `[${label}] shot origin is not on the authored barrel: lateral=${lateral} authored=${authored}`);
 }
 
 function assertMuzzleFlash(state, label) {
@@ -291,8 +299,14 @@ async function main() {
 
       // --- debug gizmo
       await page.keyboard.press('F2');
-      await page.waitForTimeout(900);
-      const gizmoState = await page.evaluate(() => window.ForceWarBridge?.state || null);
+      // Headless WebGL runs at ~1 FPS, so the toggle can take several seconds
+      // to show up in the bridge snapshot: poll instead of a fixed sleep.
+      let gizmoState = null;
+      for (let i = 0; i < 20; i += 1) {
+        await page.waitForTimeout(900);
+        gizmoState = await page.evaluate(() => window.ForceWarBridge?.state || null);
+        if (gizmoState?.weaponDebugGizmoVisible === true) break;
+      }
       expect(gizmoState?.weaponDebugGizmoVisible === true,
         `debug gizmo did not switch on: ${gizmoState?.weaponDebugGizmoVisible}`);
       const gizmoPath = join(screenshotDir, 'weapon_socket_gizmo.png');

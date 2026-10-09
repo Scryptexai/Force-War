@@ -14,7 +14,7 @@ class_name BossEntity3D
 # through apply_hit(), which is only reachable after query_hit() resolved a real
 # part hitbox in world space.
 
-const BOSS_MODEL_PATH := "res://assets/models/boss_dreadnought_leviathan.glb"
+const BOSS_MODEL_PATH := "res://assets/models/boss_battleship_leviathan.glb"
 const PHASE_CONTROLLER_SCRIPT := preload("res://scripts/boss/boss_phase_controller.gd")
 const EXPLOSION_TEXTURE_PATH := "res://assets/vfx/explosion_fireball.png"
 const SMOKE_TEXTURE_PATH := "res://assets/vfx/smoke_plume.png"
@@ -437,6 +437,9 @@ func _build_hull() -> void:
 		var model: Node3D = packed.instantiate()
 		model.name = "DreadnoughtLeviathanHullGLB"
 		model.scale = Vector3.ONE * model_scale
+		# The authored battleship hull points its bow along -Z (away from the
+		# camera); turn it around so the bow and its batteries face the player.
+		model.rotation_degrees = Vector3(0.0, 180.0, 0.0)
 		hull_root.add_child(model)
 		model_loaded = true
 		_retint_faction_colors(model)
@@ -472,8 +475,11 @@ func _build_parts() -> void:
 	part_visuals.clear()
 	var turret_left_nodes := _collect_sockets(["LargeAATurret_00", "LargeAATurret_01"])
 	var turret_right_nodes := _collect_sockets(["LargeAATurret_02", "LargeAATurret_03"])
-	_register_turret_part("turret_left", turret_left_nodes, Vector3(-8.2, 0.59, -1.74))
-	_register_turret_part("turret_right", turret_right_nodes, Vector3(8.2, 0.59, -1.74))
+	# Fallback stations are measured on the authored battleship hull
+	# (docs/boss_battleship_report.json): the wide mid-deck wings, Blender
+	# (x +-5.0, y -2.0, deck top z ~0.0) mapped to Godot and turned 180 deg.
+	_register_turret_part("turret_left", turret_left_nodes, [Vector3(-5.0, 0.45, -2.0), Vector3(-3.0, 0.45, -4.6)])
+	_register_turret_part("turret_right", turret_right_nodes, [Vector3(5.0, 0.45, -2.0), Vector3(3.0, 0.45, -4.6)])
 	_register_core_part()
 	_register_shield_part()
 
@@ -487,18 +493,27 @@ func _collect_sockets(names: Array) -> Array:
 	return found
 
 
-func _register_turret_part(part_name: String, nodes: Array, fallback_local: Vector3) -> void:
+func _register_turret_part(part_name: String, nodes: Array, fallback_locals: Array) -> void:
 	var anchor := Node3D.new()
 	anchor.name = "BossPartAnchor_" + part_name
 	add_child(anchor)
-	anchor.position = fallback_local * model_scale
+	var fallback_center := Vector3.ZERO
+	for station in fallback_locals:
+		fallback_center += Vector3(station)
+	fallback_center /= float(maxi(1, fallback_locals.size()))
+	anchor.position = fallback_center * model_scale
 	var muzzles: Array = []
 	var glows: Array = []
 	var meshes: Array = []
 	var assemblies: Array = []
-	var assembly_count: int = maxi(1, nodes.size())
+	var assembly_count: int = nodes.size() if nodes.size() > 0 else fallback_locals.size()
+	assembly_count = maxi(1, assembly_count)
 	for i in range(assembly_count):
 		var assembly := _build_turret_assembly(part_name, i)
+		if nodes.is_empty() and i < fallback_locals.size():
+			# Two batteries per side on the authored hull: the anchor keeps the
+			# part hitbox, each assembly sits on its own measured deck station.
+			assembly.position = (Vector3(fallback_locals[i]) - fallback_center) * model_scale
 		anchor.add_child(assembly)
 		assemblies.append(assembly)
 		meshes.append(assembly)
@@ -513,7 +528,7 @@ func _register_turret_part(part_name: String, nodes: Array, fallback_local: Vect
 		"muzzles": muzzles,
 		"assemblies": assemblies,
 		"sockets": nodes,
-		"extents": Vector3(4.6, 3.0, 3.4),
+		"extents": Vector3(4.6, 3.0, 4.4) * model_scale,
 		"flash": 0.0,
 		"telegraph": 0.0,
 		"destroyed_visual": false,
@@ -565,12 +580,14 @@ func _register_core_part() -> void:
 	var anchor := Node3D.new()
 	anchor.name = "BossPartAnchor_core"
 	add_child(anchor)
-	anchor.position = Vector3.ZERO
+	# In front of the battleship superstructure so the weak point is visible and
+	# shootable from the play plane instead of buried inside the hull.
+	anchor.position = Vector3(0.0, 1.15, 2.15) * model_scale
 	var core_shell := MeshInstance3D.new()
 	core_shell.name = "BossCoreWeakPoint"
 	var sphere := SphereMesh.new()
-	sphere.radius = 1.05
-	sphere.height = 2.1
+	sphere.radius = 0.72 * model_scale
+	sphere.height = 1.44 * model_scale
 	core_shell.mesh = sphere
 	core_shell.material_override = core_mat
 	anchor.add_child(core_shell)
@@ -585,7 +602,7 @@ func _register_core_part() -> void:
 		"meshes": [core_shell],
 		"glows": [core_shell],
 		"muzzles": [muzzle],
-		"extents": Vector3(2.4, 2.4, 2.4),
+		"extents": Vector3(1.8, 1.8, 1.8) * model_scale,
 		"flash": 0.0,
 		"telegraph": 0.0,
 		"destroyed_visual": false,
@@ -604,7 +621,7 @@ func _register_shield_part() -> void:
 	sphere.radius = 1.0
 	sphere.height = 2.0
 	shield_shell.mesh = sphere
-	shield_shell.scale = Vector3(11.5, 3.4, 5.2)
+	shield_shell.scale = Vector3(12.6, 4.2, 8.4)
 	shield_shell.material_override = shield_mat
 	anchor.add_child(shield_shell)
 	part_visuals["shield"] = {
@@ -612,7 +629,7 @@ func _register_shield_part() -> void:
 		"meshes": [shield_shell],
 		"glows": [],
 		"muzzles": [],
-		"extents": Vector3(17.0, 5.0, 7.0),
+		"extents": Vector3(17.0, 5.6, 10.5),
 		"flash": 0.0,
 		"telegraph": 0.0,
 		"destroyed_visual": false,

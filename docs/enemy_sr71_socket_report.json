@@ -1,0 +1,54 @@
+{
+  "source": "/home/user/Force-War/source_assets/ENIMIES_sr71.glb",
+  "output": "/home/user/Force-War/assets/models/enemy_sr71_blender_ready.glb",
+  "method": "vertex_ring_average_cursor_to_selected_equivalent",
+  "origin": "mesh_bounding_box_centre_equals_hitbox_centre",
+  "spanAxis": "x",
+  "lengthAxis": "y",
+  "noseSign": 1.0,
+  "halfSpan": 9.5476,
+  "gunStationFraction": 0.17,
+  "meshSize": [
+    19.0952,
+    24.8019,
+    1.6075
+  ],
+  "lengthScaleFactor": 1.0,
+  "polygons": 3439,
+  "axisAsymmetry": {
+    "x": 0.97106,
+    "y": 0.97479
+  },
+  "sockets": {
+    "EX_C": [
+      0.0,
+      -1.8905,
+      -0.2535
+    ],
+    "Engine_Core": [
+      0.0,
+      -1.8905,
+      -0.2535
+    ],
+    "MZ_Gun_L": [
+      -1.6231,
+      5.2646,
+      -0.1328
+    ],
+    "MZ_Gun_R": [
+      1.6231,
+      5.2646,
+      -0.1328
+    ],
+    "Muzzle_Left": [
+      -1.6231,
+      5.2646,
+      -0.1328
+    ],
+    "Muzzle_Right": [
+      1.6231,
+      5.2646,
+      -0.1328
+    ]
+  }
+}

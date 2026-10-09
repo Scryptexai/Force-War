@@ -1,0 +1,23 @@
+{
+  "source": "/home/user/Force-War/source_assets/BOS_Enimies.glb",
+  "output": "/home/user/Force-War/assets/models/boss_battleship_leviathan.glb",
+  "method": "vertex_ring_average_cursor_to_selected_equivalent",
+  "origin": "mesh_bounding_box_centre_equals_hitbox_centre",
+  "spanAxis": "x",
+  "lengthAxis": "y",
+  "noseSign": 1.0,
+  "halfSpan": 7.7084,
+  "gunStationFraction": 0.27,
+  "meshSize": [
+    15.2641,
+    14.0,
+    4.7509
+  ],
+  "lengthScaleFactor": 15.313476,
+  "polygons": 23673,
+  "axisAsymmetry": {
+    "x": 0.19227,
+    "y": 0.41004
+  },
+  "sockets": {}
+}

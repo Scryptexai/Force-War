@@ -1,0 +1,54 @@
+{
+  "source": "/home/user/Force-War/source_assets/ENIMIES_tornado.glb",
+  "output": "/home/user/Force-War/assets/models/enemy_tornado_blender_ready.glb",
+  "method": "vertex_ring_average_cursor_to_selected_equivalent",
+  "origin": "mesh_bounding_box_centre_equals_hitbox_centre",
+  "spanAxis": "x",
+  "lengthAxis": "y",
+  "noseSign": 1.0,
+  "halfSpan": 2.7586,
+  "gunStationFraction": 0.17,
+  "meshSize": [
+    5.0617,
+    4.682,
+    3.3305
+  ],
+  "lengthScaleFactor": 1.0,
+  "polygons": 2340,
+  "axisAsymmetry": {
+    "x": 0.99608,
+    "y": 0.99902
+  },
+  "sockets": {
+    "EX_C": [
+      0.0,
+      -0.5008,
+      -1.0957
+    ],
+    "Engine_Core": [
+      0.0,
+      -0.5008,
+      -1.0957
+    ],
+    "MZ_Gun_L": [
+      -0.469,
+      0.3882,
+      -0.8934
+    ],
+    "MZ_Gun_R": [
+      0.469,
+      0.3882,
+      -0.8934
+    ],
+    "Muzzle_Left": [
+      -0.469,
+      0.3882,
+      -0.8934
+    ],
+    "Muzzle_Right": [
+      0.469,
+      0.3882,
+      -0.8934
+    ]
+  }
+}

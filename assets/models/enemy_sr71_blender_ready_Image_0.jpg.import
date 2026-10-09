@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://knox430lj2y0"
-path="res://.godot/imported/enemy_hero_jet_blender_ready_futuristic+fighter+jet+3d+model_rm.png-a4f88b0e096acbeb12206a4e3d889ab1.ctex"
+uid="uid://n4v8kem74fd4"
+path="res://.godot/imported/enemy_sr71_blender_ready_Image_0.jpg-c966ccc39c7bcd9391508ad8f634af5f.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "fd8bca3476512f08b21e34c36e12cf09"
+"md5": "fd8fbcfd9a16c68d72a958bb17259602"
 }
 
 [deps]
 
-source_file="res://assets/models/enemy_hero_jet_blender_ready_futuristic+fighter+jet+3d+model_rm.png"
-dest_files=["res://.godot/imported/enemy_hero_jet_blender_ready_futuristic+fighter+jet+3d+model_rm.png-a4f88b0e096acbeb12206a4e3d889ab1.ctex"]
+source_file="res://assets/models/enemy_sr71_blender_ready_Image_0.jpg"
+dest_files=["res://.godot/imported/enemy_sr71_blender_ready_Image_0.jpg-c966ccc39c7bcd9391508ad8f634af5f.ctex"]
 
 [params]
 

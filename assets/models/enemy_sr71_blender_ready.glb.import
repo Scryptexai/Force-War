@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://o74ipyuxrnxp"
-path="res://.godot/imported/enemy_hero_jet_blender_ready.glb-3f1b5599cf2d044c6a972b09b4b4dbe5.scn"
+uid="uid://cpunqqr2e6cai"
+path="res://.godot/imported/enemy_sr71_blender_ready.glb-871b06b88644f50ef5c566390d49c225.scn"
 
 [deps]
 
-source_file="res://assets/models/enemy_hero_jet_blender_ready.glb"
-dest_files=["res://.godot/imported/enemy_hero_jet_blender_ready.glb-3f1b5599cf2d044c6a972b09b4b4dbe5.scn"]
+source_file="res://assets/models/enemy_sr71_blender_ready.glb"
+dest_files=["res://.godot/imported/enemy_sr71_blender_ready.glb-871b06b88644f50ef5c566390d49c225.scn"]
 
 [params]
 

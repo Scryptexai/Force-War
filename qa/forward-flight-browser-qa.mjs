@@ -105,9 +105,9 @@ async function main() {
         fail(`expected 720x1280 canvas, got ${result.canvas?.width}x${result.canvas?.height}`);
       }
       if (result.state?.playerModel !== 'glb') fail(`expected playerModel glb, got ${result.state?.playerModel}`);
-      if (result.state?.playerModelSource !== 'res://assets/models/enemy_hero_jet_blender_ready.glb') fail(`expected Blender-prepared uploaded GLB player source, got ${result.state?.playerModelSource}`);
+      if (result.state?.playerModelSource !== 'res://assets/models/player_mig29_blender_ready.glb') fail(`expected Blender-prepared uploaded GLB player source, got ${result.state?.playerModelSource}`);
       if (result.state?.playerModelAssetAuthenticity !== 'uploaded_glb_blender_prepared_runtime_instance') fail(`player GLB authenticity failed: ${result.state?.playerModelAssetAuthenticity}`);
-      if (result.state?.playerModelOriginalSource !== 'res://assets/models/enemy_hero_jet.glb') fail(`player original GLB source contract failed: ${result.state?.playerModelOriginalSource}`);
+      if (result.state?.playerModelOriginalSource !== 'res://source_assets/HERO_fighter_jet.glb') fail(`player original GLB source contract failed: ${result.state?.playerModelOriginalSource}`);
       if (result.state?.playerForwardAxis !== 'negative_z') fail(`player forward axis contract missing: ${result.state?.playerForwardAxis}`);
       // The hull is now authored in Blender with the nose already on the Godot
       // forward axis, so the engine applies no corrective rotation at all.

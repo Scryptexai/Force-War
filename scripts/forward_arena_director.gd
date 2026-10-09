@@ -18,7 +18,7 @@ const RETICLE_TEXTURE_PATH = "res://assets/vfx/reticle_lock.png"
 const ARENA_DECK_TEXTURE_PATH = "res://assets/vfx/arena_deck_panel.png"
 const STORM_OCEAN_TEXTURE_PATH = "res://assets/vfx/storm_ocean_material.jpg"
 const CINEMATIC_MATTE_TEXTURE_PATH = "res://assets/rendered/forward_air_battlefield_matte.jpg"
-const ENEMY_HERO_JET_READY_PATH = "res://assets/models/enemy_hero_jet_blender_ready.glb"
+const ENEMY_HERO_JET_READY_PATH = "res://assets/models/enemy_sr71_blender_ready.glb"
 const ENEMY_HERO_JET_PATH = "res://assets/models/enemy_hero_jet.glb"
 const DEPTH_LAYER_COUNT = 5
 const PROJECTILE_VISUAL_POOL_SCRIPT = preload("res://scripts/projectiles/projectile_visual_pool_3d.gd")
@@ -1294,7 +1294,7 @@ func _update_mid_clouds(delta: float, travel_speed: float) -> void:
 func _update_warzone(delta: float, travel_speed: float) -> void:
 	for chunk in warzone_chunks:
 		chunk.position.z += travel_speed * float(chunk.get_meta("speed_mul", 0.88)) * delta
-		if chunk.position.z > 20.0:
+		if chunk.position.z > 8.0:
 			chunk.position.z -= 148.0
 	for fire in fire_pockets:
 		fire.scale.y = 1.0 + sin(forward_time * 10.0 + fire.position.x * 0.8) * 0.30
@@ -1315,7 +1315,9 @@ func _update_near_weather(delta: float, travel_speed: float) -> void:
 		debris.position.z += travel_speed * float(debris.get_meta("speed_mul", 1.25)) * delta
 		debris.position.x += wind_drift * delta * 0.55
 		debris.rotation_degrees.z += delta * 80.0
-		if debris.position.z > 10.0:
+		# Recycle well before the camera plane (z +12): a 2 m debris box passing
+		# the lens fills the lower screen and hides the play plane.
+		if debris.position.z > 2.0:
 			debris.position = Vector3(rng.randf_range(-12.0, 12.0), CombatSpace.UNDERWORLD_DECOR_Y + rng.randf_range(0.5, 3.5), -100.0 - rng.randf_range(0.0, 35.0))
 
 
