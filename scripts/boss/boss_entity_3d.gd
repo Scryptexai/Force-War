@@ -72,6 +72,11 @@ func setup() -> void:
 	add_child(phase_controller)
 	if phase_controller.has_method("setup"):
 		phase_controller.setup()
+	# The dreadnought leans its deck toward the player. A flat battleship read
+	# only 19% of frame height from the chase camera; pitching the whole entity
+	# (hull AND part anchors together, so the hitboxes stay on the geometry)
+	# turns its 20 m of deck into screen height without widening the silhouette.
+	rotation_degrees.x = CombatSpace.BOSS_PITCH_DEGREES
 	_build_hull()
 	_build_parts()
 	_build_impact_pool()
@@ -380,7 +385,72 @@ func get_bridge_state() -> Dictionary:
 	state["bossWeakpointWorldZ"] = get_weakpoint_world_position().z
 	state["bossPlaneY"] = CombatSpace.PLANE_Y
 	state["bossWorldZ"] = global_position.z
+	var frame := get_screen_coverage()
+	state["bossScreenHeightPct"] = snappedf(float(frame.get("heightPct", 0.0)), 0.01)
+	state["bossScreenWidthPct"] = snappedf(float(frame.get("widthPct", 0.0)), 0.01)
+	state["bossScreenTopPct"] = snappedf(float(frame.get("topPct", 0.0)), 0.01)
+	state["bossScreenBottomPct"] = snappedf(float(frame.get("bottomPct", 0.0)), 0.01)
 	return state
+
+
+func get_screen_coverage() -> Dictionary:
+	# How much of the phone frame the hull actually fills, measured by projecting
+	# the visible hull AABB through the live camera. The brief asks for a boss in
+	# the upper third at roughly 30% of frame height, so that number has to be
+	# measurable instead of estimated from a screenshot by eye.
+	if not is_inside_tree():
+		return {}
+	var viewport := get_viewport()
+	if viewport == null:
+		return {}
+	var cam := viewport.get_camera_3d()
+	if cam == null or hull_root == null:
+		return {}
+	var corners := _hull_world_corners()
+	if corners.is_empty():
+		return {}
+	var min_p := Vector2(INF, INF)
+	var max_p := Vector2(-INF, -INF)
+	for corner in corners:
+		if cam.is_position_behind(corner):
+			continue
+		var point := cam.unproject_position(corner)
+		min_p = min_p.min(point)
+		max_p = max_p.max(point)
+	if min_p.x == INF:
+		return {}
+	var frame := Vector2(viewport.get_visible_rect().size)
+	if frame.x <= 0.0 or frame.y <= 0.0:
+		return {}
+	return {
+		"heightPct": (max_p.y - min_p.y) / frame.y * 100.0,
+		"widthPct": (max_p.x - min_p.x) / frame.x * 100.0,
+		"topPct": min_p.y / frame.y * 100.0,
+		"bottomPct": max_p.y / frame.y * 100.0
+	}
+
+
+func _hull_world_corners() -> Array:
+	var points: Array = []
+	for node in _mesh_instances(hull_root):
+		var mesh_node: MeshInstance3D = node
+		if mesh_node.mesh == null:
+			continue
+		var aabb := mesh_node.mesh.get_aabb()
+		for i in range(8):
+			points.append(mesh_node.global_transform * aabb.get_endpoint(i))
+	return points
+
+
+func _mesh_instances(root: Node) -> Array:
+	var found: Array = []
+	if root == null:
+		return found
+	if root is MeshInstance3D:
+		found.append(root)
+	for child in root.get_children():
+		found.append_array(_mesh_instances(child))
+	return found
 
 
 func _hitbox_report() -> Dictionary:

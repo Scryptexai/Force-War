@@ -117,6 +117,13 @@ function assertBulletCausality(state, frame) {
   // Three firing parts (two turret batteries plus the core). Destroyed parts
   // must stop firing, so the live muzzle floor drops with them instead of
   // being a fixed number the boss can never satisfy late in the fight.
+  // Composition: the dreadnought has to own the upper third of the phone frame
+  // (~30% of frame height), measured by the engine projecting the hull AABB.
+  const bossHeightPct = num(state?.bossScreenHeightPct);
+  expect(bossHeightPct >= 25 && bossHeightPct <= 40,
+    `[f${frame}] boss frame height out of range: ${bossHeightPct}%`);
+  expect(num(state?.bossScreenTopPct) <= 35,
+    `[f${frame}] boss does not reach the upper third: top=${state?.bossScreenTopPct}%`);
   const firingParts = Math.max(1, 3 - num(state?.bossDestroyedParts));
   expect(num(state?.bossLiveMuzzleCount) >= firingParts,
     `[f${frame}] live muzzle count too low: ${state?.bossLiveMuzzleCount} with ${state?.bossDestroyedParts} destroyed parts`);

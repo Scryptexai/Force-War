@@ -1,19 +1,19 @@
 {
-  "generatedAt": "2026-10-09T11:13:58.795Z",
+  "generatedAt": "2026-10-09T13:26:51.297Z",
   "pass": "pass3_air_enemies_and_explosions",
   "kindsSeen": [
     "drone",
     "gunship"
   ],
-  "airEnemySpawned": 15,
+  "airEnemySpawned": 12,
   "airEnemyKilled": 10,
-  "airEnemyFireEvents": 16,
-  "airEnemyHitsLanded": 41,
-  "missilesFired": 6,
+  "airEnemyFireEvents": 9,
+  "airEnemyHitsLanded": 22,
+  "missilesFired": 7,
   "missileImpacts": 6,
-  "explosionEvents": 25,
+  "explosionEvents": 23,
   "explosionDynamicLights": 0,
-  "underworldScrollDistance": 676.69616,
+  "underworldScrollDistance": 608.33472,
   "underworldCliffCount": 12,
   "underworldWreckCount": 12,
   "underworldCityBlockCount": 30,
@@ -26,40 +26,40 @@
       "kills": 2,
       "explosionEvents": 3,
       "explosionVisibleCount": 3,
-      "explosionX": -5.41933965682983,
-      "explosionZ": -19.8883380889893,
-      "bytes": 584090
+      "explosionX": -6.19151020050049,
+      "explosionZ": -21.0190124511719,
+      "bytes": 641441
     },
     {
       "label": "missile_1",
       "path": "/home/user/Force-War/qa/screenshots/pass3_missile_1.png",
       "activeMissiles": 2,
       "missilesFired": 3,
-      "bytes": 571012
-    },
-    {
-      "label": "explosion_2",
-      "path": "/home/user/Force-War/qa/screenshots/pass3_explosion_2.png",
-      "kills": 4,
-      "explosionEvents": 9,
-      "explosionVisibleCount": 1,
-      "explosionX": 5.55942726135254,
-      "explosionZ": -15.2171821594238,
-      "bytes": 551262
+      "bytes": 600077
     },
     {
       "label": "air_enemy_1",
       "path": "/home/user/Force-War/qa/screenshots/pass3_air_enemy_1.png",
-      "nearestZ": -16.7608947753906,
-      "live": 2,
-      "bytes": 599493
+      "nearestZ": -23.061071395874,
+      "live": 1,
+      "bytes": 647567
+    },
+    {
+      "label": "explosion_2",
+      "path": "/home/user/Force-War/qa/screenshots/pass3_explosion_2.png",
+      "kills": 5,
+      "explosionEvents": 14,
+      "explosionVisibleCount": 3,
+      "explosionX": -3.18009328842163,
+      "explosionZ": 4.29895973205566,
+      "bytes": 687703
     },
     {
       "label": "air_enemy_2",
       "path": "/home/user/Force-War/qa/screenshots/pass3_air_enemy_2.png",
-      "nearestZ": -23.331392288208,
-      "live": 2,
-      "bytes": 654618
+      "nearestZ": -20.8006324768066,
+      "live": 3,
+      "bytes": 736066
     }
   ]
 }

@@ -113,8 +113,14 @@ func _update_unit(unit: Dictionary, delta: float, player_xz: Vector2) -> void:
 	pos.z += float(unit["speed"]) * delta
 	# Readable lateral weave; never a homing chase.
 	pos.x = float(unit["lane_x"]) + sin(t * float(unit["weave_rate"]) + float(unit["weave_phase"])) * float(unit["weave_width"])
-	pos.y = CombatSpace.PLANE_Y
+	# Break-off climb: a unit that gets past the player pulls up and leaves the
+	# frame over the camera instead of flying through the lens, where a 3 m
+	# airframe would black out the lower half of the screen.
+	var breakoff: float = maxf(0.0, pos.z - CombatSpace.BREAKOFF_Z)
+	pos.y = CombatSpace.PLANE_Y + breakoff * breakoff * 1.35
 	root.position = pos
+	if breakoff > 0.0:
+		root.rotation.x = lerpf(root.rotation.x, 0.55, minf(1.0, delta * 3.0))
 	root.rotation.z = lerpf(root.rotation.z, -cos(t * float(unit["weave_rate"]) + float(unit["weave_phase"])) * 0.42, minf(1.0, delta * 4.0))
 
 	unit["hit_flash"] = maxf(0.0, float(unit["hit_flash"]) - delta * 4.5)
@@ -136,7 +142,7 @@ func _update_unit(unit: Dictionary, delta: float, player_xz: Vector2) -> void:
 
 	# Retire behind the player but well in front of the camera (z +12): a 3 m
 	# airframe passing the lens blacks out the lower half of the frame.
-	if pos.z > 4.5:
+	if pos.z > 4.5 or pos.y > 16.0:
 		escaped_count += 1
 		_retire_unit(unit, false)
 
@@ -365,7 +371,7 @@ func _deploy(unit: Dictionary, kind: String, lane_x: float, pressure: float) -> 
 		unit["bullet_speed"] = 30.0
 		unit["bullet_damage"] = 7.0
 		unit["spread"] = [0.0]
-		unit["hitbox"] = Vector3(1.0, 0.6, 1.15)
+		unit["hitbox"] = Vector3(1.4, 0.6, 1.35)
 	else:
 		unit["hp"] = 220.0
 		unit["speed"] = 5.6 + pressure * 1.4
@@ -376,7 +382,7 @@ func _deploy(unit: Dictionary, kind: String, lane_x: float, pressure: float) -> 
 		unit["bullet_speed"] = 25.0
 		unit["bullet_damage"] = 9.0
 		unit["spread"] = [-9.0, 9.0]
-		unit["hitbox"] = Vector3(1.7, 0.7, 1.5)
+		unit["hitbox"] = Vector3(1.8, 0.7, 2.0)
 	unit["max_hp"] = float(unit["hp"])
 	# A gunship opens with its missile almost immediately, so the heavy threat
 	# is on screen even if the player shreds it a second later.
@@ -385,9 +391,10 @@ func _deploy(unit: Dictionary, kind: String, lane_x: float, pressure: float) -> 
 	unit["volley_index"] = 0
 	root.position = Vector3(float(unit["lane_x"]), CombatSpace.PLANE_Y, CombatSpace.BOSS_Z + 11.0 - rng.randf_range(0.0, 4.0))
 	root.rotation = Vector3.ZERO
-	# Real airframes are slimmer than the old placeholder hull, so the units are
-	# scaled up until the silhouette reads on a phone: ~1.8 m drone, ~3.1 m gunship.
-	root.scale = Vector3.ONE * (0.55 if kind == DRONE else 0.95)
+	# The GLBs are authored to their gameplay length in Blender (3.0 m drone,
+	# 4.2 m gunship), so the engine only trims them slightly instead of guessing
+	# a scale factor.
+	root.scale = Vector3.ONE * (0.95 if kind == DRONE else 1.0)
 	root.visible = true
 	_apply_kind_visual(unit, kind)
 	spawned_count += 1
@@ -578,12 +585,14 @@ func _apply_kind_visual(unit: Dictionary, kind: String) -> void:
 	if eye != null:
 		eye.visible = true
 		# The gunship reads wider and heavier, the drone small and sharp.
-		eye.scale = Vector3.ONE * (1.0 if kind == DRONE else 1.35)
-		eye.position = Vector3(0.0, 0.16, 1.15 if kind == DRONE else 1.35)
+		eye.scale = Vector3.ONE * (1.15 if kind == DRONE else 1.5)
+		# On the nose of the authored airframe (drone 3.0 m, gunship 4.2 m long),
+		# not floating inside the fuselage.
+		eye.position = Vector3(0.0, 0.14, 1.25 if kind == DRONE else 1.95)
 	for thruster_value in unit["thrusters"]:
 		var thruster: MeshInstance3D = thruster_value
 		var side: float = -1.0 if thruster.name.ends_with("L") else 1.0
-		thruster.position = Vector3(side * (0.5 if kind == DRONE else 0.78), 0.02, -1.0)
+		thruster.position = Vector3(side * (0.42 if kind == DRONE else 0.34), 0.02, -1.25 if kind == DRONE else -1.95)
 	# No stretching: the two airframes are different models, not one model
 	# squashed to pretend to be two.
 	body.scale = Vector3.ONE
@@ -604,7 +613,9 @@ func _force_material(node: Node, material: StandardMaterial3D) -> void:
 func _create_materials() -> void:
 	hull_mat = StandardMaterial3D.new()
 	# Dark hostile hull: value sits under the player so the hierarchy holds.
-	hull_mat.albedo_color = Color(0.17, 0.155, 0.175, 1.0)
+	# Slightly warm, slightly lifted: still well under the player's value, but
+	# the airframe separates from the near-black sea instead of vanishing.
+	hull_mat.albedo_color = Color(0.23, 0.195, 0.195, 1.0)
 	hull_mat.metallic = 0.0
 	hull_mat.roughness = 0.95
 	hull_mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED

@@ -16,7 +16,10 @@ const PLAYER_Z_FAR := -9.0
 const PLAYER_X_LIMIT := 7.2
 
 const BOSS_Z := -38.0
-const BOSS_MODEL_SCALE := 1.45
+const BOSS_MODEL_SCALE := 1.62
+const BOSS_PITCH_DEGREES := 20.0
+# Past this z an air enemy that survived the pass pulls up and out of frame.
+const BREAKOFF_Z := -1.5
 
 const UNDERWORLD_Y := -13.5
 const UNDERWORLD_DECOR_Y := -13.0

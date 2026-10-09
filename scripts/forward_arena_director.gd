@@ -348,7 +348,64 @@ func get_weather_effect() -> Dictionary:
 
 
 func get_bridge_state() -> Dictionary:
-	return _weather_effect_with_boss_state(true)
+	var state := _weather_effect_with_boss_state(true)
+	state["frameOccluderAudit"] = audit_frame_occluders()
+	return state
+
+
+func audit_frame_occluders() -> Array:
+	# Debug instrument (not a gameplay feature): which meshes actually own the
+	# biggest chunks of the phone frame. Used to hunt props that swallow the
+	# play field; cheap enough to run only when the bridge snapshot is built.
+	var viewport := get_viewport()
+	if viewport == null:
+		return []
+	var cam := viewport.get_camera_3d()
+	if cam == null:
+		return []
+	var frame := Vector2(viewport.get_visible_rect().size)
+	if frame.x <= 0.0 or frame.y <= 0.0:
+		return []
+	var ranked: Array = []
+	for node in _all_mesh_instances(self):
+		var mesh_node: MeshInstance3D = node
+		if not mesh_node.visible or not mesh_node.is_visible_in_tree() or mesh_node.mesh == null:
+			continue
+		var aabb := mesh_node.mesh.get_aabb()
+		var min_p := Vector2(INF, INF)
+		var max_p := Vector2(-INF, -INF)
+		var behind := 0
+		for i in range(8):
+			var corner: Vector3 = mesh_node.global_transform * aabb.get_endpoint(i)
+			if cam.is_position_behind(corner):
+				behind += 1
+				continue
+			var point := cam.unproject_position(corner)
+			min_p = min_p.min(point)
+			max_p = max_p.max(point)
+		if behind == 8 or min_p.x == INF:
+			continue
+		var clipped := Rect2(min_p, max_p - min_p).intersection(Rect2(Vector2.ZERO, frame))
+		var area_pct: float = clipped.size.x * clipped.size.y / (frame.x * frame.y) * 100.0
+		if area_pct < 4.0:
+			continue
+		ranked.append({
+			"name": str(mesh_node.name),
+			"parent": str(mesh_node.get_parent().name) if mesh_node.get_parent() != null else "",
+			"areaPct": snappedf(area_pct, 0.1),
+			"z": snappedf(mesh_node.global_position.z, 0.1)
+		})
+	ranked.sort_custom(func(a, b): return float(a["areaPct"]) > float(b["areaPct"]))
+	return ranked.slice(0, 5)
+
+
+func _all_mesh_instances(root: Node) -> Array:
+	var found: Array = []
+	if root is MeshInstance3D:
+		found.append(root)
+	for child in root.get_children():
+		found.append_array(_all_mesh_instances(child))
+	return found
 
 
 func set_player_weapon_hardpoints(state: Dictionary) -> void:
@@ -543,7 +600,7 @@ func _create_underworld_speed_layer() -> void:
 		# Cliff ridges frame the corridor left and right.
 		for side in [-1.0, 1.0]:
 			var ridge := _cliff_ridge_mesh("UnderworldCliff_%02d_%s" % [i, "L" if side < 0.0 else "R"], 26.0, 9, 2.6, 6.2, side)
-			ridge.position = Vector3(side * 11.0, 0.0, 0.0)
+			ridge.position = Vector3(side * 15.5, 0.0, 0.0)
 			chunk.add_child(ridge)
 			underworld_cliffs.append(ridge)
 
@@ -557,7 +614,7 @@ func _create_underworld_speed_layer() -> void:
 			if arena_deck_cluster_scene:
 				var hull = arena_deck_cluster_scene.instantiate()
 				hull.name = "WreckHullGLB"
-				var wreck_scale: float = rng.randf_range(0.6, 0.95)
+				var wreck_scale: float = rng.randf_range(0.34, 0.52)
 				hull.scale = Vector3(wreck_scale, wreck_scale, wreck_scale)
 				wreck.add_child(hull)
 				_neutralize_underworld_decor(hull)
@@ -661,12 +718,18 @@ func _update_underworld_speed_layer(delta: float, travel_speed: float) -> void:
 	for chunk_value in underworld_chunks:
 		var chunk: Node3D = chunk_value
 		chunk.position.z += travel_speed * float(chunk.get_meta("speed_mul", 1.0)) * delta
-		if chunk.position.z > 26.0:
+		# A chunk carries wrecks up to 9 m behind its origin, so it has to recycle
+		# before the camera plane (z +12). Letting it run to +26 dragged a
+		# burnt-out hull straight through the lens and blacked out the midfield.
+		# Wrecks sit 24 m below the camera: anything that reaches the camera plane
+		# fills the lower frame. Recycle while the chunk is still ahead of the
+		# player so the under-world stays a scrolling backdrop.
+		if chunk.position.z > -18.0:
 			chunk.position.z -= 156.0
 	for streak_value in underworld_streaks:
 		var streak: Node3D = streak_value
 		streak.position.z += travel_speed * float(streak.get_meta("speed_mul", 1.55)) * delta
-		if streak.position.z > 14.0:
+		if streak.position.z > 6.0:
 			streak.position = Vector3(rng.randf_range(-9.5, 9.5), CombatSpace.UNDERWORLD_DECOR_Y + 0.25, -112.0 - rng.randf_range(0.0, 20.0))
 	for ember_value in underworld_embers:
 		var ember: Node3D = ember_value
