@@ -22,6 +22,11 @@ const ENEMY_MODEL_PATHS := {
 
 const ENEMY_VISUAL_LAYER := 1 << 1
 
+# Pass 3, item 6: hex shields for shielded enemies, in a colour that belongs to
+# neither faction (blue/cyan is the player, red/orange is a threat marker).
+const HEX_SHIELD_TEXTURE_PATH := "res://assets/vfx/hex_shield.png"
+const SHIELD_COLOR_CODE := "violet_magenta_non_player_blue"
+
 const DRONE := "drone"
 const GUNSHIP := "gunship"
 
@@ -40,6 +45,8 @@ var killed_count := 0
 var fire_event_count := 0
 var missiles_launched := 0
 var escaped_count := 0
+var shields_deployed := 0
+var shield_breaks := 0
 var max_units := 6
 var density_scale := 1.0
 
@@ -47,6 +54,7 @@ var hull_mat: StandardMaterial3D
 var eye_mat: StandardMaterial3D
 var thruster_mat: StandardMaterial3D
 var burnt_mat: StandardMaterial3D
+var shield_mat: StandardMaterial3D
 var model_loaded := false
 
 
@@ -67,6 +75,8 @@ func start_mission(_stage_data: Dictionary) -> void:
 	spawned_count = 0
 	killed_count = 0
 	escaped_count = 0
+	shields_deployed = 0
+	shield_breaks = 0
 	fire_event_count = 0
 	missiles_launched = 0
 	fire_events.clear()
@@ -124,6 +134,7 @@ func _update_unit(unit: Dictionary, delta: float, player_xz: Vector2) -> void:
 	root.rotation.z = lerpf(root.rotation.z, -cos(t * float(unit["weave_rate"]) + float(unit["weave_phase"])) * 0.42, minf(1.0, delta * 4.0))
 
 	unit["hit_flash"] = maxf(0.0, float(unit["hit_flash"]) - delta * 4.5)
+	_update_shield_visual(unit, delta, t)
 	var eye: MeshInstance3D = unit["eye"]
 	if eye != null:
 		var eye_material := eye.material_override as StandardMaterial3D
@@ -145,6 +156,44 @@ func _update_unit(unit: Dictionary, delta: float, player_xz: Vector2) -> void:
 	if pos.z > 4.5 or pos.y > 16.0:
 		escaped_count += 1
 		_retire_unit(unit, false)
+
+
+func _update_shield_visual(unit: Dictionary, delta: float, t: float) -> void:
+	# The bubble is bound to shield HP: it fades as the shield is worn down,
+	# flares white-hot on every hit and disappears the frame it breaks.
+	var shield_node: MeshInstance3D = unit.get("shield_node")
+	if shield_node == null:
+		return
+	var left: float = float(unit.get("shield", 0.0))
+	var maximum: float = maxf(1.0, float(unit.get("shield_max", 0.0)))
+	unit["shield_flash"] = maxf(0.0, float(unit.get("shield_flash", 0.0)) - delta * 3.4)
+	var shatter: float = float(unit.get("shield_shatter", 0.0))
+	if left <= 0.0:
+		if shatter <= 0.0:
+			shield_node.visible = false
+			return
+		unit["shield_shatter"] = maxf(0.0, shatter - delta)
+		var burst: float = clampf(shatter / 0.34, 0.0, 1.0)
+		shield_node.visible = true
+		var shatter_material := shield_node.material_override as StandardMaterial3D
+		if shatter_material != null:
+			shatter_material.albedo_color = Color(0.94, 0.62, 1.0, burst * 0.75)
+			shatter_material.emission_energy_multiplier = 1.0 + burst * 4.0
+		var box_out: Vector3 = unit["hitbox"]
+		shield_node.scale = Vector3(box_out.x + 0.35, box_out.y + 0.80, box_out.z + 0.35) * (1.0 + (1.0 - burst) * 0.55)
+		return
+	shield_node.visible = true
+	var ratio: float = clampf(left / maximum, 0.0, 1.0)
+	var flash: float = float(unit["shield_flash"])
+	var material := shield_node.material_override as StandardMaterial3D
+	if material != null:
+		# Tuned on screenshots: at the first value (0.18 base) the bubble was
+		# invisible against the dark sea.
+		material.albedo_color = Color(0.88, 0.40, 1.0, 0.58 + ratio * 0.30 + flash * 0.24)
+		material.emission_energy_multiplier = 1.15 + ratio * 0.75 + flash * 2.6
+	var pulse: float = 1.0 + sin(t * 3.1) * 0.015 + flash * 0.06
+	var box: Vector3 = unit["hitbox"]
+	shield_node.scale = Vector3(box.x + 0.35, box.y + 0.80, box.z + 0.35) * pulse
 
 
 func _update_wreck(unit: Dictionary, delta: float) -> void:
@@ -223,11 +272,26 @@ func apply_hit(index: int, damage: float, world_pos: Vector3) -> float:
 	var unit: Dictionary = units[index]
 	if not bool(unit["alive"]):
 		return 0.0
+	# The shield eats damage first and reports its own hit, so a bullet that
+	# stops on the shield never silently moves the hull HP bar.
+	var shield_left: float = float(unit.get("shield", 0.0))
+	if shield_left > 0.0:
+		var shield_after: float = maxf(0.0, shield_left - damage)
+		unit["shield"] = shield_after
+		unit["shield_flash"] = 1.0
+		hit_events.append({"kind": str(unit["kind"]), "damage": shield_left - shield_after, "pos": world_pos, "on_shield": true})
+		if shield_after <= 0.0:
+			shield_breaks += 1
+			# Visible failure: the bubble flares and blows outward for a few
+			# frames instead of blinking out, so the player sees why the next
+			# bullet suddenly reaches the hull.
+			unit["shield_shatter"] = 0.34
+		return shield_left - shield_after
 	var before: float = float(unit["hp"])
 	var after: float = maxf(0.0, before - damage)
 	unit["hp"] = after
 	unit["hit_flash"] = 1.0
-	hit_events.append({"kind": str(unit["kind"]), "damage": before - after, "pos": world_pos})
+	hit_events.append({"kind": str(unit["kind"]), "damage": before - after, "pos": world_pos, "on_shield": false})
 	if after <= 0.0:
 		_destroy_unit(unit)
 	return before - after
@@ -299,6 +363,23 @@ func _nearest_unit_z() -> float:
 	return nearest
 
 
+func _shielded_live_count() -> int:
+	var count := 0
+	for unit in units:
+		if bool(unit["alive"]) and float(unit.get("shield", 0.0)) > 0.0:
+			count += 1
+	return count
+
+
+func _shielded_nearest_z() -> float:
+	var nearest := -999.0
+	for unit in units:
+		if bool(unit["alive"]) and float(unit.get("shield", 0.0)) > 0.0:
+			var root: Node3D = unit["root"]
+			nearest = maxf(nearest, root.position.z)
+	return nearest
+
+
 func get_bridge_state() -> Dictionary:
 	var live := live_unit_count()
 	var kinds: Array = []
@@ -311,6 +392,12 @@ func get_bridge_state() -> Dictionary:
 		"airEnemyModels": ENEMY_MODEL_PATHS,
 		"airEnemyMuzzleSource": _muzzle_source(),
 		"airEnemyTypes": [DRONE, GUNSHIP],
+		"airEnemyShieldsDeployed": shields_deployed,
+		"airEnemyShieldedLive": _shielded_live_count(),
+		"airEnemyShieldedNearestZ": _shielded_nearest_z(),
+		"airEnemyShieldBreaks": shield_breaks,
+		"airEnemyShieldColorCode": SHIELD_COLOR_CODE,
+		"airEnemyShieldIsHex": true,
 		"airEnemyLiveCount": live,
 		"airEnemyNearestZ": _nearest_unit_z(),
 		"airEnemyLiveKinds": kinds,
@@ -384,6 +471,22 @@ func _deploy(unit: Dictionary, kind: String, lane_x: float, pressure: float) -> 
 		unit["spread"] = [-9.0, 9.0]
 		unit["hitbox"] = Vector3(1.8, 0.7, 2.0)
 	unit["max_hp"] = float(unit["hp"])
+	# Shielded variant: heavy gunships from every second wave arrive behind a
+	# hex shield, so the player has to break it before the hull takes damage.
+	var shielded: bool = kind == GUNSHIP and wave_index % 2 == 0
+	# Tuned up from 110: a single player missile was erasing the shield on
+	# impact, so the hex bubble never stayed on screen long enough to read.
+	unit["shield_max"] = 240.0 if shielded else 0.0
+	unit["shield"] = float(unit["shield_max"])
+	unit["shield_flash"] = 0.0
+	unit["shield_shatter"] = 0.0
+	var shield_node: MeshInstance3D = unit.get("shield_node")
+	if shield_node != null:
+		shield_node.visible = shielded
+		var box: Vector3 = unit["hitbox"]
+		shield_node.scale = Vector3(box.x + 0.35, box.y + 0.80, box.z + 0.35)
+	if shielded:
+		shields_deployed += 1
 	# A gunship opens with its missile almost immediately, so the heavy threat
 	# is on screen even if the player shreds it a second later.
 	unit["fire_timer"] = 0.6 if kind == GUNSHIP else float(unit["fire_interval"]) * 0.65
@@ -432,6 +535,10 @@ func _retire_unit(unit: Dictionary, _killed: bool) -> void:
 	var eye: MeshInstance3D = unit["eye"]
 	if eye != null:
 		eye.visible = true
+	unit["shield"] = 0.0
+	var retired_shield: MeshInstance3D = unit.get("shield_node")
+	if retired_shield != null:
+		retired_shield.visible = false
 	for thruster_value in unit["thrusters"]:
 		var thruster: MeshInstance3D = thruster_value
 		thruster.visible = true
@@ -495,6 +602,22 @@ func _create_unit(index: int) -> Dictionary:
 		root.add_child(thruster)
 		thrusters.append(thruster)
 
+	# Hex shield bubble. It is a real part of the unit's state, not decor: the
+	# mesh is only visible while shield HP is left, and bullets land on it.
+	var shield_mesh := SphereMesh.new()
+	shield_mesh.radius = 1.0
+	shield_mesh.height = 2.0
+	shield_mesh.radial_segments = 20
+	shield_mesh.rings = 10
+	var shield := MeshInstance3D.new()
+	shield.name = "HexShield"
+	shield.mesh = shield_mesh
+	shield.material_override = shield_mat.duplicate()
+	shield.layers = ENEMY_VISUAL_LAYER
+	shield.visible = false
+	shield.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(shield)
+
 	# Fallback muzzles only: used if an airframe has no MZ_ sockets at all.
 	var muzzles: Array = []
 	for side in [-1.0, 1.0]:
@@ -510,6 +633,11 @@ func _create_unit(index: int) -> Dictionary:
 		"models": models,
 		"model_muzzles": model_muzzles,
 		"eye": eye,
+		"shield_node": shield,
+		"shield": 0.0,
+		"shield_max": 0.0,
+		"shield_flash": 0.0,
+		"shield_shatter": 0.0,
 		"thrusters": thrusters,
 		"muzzles": muzzles,
 		"fallback_muzzles": muzzles,
@@ -633,6 +761,21 @@ func _create_materials() -> void:
 	thruster_mat.emission = Color(1.0, 0.40, 0.08, 1.0)
 	thruster_mat.emission_energy_multiplier = 1.25
 	thruster_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+
+	shield_mat = StandardMaterial3D.new()
+	# Violet-magenta hex bubble: not the player's blue, not a threat orange.
+	var hex_texture := load(HEX_SHIELD_TEXTURE_PATH) as Texture2D
+	if hex_texture != null:
+		shield_mat.albedo_texture = hex_texture
+	shield_mat.albedo_color = Color(0.86, 0.42, 1.0, 0.42)
+	shield_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	shield_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	shield_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	shield_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	shield_mat.emission_enabled = true
+	shield_mat.emission = Color(0.78, 0.30, 1.0, 1.0)
+	shield_mat.emission_energy_multiplier = 1.15
+	shield_mat.disable_receive_shadows = true
 
 	burnt_mat = StandardMaterial3D.new()
 	burnt_mat.albedo_color = Color(0.05, 0.045, 0.045, 1.0)

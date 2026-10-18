@@ -25,6 +25,16 @@ const PROJECTILE_VISUAL_POOL_SCRIPT = preload("res://scripts/projectiles/project
 const BOSS_ENTITY_SCRIPT = preload("res://scripts/boss/boss_entity_3d.gd")
 const ENEMY_SQUADRON_SCRIPT = preload("res://scripts/enemies/enemy_squadron_3d.gd")
 
+# Pass 3, item 5: layered clouds. Counts are deliberately small - this is the
+# first addition measured against the frame budget, density is the dial that
+# gets turned down if the phone drops below target.
+const CLOUD_FAR_COUNT := 5
+const CLOUD_MID_COUNT := 4
+const CLOUD_VEIL_COUNT := 3
+# Clouds must clear the play plane by a wide margin: no weather geometry is
+# allowed to sit between the camera and a bullet.
+const CLOUD_MIN_Y := 13.0
+
 var active = false
 var is_setup = false
 var rng = RandomNumberGenerator.new()
@@ -45,6 +55,7 @@ var hazard_push = Vector2.ZERO
 var active_weather_kind = "storm"
 
 var far_sky_banks: Array = []
+var high_cloud_veils: Array = []
 var mid_cloud_banks: Array = []
 var warzone_chunks: Array = []
 var underworld_chunks: Array = []
@@ -64,6 +75,8 @@ var tracer_streaks: Array = []
 var boss_anchor: Node3D
 var boss_entity: Node3D
 var enemy_squadron: Node3D
+var air_enemy_shield_hits := 0
+var air_enemy_hull_hits := 0
 var explosion_pool: Array = []
 var explosion_cursor := 0
 var missile_visuals: Array = []
@@ -138,6 +151,7 @@ var cinematic_matte_texture: Texture2D
 
 var storm_cloud_mat: StandardMaterial3D
 var deep_cloud_mat: StandardMaterial3D
+var high_veil_cloud_mat: StandardMaterial3D
 var ocean_mat: StandardMaterial3D
 var city_mat: StandardMaterial3D
 var cliff_mat: StandardMaterial3D
@@ -234,6 +248,7 @@ func update_arena(delta: float, player_corridor: Vector2, travel_speed: float) -
 	forward_time += delta
 	_update_weather_logic(delta, player_corridor)
 	_update_far_sky(delta, travel_speed)
+	_update_high_cloud_veils(delta, travel_speed)
 	_update_ocean_floor(delta, travel_speed)
 	_update_mid_clouds(delta, travel_speed)
 	_update_warzone(delta, travel_speed)
@@ -302,7 +317,7 @@ func get_weather_effect() -> Dictionary:
 		"pass1CausalityContract": "boss_entity_owns_state_bullets_from_visible_muzzles",
 		"phase3DebugStatus": _phase3_debug_status(),
 		"phase3QAContract": "pass1_combat_causality_v1",
-		"phase3VisualSafety": "clean_hud_no_vertical_columns_no_cloud_geometry",
+		"phase3VisualSafety": "clean_hud_no_vertical_columns_background_clouds_only",
 		"bossDamageFeedbackMode": boss_damage_feedback_mode,
 		"bossImpactFeedbackSource": "boss_entity_part_hitbox_hits",
 		"bossWeakpointVisual": boss_weakpoint_marker != null,
@@ -339,7 +354,11 @@ func get_weather_effect() -> Dictionary:
 		"backgroundClutterMode": background_clutter_mode,
 		"legacyVerticalShotColumns": false,
 		"legacyNearCameraCyanPulseNodes": player_shot_pulses.size(),
-		"cloudGeometry": false,
+		"cloudGeometry": true,
+		"cloudLayerCount": 3,
+		"cloudBankCount": far_sky_banks.size() + mid_cloud_banks.size() + high_cloud_veils.size(),
+		"cloudLowestY": _lowest_cloud_y(),
+		"cloudsClearOfPlayPlane": _lowest_cloud_y() > CombatSpace.PLANE_Y + 4.0,
 		"hazardPushX": hazard_push.x,
 		"hazardPushY": hazard_push.y,
 		"distantTraffic": air_traffic.size(),
@@ -428,7 +447,10 @@ func note_boss_hits(hits: Array) -> void:
 
 func get_air_enemy_state() -> Dictionary:
 	if enemy_squadron != null and enemy_squadron.has_method("get_bridge_state"):
-		return Dictionary(enemy_squadron.get_bridge_state())
+		var state := Dictionary(enemy_squadron.get_bridge_state())
+		state["airEnemyShieldHitsLanded"] = air_enemy_shield_hits
+		state["airEnemyHullHitsLanded"] = air_enemy_hull_hits
+		return state
 	return {"airEnemyEntities": false}
 
 
@@ -484,8 +506,16 @@ func _load_scene_assets() -> void:
 
 
 func _create_materials() -> void:
-	storm_cloud_mat = _make_material(Color(0.48, 0.61, 0.76, 0.26), Color(0.05, 0.11, 0.18, 1.0), 0.0, 0.26)
-	deep_cloud_mat = _make_material(Color(0.16, 0.22, 0.32, 0.38), Color(0.03, 0.08, 0.14, 1.0), 0.0, 0.38)
+	# Pass 3, item 5: three cloud layers. Depth rule from the brief - the
+	# farther a layer is, the fainter and the warmer it reads, and none of them
+	# ever reaches the play plane.
+	# Dusk-lit cloud layers. They are unshaded so the scene lights cannot wash
+	# them to white: the colour below IS the colour on screen, which keeps the
+	# sky band warm (Pass 2 measures warm pixel share) and keeps the layers
+	# ordered - farther is fainter and warmer.
+	storm_cloud_mat = _unshaded_cloud_material(Color(0.52, 0.30, 0.26), 0.16)
+	deep_cloud_mat = _unshaded_cloud_material(Color(0.78, 0.40, 0.20), 0.13)
+	high_veil_cloud_mat = _unshaded_cloud_material(Color(0.46, 0.26, 0.26), 0.09)
 	if storm_ocean_texture != null:
 		ocean_mat = _make_textured_material(storm_ocean_texture, Color(0.165, 0.205, 0.270, 1.0), Color(0.0, 0.012, 0.025, 1.0), 1.0, false, false, 0.14)
 	else:
@@ -527,26 +557,58 @@ func _create_ocean_battlefield_floor() -> void:
 
 
 func _create_far_sky_layer() -> void:
-	# User direction: no continuous cloud banks; only thin atmospheric fog remains.
-	for i in range(0):
+	# Pass 3, item 5 - far layer: the warmest and faintest clouds, parked well
+	# behind the boss (z -38) and high above the play plane so they can never
+	# hide a bullet or an enemy.
+	for i in range(CLOUD_FAR_COUNT):
 		var bank = _cloud_bank_node("FarStormWall_%02d" % i, 3, true)
-		bank.position = Vector3(rng.randf_range(-26.0, 26.0), rng.randf_range(9.0, 16.0), -72.0 - i * 34.0)
-		bank.scale = Vector3(rng.randf_range(1.6, 3.0), rng.randf_range(0.8, 1.4), rng.randf_range(1.4, 2.6))
-		bank.set_meta("speed_mul", rng.randf_range(0.10, 0.18))
+		_force_cloud_material(bank, deep_cloud_mat)
+		bank.position = Vector3(rng.randf_range(-34.0, 34.0), rng.randf_range(14.0, 20.0), -120.0 - i * 28.0)
+		bank.scale = Vector3(rng.randf_range(1.8, 3.2), rng.randf_range(0.7, 1.2), rng.randf_range(1.6, 2.8))
+		bank.set_meta("speed_mul", rng.randf_range(0.09, 0.16))
 		add_child(bank)
 		far_sky_banks.append(bank)
 
 
 func _create_mid_cloud_layer() -> void:
-	# No recurring cloud volumes; target reference has thin haze, not solid clouds.
-	for i in range(0):
+	# Pass 3, item 5 - mid layer and high veil. Both stay above
+	# CLOUD_MIN_Y, which is the play plane plus a full clearance band, so the
+	# combat silhouette is never broken by weather geometry.
+	for i in range(CLOUD_MID_COUNT):
 		var bank = _cloud_bank_node("GameplayCloudVolume_%02d" % i, 2, false)
-		bank.position = Vector3(rng.randf_range(-13.5, 13.5), rng.randf_range(3.0, 8.2), -36.0 - rng.randf_range(0.0, 130.0))
-		bank.scale = Vector3(rng.randf_range(0.9, 1.8), rng.randf_range(0.45, 0.9), rng.randf_range(0.8, 1.5))
-		bank.set_meta("speed_mul", rng.randf_range(0.45, 0.68))
+		_force_cloud_material(bank, storm_cloud_mat)
+		bank.position = Vector3(rng.randf_range(-20.0, 20.0), rng.randf_range(CLOUD_MIN_Y, CLOUD_MIN_Y + 5.0), -74.0 - rng.randf_range(0.0, 95.0))
+		bank.scale = Vector3(rng.randf_range(1.0, 1.9), rng.randf_range(0.4, 0.8), rng.randf_range(0.9, 1.6))
+		bank.set_meta("speed_mul", rng.randf_range(0.42, 0.62))
 		bank.set_meta("radius", rng.randf_range(2.7, 5.6))
 		add_child(bank)
 		mid_cloud_banks.append(bank)
+	for i in range(CLOUD_VEIL_COUNT):
+		var veil = _cloud_bank_node("HighCloudVeil_%02d" % i, 2, false)
+		_force_cloud_material(veil, high_veil_cloud_mat)
+		veil.position = Vector3(rng.randf_range(-22.0, 22.0), rng.randf_range(20.0, 25.0), -46.0 - rng.randf_range(0.0, 70.0))
+		veil.scale = Vector3(rng.randf_range(1.6, 2.6), rng.randf_range(0.25, 0.5), rng.randf_range(1.2, 2.0))
+		veil.set_meta("speed_mul", rng.randf_range(0.78, 1.05))
+		add_child(veil)
+		high_cloud_veils.append(veil)
+
+
+func _force_cloud_material(node: Node, material: StandardMaterial3D) -> void:
+	if node is MeshInstance3D:
+		(node as MeshInstance3D).material_override = material
+		(node as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for child in node.get_children():
+		_force_cloud_material(child, material)
+
+
+func _lowest_cloud_y() -> float:
+	var lowest := 999.0
+	for layer in [far_sky_banks, mid_cloud_banks, high_cloud_veils]:
+		for bank_value in layer:
+			var bank: Node3D = bank_value
+			if bank != null:
+				lowest = minf(lowest, bank.position.y - bank.scale.y * 1.2)
+	return lowest if lowest < 999.0 else 0.0
 
 
 func _create_warzone_layer() -> void:
@@ -840,6 +902,16 @@ func _update_air_enemies(delta: float) -> void:
 		return
 	enemy_squadron.update_squadron(delta, last_player_corridor, stage_threat * 0.5 + storm_hazard * 0.3)
 	# Every destroyed unit becomes one explosion: no visual without a state change.
+	# Hit events are drained every frame (they would otherwise pile up) and
+	# counted, so the bridge can prove every HP and shield change came from a
+	# bullet that actually landed.
+	if enemy_squadron.has_method("consume_hit_events"):
+		for hit_value in enemy_squadron.consume_hit_events():
+			var hit: Dictionary = hit_value
+			if bool(hit.get("on_shield", false)):
+				air_enemy_shield_hits += 1
+			else:
+				air_enemy_hull_hits += 1
 	if enemy_squadron.has_method("consume_death_events"):
 		for event_value in enemy_squadron.consume_death_events():
 			var event: Dictionary = event_value
@@ -1331,8 +1403,16 @@ func _update_far_sky(delta: float, travel_speed: float) -> void:
 		bank.position.z += travel_speed * float(bank.get_meta("speed_mul", 0.12)) * delta
 		bank.position.x += wind_drift * delta * 0.35
 		bank.rotation_degrees.y += delta * 1.1
-		if bank.position.z > 34.0:
-			bank.position = Vector3(rng.randf_range(-30.0, 30.0), rng.randf_range(7.0, 13.5), -190.0 - rng.randf_range(0.0, 42.0))
+		if bank.position.z > 10.0:
+			bank.position = Vector3(rng.randf_range(-34.0, 34.0), rng.randf_range(14.0, 20.0), -215.0 - rng.randf_range(0.0, 42.0))
+
+
+func _update_high_cloud_veils(delta: float, travel_speed: float) -> void:
+	for veil in high_cloud_veils:
+		veil.position.z += travel_speed * float(veil.get_meta("speed_mul", 0.9)) * delta
+		veil.position.x += wind_drift * delta * 1.25
+		if veil.position.z > 10.0:
+			veil.position = Vector3(rng.randf_range(-22.0, 22.0), rng.randf_range(20.0, 25.0), -112.0 - rng.randf_range(0.0, 30.0))
 
 
 func _update_ocean_floor(delta: float, travel_speed: float) -> void:
@@ -1350,8 +1430,11 @@ func _update_mid_clouds(delta: float, travel_speed: float) -> void:
 		bank.position.x += wind_drift * delta * 0.95
 		bank.position.y += sin(forward_time * 0.7 + bank.position.z) * delta * 0.18
 		bank.rotation_degrees.y += delta * (2.0 + abs(wind_drift) * 1.5)
-		if bank.position.z > 18.0:
-			bank.position = Vector3(rng.randf_range(-12.0, 12.0), rng.randf_range(0.7, 5.9), -145.0 - rng.randf_range(0.0, 28.0))
+		# Recycled high and far: a mid cloud must never drift down onto the play
+		# plane or forward past the boss.
+		if bank.position.z > 10.0:
+			bank.position = Vector3(rng.randf_range(-20.0, 20.0), rng.randf_range(CLOUD_MIN_Y, CLOUD_MIN_Y + 5.0), -168.0 - rng.randf_range(0.0, 28.0))
+		bank.position.y = clampf(bank.position.y, CLOUD_MIN_Y, CLOUD_MIN_Y + 6.0)
 
 
 func _update_warzone(delta: float, travel_speed: float) -> void:
@@ -1575,6 +1658,16 @@ func _box_mesh(node_name: String, pos: Vector3, size: Vector3, material: Materia
 	mi.position = pos
 	mi.material_override = material
 	return mi
+
+
+func _unshaded_cloud_material(tint: Color, alpha: float) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(tint.r, tint.g, tint.b, alpha)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.disable_receive_shadows = true
+	return mat
 
 
 func _make_material(albedo: Color, emission: Color = Color.BLACK, metallic: float = 0.0, alpha: float = 1.0) -> StandardMaterial3D:

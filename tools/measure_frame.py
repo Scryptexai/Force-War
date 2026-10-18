@@ -170,7 +170,44 @@ def verdict(metrics):
     return checks
 
 
+def count_hue(path, low, high, min_sat=0.20, min_val=0.15, step=1):
+    """Count pixels inside a hue window. Used by the Pass 3 gate to prove an
+    effect was really drawn on the frame, not just present in the game state."""
+    width, height, channels, px = read_png(path)
+    hits = 0
+    for y in range(0, height, step):
+        row = y * width * channels
+        for x in range(0, width, step):
+            i = row + x * channels
+            r, g, b = px[i] / 255.0, px[i + 1] / 255.0, px[i + 2] / 255.0
+            hue, sat, val = colorsys.rgb_to_hsv(r, g, b)
+            if sat < min_sat or val < min_val:
+                continue
+            deg = hue * 360.0
+            if low <= deg <= high:
+                hits += 1
+    return hits
+
+
 if __name__ == '__main__':
+    if len(sys.argv) > 4 and sys.argv[1] == '--hue':
+        low = float(sys.argv[2])
+        high = float(sys.argv[3])
+        args = sys.argv[4:]
+        min_sat, min_val = 0.20, 0.15
+        files = []
+        for arg in args:
+            if arg.startswith('--sat='):
+                min_sat = float(arg.split('=', 1)[1])
+            elif arg.startswith('--val='):
+                min_val = float(arg.split('=', 1)[1])
+            else:
+                files.append(arg)
+        for target in files:
+            print(json.dumps({'file': target, 'hueWindow': [low, high],
+                              'minSat': min_sat, 'minVal': min_val,
+                              'pixels': count_hue(target, low, high, min_sat, min_val)}))
+        raise SystemExit(0)
     results = []
     for path in sys.argv[1:]:
         m = measure(path)

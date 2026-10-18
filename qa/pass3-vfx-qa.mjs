@@ -14,7 +14,7 @@
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import chromiumPack, { inflate, setupLambdaEnvironment } from '@sparticuz/chromium';
 import { chromium as playwrightChromium } from 'playwright-core';
@@ -93,6 +93,16 @@ function assertEnemyContract(state, label) {
   expect(state?.airEnemyHitboxModel === 'per_unit_world_box_on_combat_plane',
     `[${label}] air enemy hitbox model: ${state?.airEnemyHitboxModel}`);
   expect(state?.airEnemyHomingBullets === false, `[${label}] air enemy bullets are homing: ${state?.airEnemyHomingBullets}`);
+  // Pass 3, item 6: hex shields, in a colour that is neither player blue nor
+  // threat orange.
+  expect(state?.airEnemyShieldIsHex === true, `[${label}] shielded enemies are not using the hex shield: ${state?.airEnemyShieldIsHex}`);
+  expect(state?.airEnemyShieldColorCode === 'violet_magenta_non_player_blue',
+    `[${label}] enemy shield colour code: ${state?.airEnemyShieldColorCode}`);
+  // Pass 3, item 5: three cloud layers that never touch the play plane.
+  expect(state?.cloudGeometry === true, `[${label}] cloud layers missing: ${state?.cloudGeometry}`);
+  expect(num(state?.cloudLayerCount) >= 3, `[${label}] fewer than three cloud layers: ${state?.cloudLayerCount}`);
+  expect(state?.cloudsClearOfPlayPlane === true,
+    `[${label}] clouds reach the play plane: lowest y ${state?.cloudLowestY}`);
   expect(state?.enemyBulletSourceModel === 'boss_and_air_enemy_muzzle_fire_events_only',
     `[${label}] enemy bullet source model regressed: ${state?.enemyBulletSourceModel}`);
   // No per-explosion dynamic light is allowed; the VFX is emissive only.
@@ -127,6 +137,10 @@ async function main() {
   serverProcess.stderr.on('data', (chunk) => { serverLog += chunk.toString(); });
 
   const captures = [];
+  let shieldShots = 0;
+  let seenShieldHits = 0;
+  let seenShieldBreaks = 0;
+  let shieldVioletPixels = -1;
   try {
     await waitForHealth(serverProcess);
     const browser = await launchBrowser();
@@ -217,6 +231,9 @@ async function main() {
         }
         seenMissilesFired = Math.max(seenMissilesFired, num(state.missilesFired));
 
+        seenShieldHits = Math.max(seenShieldHits, num(state.airEnemyShieldHitsLanded));
+        seenShieldBreaks = Math.max(seenShieldBreaks, num(state.airEnemyShieldBreaks));
+
         if (num(state.airEnemyLiveCount) > 0 && nearestZ > -24 && midfieldShots < 2) {
           midfieldShots += 1;
           const path = join(screenshotDir, `pass3_air_enemy_${midfieldShots}.png`);
@@ -248,6 +265,36 @@ async function main() {
         assertEnemyContract(flightState, 'missile_1');
         console.log(`captured ${path} (active missiles ${num(flightState?.activeMissiles)}, fired ${num(flightState?.missilesFired)}, lead x=${num(flightState?.missileLeadX).toFixed(1)} z=${num(flightState?.missileLeadZ).toFixed(1)} trail=${num(flightState?.missileLeadTrail)})`);
       }
+      // Hex shield (Pass 3, item 6). Polling the loop at the sandbox's ~1 FPS
+      // misses the window where a shielded gunship is inside the readable
+      // band, so wait on the condition directly, then prove the bubble was
+      // drawn by measuring violet pixels on the saved frame.
+      for (let attempt = 0; attempt < 4 && shieldShots === 0; attempt += 1) {
+        await page.waitForFunction(() => {
+          const s = window.ForceWarBridge?.state;
+          const z = Number(s?.airEnemyShieldedNearestZ ?? -999);
+          return Number(s?.airEnemyShieldedLive || 0) > 0 && z > -30 && z < -4;
+        }, null, { timeout: 90000, polling: 30 });
+        const shieldFrameState = await page.evaluate(() => window.ForceWarBridge?.state || null);
+        const shieldPath = join(screenshotDir, 'pass3_enemy_shield.png');
+        await page.screenshot({ path: shieldPath, fullPage: false });
+        const violetProbe = spawnSync('python3',
+          ['tools/measure_frame.py', '--hue', '265', '335', '--sat=0.45', '--val=0.35', shieldPath],
+          { encoding: 'utf8' });
+        try {
+          shieldVioletPixels = JSON.parse(String(violetProbe.stdout).trim().split('\n').pop()).pixels;
+        } catch (err) {
+          shieldVioletPixels = -1;
+        }
+        if (shieldVioletPixels <= 300) continue;
+        shieldShots += 1;
+        writeFileSync(shieldPath.replace(/\.png$/, '_state.json'), JSON.stringify(shieldFrameState, null, 2));
+        captures.push({ label: 'enemy_shield', path: shieldPath, violetPixels: shieldVioletPixels,
+          shieldedLive: num(shieldFrameState?.airEnemyShieldedLive) });
+        assertEnemyContract(shieldFrameState, 'enemy_shield');
+        console.log(`captured ${shieldPath} (shielded live ${num(shieldFrameState?.airEnemyShieldedLive)} at z ${num(shieldFrameState?.airEnemyShieldedNearestZ).toFixed(1)}, ${shieldVioletPixels} violet pixels)`);
+      }
+
       await page.mouse.up();
 
       // The under-world must actually scroll: sample the travelled distance twice.
@@ -258,6 +305,16 @@ async function main() {
       const scrollAfter = num(await page.evaluate(() => window.ForceWarBridge?.state?.underworldScrollDistance));
       expect(scrollAfter > scrollBefore,
         `under-world is not scrolling: ${scrollBefore} -> ${scrollAfter}`);
+
+      // Shields are state, not decoration: they must actually absorb hits.
+      const shieldState = await page.evaluate(() => window.ForceWarBridge?.state || null);
+      seenShieldHits = Math.max(seenShieldHits, num(shieldState?.airEnemyShieldHitsLanded));
+      seenShieldBreaks = Math.max(seenShieldBreaks, num(shieldState?.airEnemyShieldBreaks));
+      expect(num(shieldState?.airEnemyShieldsDeployed) > 0,
+        `no shielded enemy was ever deployed: ${shieldState?.airEnemyShieldsDeployed}`);
+      expect(seenShieldHits > 0, `no bullet ever landed on an enemy shield: ${seenShieldHits}`);
+      expect(shieldShots > 0,
+        `never caught a shielded enemy drawing its hex bubble (last count ${shieldVioletPixels})`);
       console.log(`under-world scroll ${scrollBefore.toFixed(1)} -> ${scrollAfter.toFixed(1)}`);
 
       const finalState = await page.evaluate(() => window.ForceWarBridge?.state || null);

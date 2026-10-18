@@ -147,7 +147,12 @@ async function main() {
       if (result.state?.staticMatteBackdrop !== false) fail(`static matte backdrop returned: ${result.state?.staticMatteBackdrop}`);
       if (result.state?.bossWeakpointVisual !== true) fail(`boss weakpoint visual missing: ${result.state?.bossWeakpointVisual}`);
       if (result.state?.bossWeakpointSocketBinding !== 'boss_entity_weakpoint_anchor') fail(`boss weakpoint socket binding missing: ${result.state?.bossWeakpointSocketBinding}`);
-      if (result.state?.cloudGeometry !== false) fail(`cloud geometry should be disabled, got ${result.state?.cloudGeometry}`);
+      // Pass 3, item 5: clouds are back, but only as background layers. The
+      // contract is now "they exist and they clear the play plane", not "there
+      // are none".
+      if (result.state?.cloudGeometry !== true) fail(`cloud layers missing, got ${result.state?.cloudGeometry}`);
+      if (Number(result.state?.cloudLayerCount) < 3) fail(`expected 3 cloud layers, got ${result.state?.cloudLayerCount}`);
+      if (result.state?.cloudsClearOfPlayPlane !== true) fail(`clouds reach the play plane: lowest y ${result.state?.cloudLowestY}`);
       if (result.state?.bossArenaAsset !== 'boss_dreadnought_leviathan_glb') fail(`Blender boss arena asset not active: ${result.state?.bossArenaAsset}`);
       if (result.state?.arenaAssetDeckCluster !== true) fail(`Blender arena deck cluster asset not active: ${result.state?.arenaAssetDeckCluster}`);
       if (result.state?.bossEntityType !== 'boss_entity_3d_owns_state_and_geometry') fail(`boss entity regression: ${result.state?.bossEntityType}`);
