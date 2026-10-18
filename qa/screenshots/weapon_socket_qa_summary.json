@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T13:22:03.509Z",
+  "generatedAt": "2026-10-18T12:50:04.452Z",
   "contract": "position_from_socket_direction_from_aim",
   "gunSocketIds": [
     "gun_left",
@@ -34,7 +34,7 @@
     "drop",
     "ignited"
   ],
-  "muzzleFlashOffsetFromBarrel": 0.278555423021317,
+  "muzzleFlashOffsetFromBarrel": 0.266383558511734,
   "muzzleFlashAtBarrel": true,
   "convergenceDistance": 26,
   "muzzleClearance": 0.55,
@@ -42,11 +42,11 @@
   "banking": [
     {
       "label": "bank_left",
-      "roll": 13.732540996154,
-      "socket": "gun_right",
-      "socketX": -4.70695781707764,
-      "spawnX": -4.7525486946106,
-      "dirX": -0.00502741103991866,
+      "roll": 13.7237488351449,
+      "socket": "gun_left",
+      "socketX": -4.97904586791992,
+      "spawnX": -4.91403722763062,
+      "dirX": 0.0056480010971427,
       "dirY": 0,
       "gunWorldOrder": [
         "gun_left",
@@ -56,11 +56,11 @@
     },
     {
       "label": "bank_right",
-      "roll": -11.7868975780524,
+      "roll": -9.65812995811357,
       "socket": "gun_right",
-      "socketX": 4.90168809890747,
-      "spawnX": 4.83690214157104,
-      "dirX": -0.00564592564478517,
+      "socketX": 4.10145568847656,
+      "spawnX": 4.04973411560059,
+      "dirX": -0.00563620217144489,
       "dirY": 0,
       "gunWorldOrder": [
         "gun_left",

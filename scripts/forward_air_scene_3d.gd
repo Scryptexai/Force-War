@@ -20,6 +20,8 @@ var active = false
 var is_setup = false
 var rng = RandomNumberGenerator.new()
 
+const RETICLE_TEXTURE_PATH := "res://assets/vfx/reticle_lock.png"
+
 var world_environment: WorldEnvironment
 var sun_light: DirectionalLight3D
 var sea_fill_light: DirectionalLight3D
@@ -389,7 +391,9 @@ func _create_environment() -> void:
 	sea_fill_light = DirectionalLight3D.new()
 	sea_fill_light.name = "SeaCoolFill"
 	sea_fill_light.light_color = Color(0.32, 0.52, 0.86, 1.0)
-	sea_fill_light.light_energy = 0.55
+	# Lifted from 0.55: the near sea under the player was reading as a black
+	# void, which killed the speed cue and left the ship sitting on nothing.
+	sea_fill_light.light_energy = 0.82
 	sea_fill_light.light_specular = 0.0
 	sea_fill_light.rotation_degrees = Vector3(62.0, -24.0, 0.0)
 	add_child(sea_fill_light)
@@ -468,12 +472,15 @@ func _create_player_readability_markers() -> void:
 
 	# The aircraft reads big, but the hitbox is small and explicitly marked.
 	var hitbox_mesh := QuadMesh.new()
-	hitbox_mesh.size = Vector2(0.52, 0.52)
+	hitbox_mesh.size = Vector2(0.72, 0.72)
 	player_hitbox_marker = MeshInstance3D.new()
 	player_hitbox_marker.name = "PlayerHitboxMarker"
 	player_hitbox_marker.mesh = hitbox_mesh
 	var hitbox_mat := StandardMaterial3D.new()
-	hitbox_mat.albedo_color = Color(0.72, 1.0, 1.0, 0.95)
+	# A marked hitbox, not a white sticker on the hull: the reticle texture
+	# reads as a bracket ring so the hull art stays visible underneath.
+	hitbox_mat.albedo_texture = load(RETICLE_TEXTURE_PATH) as Texture2D
+	hitbox_mat.albedo_color = Color(0.62, 0.98, 1.0, 0.92)
 	hitbox_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	hitbox_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	hitbox_mat.emission_enabled = true

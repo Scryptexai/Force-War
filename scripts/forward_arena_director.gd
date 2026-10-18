@@ -487,7 +487,7 @@ func _create_materials() -> void:
 	storm_cloud_mat = _make_material(Color(0.48, 0.61, 0.76, 0.26), Color(0.05, 0.11, 0.18, 1.0), 0.0, 0.26)
 	deep_cloud_mat = _make_material(Color(0.16, 0.22, 0.32, 0.38), Color(0.03, 0.08, 0.14, 1.0), 0.0, 0.38)
 	if storm_ocean_texture != null:
-		ocean_mat = _make_textured_material(storm_ocean_texture, Color(0.135, 0.175, 0.235, 1.0), Color(0.0, 0.012, 0.025, 1.0), 1.0, false, false, 0.14)
+		ocean_mat = _make_textured_material(storm_ocean_texture, Color(0.165, 0.205, 0.270, 1.0), Color(0.0, 0.012, 0.025, 1.0), 1.0, false, false, 0.14)
 	else:
 		ocean_mat = _make_material(Color(0.02, 0.09, 0.15, 1.0), Color(0.00, 0.04, 0.08, 1.0), 0.05, 1.0)
 	cliff_mat = _make_material(Color(0.055, 0.058, 0.072, 1.0), Color(0.0, 0.0, 0.0, 1.0), 0.0, 1.0)
